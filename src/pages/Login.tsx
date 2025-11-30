@@ -29,7 +29,8 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Pharma Risk</h1>
+          <h1 className="text-3xl font-bold text-gray-800 text-center">PhaRMA T</h1>
+<p className="text-sm text-gray-500 text-center -mt-2">Pharmacy Risk Management Assessment Tool</p>
           <p className="text-gray-500 mt-2">Risk Assessment per Farmacia Ospedaliera</p>
         </div>
 

@@ -24,7 +24,7 @@ export const exportToPDF = ({ assessment, riskItems, facilityName }: ExportData)
   // Title
   doc.setFontSize(20)
   doc.setTextColor(0, 0, 0)
-  doc.text('Risk Assessment FMEA', 14, 30)
+  doc.text('PhaRMA T - Risk Assessment FMEA', 14, 30)
 
   // Assessment info
   doc.setFontSize(14)
@@ -114,7 +114,7 @@ export const exportToPDF = ({ assessment, riskItems, facilityName }: ExportData)
     doc.setFontSize(8)
     doc.setTextColor(128, 128, 128)
     doc.text(
-      `Pagina ${i} di ${pageCount} - Pharma Risk Assessment Tool`,
+      `Pagina ${i} di ${pageCount} - PhaRMA T - Pharmacy Risk Management Tool`,
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 10,
       { align: 'center' }
@@ -163,7 +163,7 @@ export const exportToExcel = ({ assessment, riskItems, facilityName }: ExportDat
   
   // Aggiungi info assessment come primo foglio
   const infoData = [
-    ['Risk Assessment FMEA'],
+    ['PhaRMA T - Risk Assessment FMEA'],
     [''],
     ['Titolo:', assessment.title],
     ['Descrizione:', assessment.description || '-'],

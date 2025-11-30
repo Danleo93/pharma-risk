@@ -62,7 +62,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="w-10 h-10 bg-sky-600 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-800">Pharma Risk</span>
+                <span className="text-xl font-bold text-gray-800">PhaRMA T</span>
               </Link>
               <button 
                 onClick={() => setSidebarOpen(false)}
@@ -124,7 +124,7 @@ export default function Layout({ children }: LayoutProps) {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <span className="font-bold text-gray-800">Pharma Risk</span>
+            <span className="font-bold text-gray-800">PhaRMA T</span>
             <div className="w-6" /> {/* Spacer */}
           </div>
         </header>

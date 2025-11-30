@@ -41,9 +41,10 @@ export default function Register() {
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Registrati</h1>
-          <p className="text-gray-500 mt-2">Crea il tuo account Pharma Risk</p>
-        </div>
+  <h1 className="text-3xl font-bold text-gray-800">PhaRMA T</h1>
+  <p className="text-sm text-gray-500 -mt-1">Pharmacy Risk Management Assessment Tool</p>
+  <p className="text-gray-600 mt-4">Crea il tuo account</p>
+</div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
