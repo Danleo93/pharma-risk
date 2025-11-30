@@ -48,6 +48,7 @@ export default function ResetPassword() {
     })
 
     if (error) {
+        console.error('Supabase updateUser error:', error)   // <<< DEBUG
       setError('Errore nel reset della password. Il link potrebbe essere scaduto.')
     } else {
       setSuccess(true)
