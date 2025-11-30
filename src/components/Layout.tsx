@@ -62,7 +62,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="w-10 h-10 bg-sky-600 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-800">PhaRMA T</span>
+                <span className="text-xl font-bold text-gray-800">PhaRMA T - Pharmacy Risk Management Assessment Tool</span>
               </Link>
               <button 
                 onClick={() => setSidebarOpen(false)}
@@ -96,20 +96,28 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
-          {/* User section */}
-          <div className="p-4 border-t border-gray-100">
-            <div className="px-4 py-2 mb-2">
-              <p className="text-sm text-gray-500">Connesso come</p>
-              <p className="text-sm font-medium text-gray-800 truncate">{user?.email}</p>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-3 w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg font-medium transition"
-            >
-              <LogOut className="w-5 h-5" />
-              Esci
-            </button>
-          </div>
+{/* User section */}
+<div className="p-4 border-t border-gray-100">
+  <div className="px-4 py-2 mb-2">
+    <p className="text-sm text-gray-500">Connesso come</p>
+    <p className="text-sm font-medium text-gray-800 truncate">{user?.email}</p>
+  </div>
+  <button
+    onClick={handleSignOut}
+    className="flex items-center gap-3 w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg font-medium transition"
+  >
+    <LogOut className="w-5 h-5" />
+    Esci
+  </button>
+</div>
+
+{/* Credits */}
+<div className="p-4 border-t border-gray-100">
+  <p className="text-xs text-gray-400 text-center leading-relaxed">
+    Ideato e sviluppato da<br />
+    <span className="font-medium text-gray-500">Dott. Daniele Leonardi Vinci, PharmD</span>
+  </p>
+</div>
         </div>
       </aside>
 

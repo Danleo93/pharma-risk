@@ -2,31 +2,59 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import type { RiskAssessment } from '../types'
-import { Plus, FileText, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import type { RiskAssessment, RiskItem, ActionPlan } from '../types'
+import { Plus, FileText, AlertTriangle, CheckCircle, Clock, Shield, ClipboardCheck } from 'lucide-react'
 
 export default function Dashboard() {
   const { user } = useAuth()
   const [assessments, setAssessments] = useState<RiskAssessment[]>([])
+  const [riskItems, setRiskItems] = useState<RiskItem[]>([])
+  const [actions, setActions] = useState<ActionPlan[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchAssessments()
+    fetchData()
   }, [])
 
-  const fetchAssessments = async () => {
-    const { data, error } = await supabase
+  const fetchData = async () => {
+    // Fetch assessments
+    const { data: assessmentsData } = await supabase
       .from('risk_assessments')
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Errore nel caricamento:', error)
-    } else {
-      setAssessments(data || [])
-    }
+    // Fetch all risk items
+    const { data: riskItemsData } = await supabase
+      .from('risk_items')
+      .select('*')
+
+    // Fetch all actions
+    const { data: actionsData } = await supabase
+      .from('action_plans')
+      .select('*')
+
+    setAssessments(assessmentsData || [])
+    setRiskItems(riskItemsData || [])
+    setActions(actionsData || [])
     setLoading(false)
   }
+
+  // Calcoli statistiche rischi
+  const totalRisks = riskItems.length
+  const highRisks = riskItems.filter(r => r.risk_class === 'Alta').length
+  const mediumRisks = riskItems.filter(r => r.risk_class === 'Media').length
+  const lowRisks = riskItems.filter(r => r.risk_class === 'Bassa').length
+
+  const highPercent = totalRisks > 0 ? Math.round((highRisks / totalRisks) * 100) : 0
+  const mediumPercent = totalRisks > 0 ? Math.round((mediumRisks / totalRisks) * 100) : 0
+  const lowPercent = totalRisks > 0 ? Math.round((lowRisks / totalRisks) * 100) : 0
+
+  // Calcoli statistiche azioni
+  const totalActions = actions.length
+  const completedActions = actions.filter(a => a.status === 'completed').length
+  const inProgressActions = actions.filter(a => a.status === 'in_progress').length
+  const plannedActions = actions.filter(a => a.status === 'planned').length
+  const completedPercent = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -80,8 +108,8 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      {/* Stats Cards - Assessment */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center gap-4">
             <div className="bg-sky-100 p-3 rounded-lg">
@@ -118,6 +146,110 @@ export default function Dashboard() {
               <p className="text-2xl font-bold text-gray-800">
                 {assessments.filter(a => a.status === 'completed').length}
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards - Rischi e Azioni */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Distribuzione Rischi */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-purple-100 p-2 rounded-lg">
+              <Shield className="w-5 h-5 text-purple-600" />
+            </div>
+            <h3 className="font-semibold text-gray-800">Distribuzione Rischi</h3>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Totale rischi identificati</span>
+              <span className="font-bold text-gray-800">{totalRisks}</span>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+                  Rischio Alto
+                </span>
+                <span className="font-medium">{highRisks} ({highPercent}%)</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-red-500 h-2 rounded-full" style={{ width: `${highPercent}%` }}></div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                  Rischio Medio
+                </span>
+                <span className="font-medium">{mediumRisks} ({mediumPercent}%)</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${mediumPercent}%` }}></div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                  Rischio Basso
+                </span>
+                <span className="font-medium">{lowRisks} ({lowPercent}%)</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-green-500 h-2 rounded-full" style={{ width: `${lowPercent}%` }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stato Azioni Correttive */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <ClipboardCheck className="w-5 h-5 text-orange-600" />
+            </div>
+            <h3 className="font-semibold text-gray-800">Azioni Correttive</h3>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Totale azioni</span>
+              <span className="font-bold text-gray-800">{totalActions}</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 py-2">
+              <div className="text-center p-3 bg-blue-50 rounded-lg">
+                <p className="text-2xl font-bold text-blue-600">{plannedActions}</p>
+                <p className="text-xs text-gray-500">Pianificate</p>
+              </div>
+              <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                <p className="text-2xl font-bold text-yellow-600">{inProgressActions}</p>
+                <p className="text-xs text-gray-500">In Corso</p>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">{completedActions}</p>
+                <p className="text-xs text-gray-500">Completate</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Completamento</span>
+                <span className="font-medium text-green-600">{completedPercent}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div 
+                  className="bg-green-500 h-3 rounded-full transition-all duration-500" 
+                  style={{ width: `${completedPercent}%` }}
+                ></div>
+              </div>
             </div>
           </div>
         </div>
