@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState} from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, CheckCircle, KeyRound } from 'lucide-react'
@@ -12,20 +12,6 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    // Verifica che l'utente arrivi dal link di reset
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const accessToken = hashParams.get('access_token')
-    const type = hashParams.get('type')
-
-    if (accessToken && type === 'recovery') {
-      // Supabase gestisce automaticamente la sessione
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: hashParams.get('refresh_token') || ''
-      })
-    }
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
