@@ -149,3 +149,12 @@ export const DETECTABILITY_SCALE: ScaleOption[] = [
   { value: 4, label: 'Bassa', description: 'Bassa probabilità di rilevamento' },
   { value: 5, label: 'Impossibile', description: 'Il problema non sarà rilevato' },
 ]
+
+export interface UserCustomRisk {
+  id: string
+  user_id: string
+  name: string
+  category: string
+  description?: string
+  created_at: string
+}

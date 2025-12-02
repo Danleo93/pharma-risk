@@ -1,12 +1,12 @@
 import { useState, useEffect} from 'react'
-
+import { useAuth } from '../context/AuthContext'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { exportToPDF, exportToExcel } from '../services/exportService'
 import RiskMatrix from '../components/RiskMatrix'
 import ParetoChart from '../components/ParetoChart'
 import ParetoAnalysis from '../components/ParetoAnalysis'
-import type { RiskAssessment, RiskItem, RiskCatalogBase, ActionPlan } from '../types'
+import type { RiskAssessment, RiskItem, RiskCatalogBase, ActionPlan, UserCustomRisk } from '../types'
 import { 
   ArrowLeft, 
   Plus, 
@@ -22,7 +22,7 @@ import { SEVERITY_SCALE, PROBABILITY_SCALE, DETECTABILITY_SCALE } from '../types
 export default function AssessmentDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  
+  const { user } = useAuth()
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null)
   const [riskItems, setRiskItems] = useState<RiskItem[]>([])
   const [catalogRisks, setCatalogRisks] = useState<RiskCatalogBase[]>([])
@@ -38,16 +38,23 @@ const [filterRpnMin, setFilterRpnMin] = useState<string>('')
 const [filterRpnMax, setFilterRpnMax] = useState<string>('')
 const [filterHasActions, setFilterHasActions] = useState<string>('')
 const [showFilters, setShowFilters] = useState(false)
+const [userCustomRisks, setUserCustomRisks] = useState<UserCustomRisk[]>([])
+const [showCreateCustom, setShowCreateCustom] = useState(false)
+const [customRiskName, setCustomRiskName] = useState('')
+const [customRiskCategory, setCustomRiskCategory] = useState('')
+const [customRiskDescription, setCustomRiskDescription] = useState('')
+const [saveToPersonalCatalog, setSaveToPersonalCatalog] = useState(true)
 
 
-  useEffect(() => {
-    if (id) {
-      fetchAssessment()
-      fetchRiskItems()
-      fetchCatalogRisks()
-      fetchActions()
-    }
-  }, [id])
+useEffect(() => {
+  if (id) {
+    fetchAssessment()
+    fetchRiskItems()
+    fetchCatalogRisks()
+    fetchActions()
+    fetchUserCustomRisks()
+  }
+}, [id])
 
   const fetchAssessment = async () => {
     const { data, error } = await supabase
@@ -93,6 +100,13 @@ const [showFilters, setShowFilters] = useState(false)
       .select('*')
     setActions(data || [])
   }
+  const fetchUserCustomRisks = async () => {
+  const { data } = await supabase
+    .from('user_custom_risks')
+    .select('*')
+    .order('name')
+  setUserCustomRisks(data || [])
+}
 
   const categories = [...new Set(catalogRisks.map(r => r.category))]
 // Categorie dei rischi nell'assessment
@@ -168,6 +182,97 @@ const hasActiveFilters = filterCategory || filterRiskClass || filterRpnMin || fi
       setShowAddRisk(false)
     }
   }
+
+  const addCustomRisk = async () => {
+  if (!customRiskName.trim() || !customRiskCategory.trim()) {
+    alert('Nome e categoria sono obbligatori')
+    return
+  }
+
+  
+  // Se l'utente vuole salvare nel catalogo personale
+if (saveToPersonalCatalog && user) {
+  const { data: customRisk, error: customError } = await supabase
+    .from('user_custom_risks')
+    .insert({
+      user_id: user.id,
+      name: customRiskName.trim(),
+      category: customRiskCategory.trim(),
+      description: customRiskDescription.trim() || null
+    })
+    .select()
+    .single()
+
+    if (customError) {
+      console.error('Errore salvataggio rischio custom:', customError)
+    } else {
+   
+      setUserCustomRisks([...userCustomRisks, customRisk])
+    }
+  }
+
+  // Aggiungi il rischio all'assessment
+  const { data, error } = await supabase
+    .from('risk_items')
+    .insert({
+      assessment_id: id,
+      risk_catalog_base_id: null,
+      custom_risk_name: customRiskName.trim(),
+      severity: null,
+      probability: null,
+      detectability: null
+    })
+    .select(`
+      *,
+      risk_catalog_base (*)
+    `)
+    .single()
+
+  if (!error && data) {
+    setRiskItems([...riskItems, data])
+    // Reset form
+    setCustomRiskName('')
+    setCustomRiskCategory('')
+    setCustomRiskDescription('')
+    setSaveToPersonalCatalog(true)
+    setShowCreateCustom(false)
+    setShowAddRisk(false)
+  }
+}
+
+const addRiskFromUserCatalog = async (customRisk: UserCustomRisk) => {
+  // Controlla se già presente
+  const isDuplicate = riskItems.some(
+    item => item.custom_risk_name === customRisk.name
+  )
+
+  if (isDuplicate) {
+    alert('⚠️ Questo rischio è già presente nell\'assessment!')
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('risk_items')
+    .insert({
+      assessment_id: id,
+      risk_catalog_base_id: null,
+      custom_risk_name: customRisk.name,
+      severity: null,
+      probability: null,
+      detectability: null
+    })
+    .select(`
+      *,
+      risk_catalog_base (*)
+    `)
+    .single()
+
+  if (!error && data) {
+    setRiskItems([...riskItems, data])
+    setShowAddRisk(false)
+  }
+}
+  
 
   const updateRiskItem = async (riskItemId: string, field: string, value: number | null) => {
     setSaving(true)
@@ -559,41 +664,200 @@ const hasActiveFilters = filterCategory || filterRiskClass || filterRpnMin || fi
         </div>
       )}
 
-      {/* Modal Aggiungi Rischio */}
-      {showAddRisk && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800">Aggiungi Rischio dal Catalogo</h3>
-              <button
-                onClick={() => setShowAddRisk(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+{/* Modal Aggiungi Rischio */}
+{showAddRisk && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-800">
+          {showCreateCustom ? 'Crea Rischio Personalizzato' : 'Aggiungi Rischio'}
+        </h3>
+        <button
+          onClick={() => {
+            setShowAddRisk(false)
+            setShowCreateCustom(false)
+            setCustomRiskName('')
+            setCustomRiskCategory('')
+            setCustomRiskDescription('')
+          }}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
-            <div className="p-4 border-b border-gray-100 space-y-3">
-              <input
-                type="text"
-                placeholder="Cerca rischio..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-              />
+      {showCreateCustom ? (
+        /* Form Creazione Rischio Personalizzato */
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nome Rischio *
+            </label>
+            <input
+              type="text"
+              value={customRiskName}
+              onChange={(e) => setCustomRiskName(e.target.value)}
+              placeholder="Es: Errore di trascrizione dose"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria *
+            </label>
+            <input
+              type="text"
+              value={customRiskCategory}
+              onChange={(e) => setCustomRiskCategory(e.target.value)}
+              placeholder="Es: UFA - Prescrizione"
+              list="categories-list"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+            />
+            <datalist id="categories-list">
+              {categories.map(cat => (
+                <option key={cat} value={cat} />
+              ))}
+            </datalist>
+            <p className="text-xs text-gray-400 mt-1">
+              Puoi scegliere una categoria esistente o crearne una nuova
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Descrizione (opzionale)
+            </label>
+            <textarea
+              value={customRiskDescription}
+              onChange={(e) => setCustomRiskDescription(e.target.value)}
+              placeholder="Descrivi il rischio in dettaglio..."
+              rows={3}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 p-3 bg-sky-50 rounded-lg">
+            <input
+              type="checkbox"
+              id="saveToPersonal"
+              checked={saveToPersonalCatalog}
+              onChange={(e) => setSaveToPersonalCatalog(e.target.checked)}
+              className="w-4 h-4 text-sky-600 rounded focus:ring-sky-500"
+            />
+            <label htmlFor="saveToPersonal" className="text-sm text-gray-700">
+              Salva nel mio catalogo personale per riutilizzarlo in altri assessment
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => setShowCreateCustom(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+            >
+              Indietro
+            </button>
+            <button
+              onClick={addCustomRisk}
+              disabled={!customRiskName.trim() || !customRiskCategory.trim()}
+              className="flex-1 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Aggiungi Rischio
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Lista Rischi dal Catalogo */
+        <>
+          <div className="p-4 border-b border-gray-100 space-y-3">
+            <input
+              type="text"
+              placeholder="Cerca rischio..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+            />
+            <div className="flex gap-2">
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
               >
                 <option value="">Tutte le categorie</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
+              <button
+                onClick={() => setShowCreateCustom(true)}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Crea Nuovo
+              </button>
             </div>
+          </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* Rischi Personalizzati dell'utente */}
+            {userCustomRisks.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                  I Miei Rischi Personalizzati ({userCustomRisks.filter(r => 
+                    (!searchTerm || r.name.toLowerCase().includes(searchTerm.toLowerCase())) &&
+                    (!selectedCategory || r.category === selectedCategory)
+                  ).length})
+                </h4>
+                <div className="space-y-2">
+                  {userCustomRisks
+                    .filter(risk => 
+                      (!searchTerm || risk.name.toLowerCase().includes(searchTerm.toLowerCase())) &&
+                      (!selectedCategory || risk.category === selectedCategory)
+                    )
+                    .map(risk => {
+                      const isAlreadyAdded = riskItems.some(item => item.custom_risk_name === risk.name)
+                      
+                      return (
+                        <button
+                          key={risk.id}
+                          onClick={() => !isAlreadyAdded && addRiskFromUserCatalog(risk)}
+                          disabled={isAlreadyAdded}
+                          className={`w-full text-left p-4 border rounded-lg transition ${
+                            isAlreadyAdded 
+                              ? 'border-emerald-200 bg-emerald-50 cursor-not-allowed opacity-60' 
+                              : 'border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className={`font-medium ${isAlreadyAdded ? 'text-gray-500' : 'text-gray-800'}`}>
+                                {risk.name}
+                              </p>
+                              <p className="text-sm text-emerald-600">{risk.category}</p>
+                              {risk.description && (
+                                <p className="text-sm text-gray-400 mt-1">{risk.description}</p>
+                              )}
+                            </div>
+                            {isAlreadyAdded && (
+                              <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                                ✓ Aggiunto
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Rischi dal Catalogo Base */}
+            <div>
+              <h4 className="text-sm font-semibold text-sky-700 mb-2 flex items-center gap-2">
+                <span className="w-2 h-2 bg-sky-500 rounded-full"></span>
+                Catalogo Standard ({filteredRisks.length})
+              </h4>
               <div className="space-y-2">
                 {filteredRisks.map(risk => {
                   const isAlreadyAdded = riskItems.some(item => item.risk_catalog_base_id === risk.id)
@@ -631,8 +895,11 @@ const hasActiveFilters = filterCategory || filterRiskClass || filterRpnMin || fi
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
+    </div>
+  </div>
+)}
 
       {/* Saving indicator */}
       {saving && (
