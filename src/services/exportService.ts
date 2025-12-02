@@ -394,7 +394,7 @@ doc.text('1.0', col1Value, infoY)
       ['2', 'Bassa', 'Danno lieve, recuperabile senza intervento'],
       ['3', 'Moderata', 'Danno moderato, richiede intervento'],
       ['4', 'Alta', 'Danno grave, potenziale pericolo'],
-      ['5', 'Catastrofica', 'Danno irreversibile, pericolo di vita']
+      ['5', 'Catastrofica', 'Danno irreversibile, (es. pericolo di vita)']
     ],
     theme: 'striped',
     headStyles: { fillColor: [220, 38, 38], fontSize: 9 },
@@ -420,11 +420,11 @@ doc.text('1.0', col1Value, infoY)
     startY: y,
     head: [['Valore', 'Livello', 'Descrizione']],
     body: [
-      ['1', 'Rara', 'Evento eccezionale (< 1/anno)'],
-      ['2', 'Improbabile', 'Evento raro (1-2/anno)'],
-      ['3', 'Occasionale', 'Evento occasionale (mensile)'],
-      ['4', 'Probabile', 'Evento frequente (settimanale)'],
-      ['5', 'Frequente', 'Evento molto frequente (giornaliero)']
+      ['1', 'Rara', 'Evento eccezionale (es. < 1/anno)'],
+      ['2', 'Improbabile', 'Evento raro (es. 1-2/anno)'],
+      ['3', 'Occasionale', 'Evento occasionale (es. mensile)'],
+      ['4', 'Probabile', 'Evento frequente (es. settimanale)'],
+      ['5', 'Frequente', 'Evento molto frequente (es. giornaliero)']
     ],
     theme: 'striped',
     headStyles: { fillColor: [234, 179, 8], fontSize: 9 },
@@ -486,7 +486,7 @@ doc.text('1.0', col1Value, infoY)
     startY: y,
     head: [['Range RPN', 'Classe', 'Azione Richiesta']],
     body: [
-      ['≥ 50', 'ALTA', 'Azione correttiva immediata richiesta'],
+      ['>= 50', 'ALTA', 'Richiesta azione correttiva immediata '],
       ['20 - 49', 'MEDIA', 'Azione correttiva programmata'],
       ['< 20', 'BASSA', 'Monitoraggio e rivalutazione periodica']
     ],
