@@ -24,6 +24,7 @@ export default function AssessmentDetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null)
+  const [facilityName, setFacilityName] = useState<string>('')
   const [riskItems, setRiskItems] = useState<RiskItem[]>([])
   const [catalogRisks, setCatalogRisks] = useState<RiskCatalogBase[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,8 +56,9 @@ useEffect(() => {
     fetchCatalogRisks()
     fetchActions()
     fetchUserCustomRisks()
+    fetchUserSettings()
   }
-}, [id])
+}, [id, user])
 
   const fetchAssessment = async () => {
     const { data, error } = await supabase
@@ -108,6 +110,19 @@ useEffect(() => {
     .select('*')
     .order('name')
   setUserCustomRisks(data || [])
+}
+
+const fetchUserSettings = async () => {
+  if (!user) return
+  const { data } = await supabase
+    .from('user_settings')
+    .select('facility_name')
+    .eq('user_id', user.id)
+    .single()
+  
+  if (data?.facility_name) {
+    setFacilityName(data.facility_name)
+  }
 }
 
   // Funzione per parsare la categoria in Area e Sotto-area
@@ -426,7 +441,7 @@ const addRiskFromUserCatalog = async (customRisk: UserCustomRisk) => {
             </button>
 
 <button
-  onClick={() => exportToPDF({ assessment, riskItems, actions, paretoThreshold: 80 })}
+  onClick={() => exportToPDF({ assessment, riskItems, actions, paretoThreshold: 80, facilityName })}
   disabled={riskItems.length === 0}
   className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
 >
