@@ -105,19 +105,27 @@ export default function Login() {
           </Link>
         </p>
       </div>
-
       {/* Disclaimer */}
-      <div className="mt-6 max-w-md text-center">
-        <p className="text-xs text-gray-400 leading-relaxed">
-          ⚠️ <strong>Versione Beta</strong> - Solo per uso interno e test.
-          <br />
-          Questo strumento è fornito "così com'è" senza garanzie.
-          <br />
-          Non sostituisce la valutazione professionale.
-          <br />
-          <span className="text-gray-500">Sviluppato da Dott. Daniele Leonardi Vinci</span>
-        </p>
-      </div>
-    </div>
+{/* Disclaimer */}
+<div className="mt-6 max-w-md text-center">
+  <p className="text-xs text-gray-400 leading-relaxed">
+    ⚠️ <strong>Versione Beta</strong> - Solo per uso interno e test.
+    <br />
+    Questo strumento è fornito "così com'è" senza garanzie.
+    <br />
+    Non sostituisce la valutazione professionale.
+    <br />
+    <span className="text-gray-500">Sviluppato da Dott. Daniele Leonardi Vinci</span>
+  </p>
+  
+  {/* Link Privacy e Termini */}
+  <div className="mt-4 text-sm text-gray-500">
+    <a href="/privacy" className="hover:text-sky-600">Privacy Policy</a>
+    <span className="mx-2">•</span>
+    <a href="/terms" className="hover:text-sky-600">Termini di Servizio</a>
+  </div>
+</div>
+</div>
+    
   )
 }
