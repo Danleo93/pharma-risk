@@ -111,13 +111,22 @@ export default function Layout({ children }: LayoutProps) {
   </button>
 </div>
 
-{/* Credits */}
+{/* Credits e Copyright */}
 <div className="p-4 border-t border-gray-100">
   <p className="text-xs text-gray-400 text-center leading-relaxed">
     Ideato e sviluppato da<br />
     <span className="font-medium text-gray-500">Dott. Daniele Leonardi Vinci, PharmD</span>
   </p>
+  <p className="text-xs text-gray-400 text-center mt-2">
+    © 2025 Tutti i diritti riservati
+  </p>
+  <div className="flex justify-center gap-3 mt-2">
+    <Link to="/privacy" className="text-xs text-gray-400 hover:text-sky-600">Privacy</Link>
+    <span className="text-gray-300">•</span>
+    <Link to="/terms" className="text-xs text-gray-400 hover:text-sky-600">Termini</Link>
+  </div>
 </div>
+
         </div>
       </aside>
 
