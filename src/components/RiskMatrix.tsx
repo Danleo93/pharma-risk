@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import * as htmlToImage from 'html-to-image'
 import type { RiskItem } from '../types'
 
 interface RiskMatrixProps {
@@ -5,6 +7,9 @@ interface RiskMatrixProps {
 }
 
 export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
+  // Ref per catturare la matrice come immagine
+  const matrixRef = useRef<HTMLDivElement>(null)
+
   // Crea la matrice 5x5
   const matrix: { [key: string]: RiskItem[] } = {}
   
@@ -36,18 +41,56 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
   const severityLabels = ['Critica', 'Alta', 'Moderata', 'Bassa', 'Minima']
   const probabilityLabels = ['Rara', 'Improbabile', 'Occasionale', 'Probabile', 'Frequente']
 
+  // Esporta la matrice come PNG
+  const exportPNG = () => {
+    if (!matrixRef.current) return
+
+    htmlToImage
+      .toPng(matrixRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+      })
+      .then((dataUrl) => {
+        const link = document.createElement('a')
+        link.download = 'pharmaT_matrice_rischio.png'
+        link.href = dataUrl
+        link.click()
+      })
+      .catch((err) => {
+        console.error('Errore esportazione PNG:', err)
+        alert('Errore durante l’esportazione della matrice in PNG.')
+      })
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Matrice del Rischio (5×5)</h3>
-      
+      {/* Header con titolo + bottone export */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-800">
+          Matrice del Rischio (5×5)
+        </h3>
+
+        <button
+          type="button"
+          onClick={exportPNG}
+          className="inline-flex items-center gap-2 text-sm bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-lg font-medium shadow-sm transition"
+        >
+          Esporta PNG
+        </button>
+      </div>
+
       <div className="overflow-x-auto">
-        <div className="min-w-[500px]">
+        {/* Tutta la matrice + legenda + assi dentro al ref */}
+        <div className="min-w-[500px] px-8 py-10" ref={matrixRef}>
           {/* Header Probabilità */}
           <div className="flex">
             <div className="w-24 flex-shrink-0"></div>
             <div className="flex-1 grid grid-cols-5 gap-1 mb-1">
               {probabilityLabels.map((label, i) => (
-                <div key={i} className="text-center text-xs font-medium text-gray-600 px-1">
+                <div
+                  key={i}
+                  className="text-center text-xs font-medium text-gray-600 px-1"
+                >
                   {label}
                 </div>
               ))}
@@ -59,7 +102,10 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
             {/* Labels Severità */}
             <div className="w-24 flex-shrink-0 flex flex-col gap-1">
               {severityLabels.map((label, i) => (
-                <div key={i} className="h-16 flex items-center justify-end pr-2 text-xs font-medium text-gray-600">
+                <div
+                  key={i}
+                  className="h-16 flex items-center justify-end pr-2 text-xs font-medium text-gray-600"
+                >
                   {label}
                 </div>
               ))}
@@ -67,12 +113,12 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
 
             {/* Celle */}
             <div className="flex-1 grid grid-cols-5 gap-1">
-              {[5, 4, 3, 2, 1].map(severity => (
-                [1, 2, 3, 4, 5].map(probability => {
+              {[5, 4, 3, 2, 1].map((severity) =>
+                [1, 2, 3, 4, 5].map((probability) => {
                   const key = `${severity}-${probability}`
                   const cellRisks = matrix[key]
                   const count = cellRisks.length
-                  
+
                   return (
                     <div
                       key={key}
@@ -81,14 +127,19 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
                         ${getCellColor(severity, probability)}
                         transition-colors cursor-pointer relative group
                       `}
-                      title={cellRisks.map(r => r.risk_catalog_base?.name || r.custom_risk_name).join('\n')}
+                      title={cellRisks
+                        .map(
+                          (r) =>
+                            r.risk_catalog_base?.name || r.custom_risk_name
+                        )
+                        .join('\n')}
                     >
                       {count > 0 && (
                         <span className="text-white font-bold text-lg">
                           {count}
                         </span>
                       )}
-                      
+
                       {/* Tooltip */}
                       {count > 0 && (
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
@@ -109,7 +160,7 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
                     </div>
                   )
                 })
-              ))}
+              )}
             </div>
           </div>
 
