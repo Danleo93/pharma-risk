@@ -1,73 +1,118 @@
-# React + TypeScript + Vite
+# PhaRMA T - Pharmacy Risk Management Assessment Tool
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-Proprietary-red.svg)
+![Status](https://img.shields.io/badge/status-Production-green.svg)
 
-Currently, two official plugins are available:
+## 📋 Descrizione
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+**PhaRMA T** è uno strumento professionale per la gestione del rischio in ambito farmaceutico, basato sulla metodologia FMEA (Failure Mode and Effects Analysis).
 
-## React Compiler
+Permette di identificare, valutare e gestire i rischi nelle strutture sanitarie attraverso un processo strutturato e conforme alle best practice del settore.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+🔗 **Live Demo:** [https://pharma-risk.vercel.app](https://pharma-risk.vercel.app)
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## ✨ Funzionalità Principali
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Assessment Wizard** - Creazione guidata di valutazioni del rischio
+- **Catalogo Rischi** - Database di 150+ rischi pre-configurati per area
+- **Valutazione FMEA** - Calcolo automatico RPN (Severità × Probabilità × Rilevabilità)
+- **Matrice di Rischio 5×5** - Visualizzazione grafica interattiva
+- **Analisi di Pareto** - Identificazione dei rischi prioritari (80/20)
+- **Azioni Correttive** - Pianificazione e tracciamento interventi
+- **Export Professionale** - Report PDF multi-pagina ed Excel
+- **Rischi Personalizzati** - Possibilità di aggiungere rischi custom
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🛠️ Stack Tecnologico
+
+| Categoria | Tecnologia |
+|-----------|------------|
+| Frontend | React 18 + TypeScript |
+| Build Tool | Vite |
+| Styling | Tailwind CSS v4 |
+| Database | Supabase (PostgreSQL) |
+| Autenticazione | Supabase Auth |
+| Grafici | Recharts |
+| Export PDF | jsPDF + jspdf-autotable |
+| Export Excel | SheetJS (xlsx) |
+| Hosting | Vercel |
+
+---
+
+## 📊 Metodologia FMEA
+
+Il sistema utilizza la metodologia FMEA con tre parametri di valutazione:
+
+| Parametro | Descrizione | Scala |
+|-----------|-------------|-------|
+| **Severità (S)** | Gravità delle conseguenze | 1-5 |
+| **Probabilità (P)** | Frequenza di accadimento | 1-5 |
+| **Rilevabilità (D)** | Capacità di individuazione | 1-5 |
+
+**RPN** = S × P × D (Range: 1-125)
+
+| Classe | RPN | Azione |
+|--------|-----|--------|
+| 🔴 Alta | ≥ 50 | Intervento immediato |
+| 🟡 Media | 20-49 | Azione programmata |
+| 🟢 Bassa | < 20 | Monitoraggio |
+
+---
+
+## 📁 Struttura Progetto
+```
+pharma-risk/
+├── src/
+│   ├── components/     # Componenti React riutilizzabili
+│   ├── pages/          # Pagine dell'applicazione
+│   ├── services/       # Logica di business e API
+│   ├── hooks/          # Custom React hooks
+│   ├── types/          # TypeScript type definitions
+│   └── lib/            # Configurazioni (Supabase)
+├── public/             # Asset statici
+└── supabase/           # Migrations e seed database
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🚀 Deployment
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+L'applicazione è deployata su **Vercel** con CI/CD automatico da GitHub.
+
+Ogni push sul branch `main` triggera automaticamente un nuovo deployment.
+
+---
+
+## 📄 Licenza
+
+**© 2025 Dott. Daniele Leonardi Vinci, PharmD. Tutti i diritti riservati.**
+
+Questo software è proprietario. Nessuna parte può essere riprodotta, distribuita o trasmessa senza autorizzazione scritta del titolare del copyright.
+
+Consulta il file [LICENSE](./LICENSE) per i dettagli completi.
+
+---
+
+## 👨‍💻 Autore
+
+**Dott. Daniele Leonardi Vinci, PharmD**
+contact: daniele.leo93@gmail.com
+- 🌐 Website: [pharma-risk.vercel.app](https://pharma-risk.vercel.app)
+- 📧 Per informazioni e licenze: contattare l'autore
+
+---
+
+## ⚠️ Disclaimer
+
+PhaRMA T è uno strumento di supporto alla gestione del rischio. Non sostituisce il giudizio professionale, le normative vigenti o le procedure specifiche della struttura sanitaria. L'utilizzo delle informazioni generate è sotto la responsabilità dell'utente.
+
+---
+
+<p align="center">
+  <strong>PhaRMA T</strong> - Pharmacy Risk Management Assessment Tool<br>
+  <em>Sviluppato per la sicurezza in farmacia</em>
+</p>
