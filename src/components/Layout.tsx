@@ -8,7 +8,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  BookOpen
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -27,13 +28,14 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/login')
   }
 
-  const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/assessments', label: 'Assessment', icon: FileText },
-    { path: '/risks', label: 'Catalogo Rischi', icon: AlertTriangle },
-    { path: '/actions', label: 'Azioni Correttive', icon: CheckSquare },
-    { path: '/settings', label: 'Impostazioni', icon: Settings },
-  ]
+const menuItems = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/assessments', label: 'Assessment', icon: FileText },
+  { path: '/risks', label: 'Catalogo Rischi', icon: AlertTriangle },
+  { path: '/actions', label: 'Azioni Correttive', icon: CheckSquare },
+  { path: '/settings', label: 'Impostazioni', icon: Settings },
+  { path: '/docs', label: 'Guida', icon: BookOpen },
+]
 
   const isActive = (path: string) => location.pathname.startsWith(path)
 

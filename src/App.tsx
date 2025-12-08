@@ -1,5 +1,6 @@
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import Docs from './pages/Docs'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -61,14 +62,16 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-       {/* Route pubbliche SENZA wrapper */}
-  <Route path="/privacy" element={<Privacy />} />
-  <Route path="/terms" element={<Terms />} />
+      {/* Route pubbliche SENZA wrapper */}
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
+      
       {/* Route pubbliche */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      
       {/* Route protette */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/assessment/new" element={<ProtectedRoute><NewAssessment /></ProtectedRoute>} />
@@ -77,6 +80,8 @@ function AppRoutes() {
       <Route path="/risks" element={<ProtectedRoute><RiskCatalog /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
+      <Route path="/docs" element={<ProtectedRoute><Docs /></ProtectedRoute>} />
+      
       {/* Redirect default */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

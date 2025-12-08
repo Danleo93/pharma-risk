@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { exportUserDataGDPR } from '../services/gdprExport'
 import { useAuth } from '../context/AuthContext'
-import { Save, Building2, User, Check } from 'lucide-react'
+import { Save, Building2, User, Check, Download, Shield } from 'lucide-react'
+
+
 
 export default function Settings() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // Settings
   const [facilityName, setFacilityName] = useState('')
@@ -55,6 +59,23 @@ export default function Settings() {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
+  }
+
+  const handleExportGDPR = async () => {
+    if (!user) return
+    setExporting(true)
+    try {
+      const result = await exportUserDataGDPR(user.id, user.email || '')
+      if (result.success) {
+        alert('Dati esportati con successo!')
+      } else {
+        alert('Errore durante l\'esportazione dei dati')
+      }
+    } catch (error) {
+      alert('Errore durante l\'esportazione dei dati')
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (loading) {
@@ -144,6 +165,53 @@ export default function Settings() {
             <Save className="w-5 h-5" />
             {saving ? 'Salvataggio...' : 'Salva Impostazioni'}
           </button>
+        </div>
+
+        {/* Sezione Privacy e Dati - GDPR */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Shield className="w-5 h-5 text-purple-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-800">Privacy e Dati Personali</h2>
+          </div>
+          
+          <p className="text-gray-600 text-sm mb-4">
+            Ai sensi del GDPR (Regolamento UE 2016/679), hai il diritto di accedere ai tuoi dati 
+            e di riceverli in un formato strutturato e leggibile.
+          </p>
+          
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <h3 className="font-medium text-gray-800 mb-2">I tuoi dati includono:</h3>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• Informazioni del profilo (email, nome struttura)</li>
+              <li>• Tutti i tuoi assessment</li>
+              <li>• Tutti i rischi identificati e valutati</li>
+              <li>• Tutte le azioni correttive pianificate</li>
+            </ul>
+          </div>
+          
+          <button
+            onClick={handleExportGDPR}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exporting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Esportazione in corso...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Esporta i miei dati (GDPR)
+              </>
+            )}
+          </button>
+          
+          <p className="text-xs text-gray-500 mt-3">
+            Il file verrà scaricato in formato JSON, leggibile e interoperabile.
+          </p>
         </div>
       </div>
     </div>
