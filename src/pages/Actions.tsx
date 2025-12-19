@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import type { ActionPlan, RiskItem } from '../types'
-import { CheckCircle, Clock, AlertCircle, Plus, X, Calendar, User } from 'lucide-react'
+import type { ActionPlan, RiskItem, RiskAssessment } from '../types'
+import { CheckCircle, Clock, AlertCircle, Plus, X, Calendar, User, FileText, ChevronRight } from 'lucide-react'
 
 interface ActionWithRisk extends ActionPlan {
   risk_item?: RiskItem & {
@@ -15,9 +15,15 @@ export default function Actions() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [showAddModal, setShowAddModal] = useState(false)
+  
+  // Lista assessment e rischi
+  const [assessments, setAssessments] = useState<RiskAssessment[]>([])
   const [riskItems, setRiskItems] = useState<any[]>([])
+  const [filteredRiskItems, setFilteredRiskItems] = useState<any[]>([])
 
-  // Form per nuova azione
+  // Form per nuova azione - Step 1: Assessment, Step 2: Rischio, Step 3: Dettagli
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [selectedAssessment, setSelectedAssessment] = useState('')
   const [selectedRiskItem, setSelectedRiskItem] = useState('')
   const [description, setDescription] = useState('')
   const [responsible, setResponsible] = useState('')
@@ -26,8 +32,20 @@ export default function Actions() {
 
   useEffect(() => {
     fetchActions()
+    fetchAssessments()
     fetchRiskItems()
   }, [])
+
+  // Filtra i rischi quando cambia l'assessment selezionato
+  useEffect(() => {
+    if (selectedAssessment) {
+      const filtered = riskItems.filter(r => r.assessment_id === selectedAssessment)
+      setFilteredRiskItems(filtered)
+    } else {
+      setFilteredRiskItems([])
+    }
+    setSelectedRiskItem('')
+  }, [selectedAssessment, riskItems])
 
   const fetchActions = async () => {
     const { data, error } = await supabase
@@ -46,6 +64,15 @@ export default function Actions() {
       setActions(data || [])
     }
     setLoading(false)
+  }
+
+  const fetchAssessments = async () => {
+    const { data } = await supabase
+      .from('risk_assessments')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    setAssessments(data || [])
   }
 
   const fetchRiskItems = async () => {
@@ -126,10 +153,29 @@ export default function Actions() {
   }
 
   const resetForm = () => {
+    setStep(1)
+    setSelectedAssessment('')
     setSelectedRiskItem('')
     setDescription('')
     setResponsible('')
     setDueDate('')
+  }
+
+  const handleNextStep = () => {
+    if (step === 1 && selectedAssessment) {
+      setStep(2)
+    } else if (step === 2 && selectedRiskItem) {
+      setStep(3)
+    }
+  }
+
+  const handlePrevStep = () => {
+    if (step === 2) {
+      setStep(1)
+      setSelectedRiskItem('')
+    } else if (step === 3) {
+      setStep(2)
+    }
   }
 
   const filteredActions = actions.filter(a => {
@@ -164,11 +210,29 @@ export default function Actions() {
     }
   }
 
+  const getRiskClassColor = (riskClass: string | null) => {
+    switch (riskClass) {
+      case 'Alta': return 'bg-red-100 text-red-700'
+      case 'Media': return 'bg-yellow-100 text-yellow-700'
+      case 'Bassa': return 'bg-green-100 text-green-700'
+      default: return 'bg-gray-100 text-gray-700'
+    }
+  }
+
   const stats = {
     total: actions.length,
     planned: actions.filter(a => a.status === 'planned').length,
     inProgress: actions.filter(a => a.status === 'in_progress').length,
     completed: actions.filter(a => a.status === 'completed').length,
+  }
+
+  const getSelectedAssessmentTitle = () => {
+    return assessments.find(a => a.id === selectedAssessment)?.title || ''
+  }
+
+  const getSelectedRiskName = () => {
+    const risk = filteredRiskItems.find(r => r.id === selectedRiskItem)
+    return risk?.risk_catalog_base?.name || risk?.custom_risk_name || ''
   }
 
   return (
@@ -242,9 +306,15 @@ export default function Actions() {
                   {getStatusIcon(action.status)}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-800">{action.description}</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Rischio: {action.risk_item?.risk_catalog_base?.name || 'N/D'}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="text-sm text-gray-500">
+                        Rischio: {action.risk_item?.risk_catalog_base?.name || action.risk_item?.custom_risk_name || 'N/D'}
+                      </span>
+                      <span className="text-gray-300">•</span>
+                      <span className="text-sm text-sky-600">
+                        {action.risk_item?.risk_assessment?.title || 'N/D'}
+                      </span>
+                    </div>
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500">
                       {action.responsible && (
                         <span className="flex items-center gap-1">
@@ -284,10 +354,11 @@ export default function Actions() {
         )}
       </div>
 
-      {/* Modal Nuova Azione */}
+      {/* Modal Nuova Azione - Multi Step */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-lg">
+            {/* Header */}
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800">Nuova Azione Correttiva</h3>
               <button
@@ -298,80 +369,200 @@ export default function Actions() {
               </button>
             </div>
 
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Rischio Associato *
-                </label>
-                <select
-                  value={selectedRiskItem}
-                  onChange={(e) => setSelectedRiskItem(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Seleziona un rischio...</option>
-                  {riskItems.map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.risk_catalog_base?.name || item.custom_risk_name} 
-                      ({item.risk_assessment?.title})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descrizione Azione *
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none"
-                  placeholder="Descrivi l'azione correttiva..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Responsabile
-                  </label>
-                  <input
-                    type="text"
-                    value={responsible}
-                    onChange={(e) => setResponsible(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-                    placeholder="Nome responsabile"
-                  />
+            {/* Progress Steps */}
+            <div className="px-4 pt-4">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step >= 1 ? 'bg-sky-600 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>1</div>
+                  <span className={`text-sm ${step >= 1 ? 'text-sky-600 font-medium' : 'text-gray-500'}`}>Assessment</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Data Scadenza
-                  </label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-                  />
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step >= 2 ? 'bg-sky-600 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>2</div>
+                  <span className={`text-sm ${step >= 2 ? 'text-sky-600 font-medium' : 'text-gray-500'}`}>Rischio</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step >= 3 ? 'bg-sky-600 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>3</div>
+                  <span className={`text-sm ${step >= 3 ? 'text-sky-600 font-medium' : 'text-gray-500'}`}>Dettagli</span>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-100 flex justify-end gap-3">
+            {/* Step Content */}
+            <div className="p-4">
+              {/* Step 1: Seleziona Assessment */}
+              {step === 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seleziona l'Assessment
+                  </label>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {assessments.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4">Nessun assessment trovato</p>
+                    ) : (
+                      assessments.map(assessment => (
+                        <button
+                          key={assessment.id}
+                          onClick={() => setSelectedAssessment(assessment.id)}
+                          className={`w-full text-left p-3 rounded-lg border transition ${
+                            selectedAssessment === assessment.id
+                              ? 'border-sky-500 bg-sky-50'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className={`w-5 h-5 ${
+                              selectedAssessment === assessment.id ? 'text-sky-600' : 'text-gray-400'
+                            }`} />
+                            <div>
+                              <p className="font-medium text-gray-800">{assessment.title}</p>
+                              <p className="text-sm text-gray-500">
+                                {new Date(assessment.created_at).toLocaleDateString('it-IT')} • {
+                                  assessment.status === 'completed' ? 'Completato' : 
+                                  assessment.status === 'in_progress' ? 'In corso' : 'Bozza'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Seleziona Rischio */}
+              {step === 2 && (
+                <div>
+                  <div className="mb-4 p-3 bg-sky-50 rounded-lg">
+                    <p className="text-sm text-sky-800">
+                      <span className="font-medium">Assessment:</span> {getSelectedAssessmentTitle()}
+                    </p>
+                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seleziona il Rischio
+                  </label>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {filteredRiskItems.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4">Nessun rischio in questo assessment</p>
+                    ) : (
+                      filteredRiskItems.map(risk => (
+                        <button
+                          key={risk.id}
+                          onClick={() => setSelectedRiskItem(risk.id)}
+                          className={`w-full text-left p-3 rounded-lg border transition ${
+                            selectedRiskItem === risk.id
+                              ? 'border-sky-500 bg-sky-50'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-800">
+                                {risk.risk_catalog_base?.name || risk.custom_risk_name}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {risk.risk_catalog_base?.category || 'Personalizzato'} • RPN: {risk.rpn || 'N/D'}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskClassColor(risk.risk_class)}`}>
+                              {risk.risk_class || 'N/D'}
+                            </span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Dettagli Azione */}
+              {step === 3 && (
+                <div className="space-y-4">
+                  <div className="p-3 bg-sky-50 rounded-lg">
+                    <p className="text-sm text-sky-800">
+                      <span className="font-medium">Assessment:</span> {getSelectedAssessmentTitle()}
+                    </p>
+                    <p className="text-sm text-sky-800 mt-1">
+                      <span className="font-medium">Rischio:</span> {getSelectedRiskName()}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Descrizione Azione *
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none"
+                      placeholder="Descrivi l'azione correttiva..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Responsabile
+                      </label>
+                      <input
+                        type="text"
+                        value={responsible}
+                        onChange={(e) => setResponsible(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        placeholder="Nome responsabile"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Data Scadenza
+                      </label>
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-100 flex justify-between">
               <button
-                onClick={() => { setShowAddModal(false); resetForm(); }}
+                onClick={step === 1 ? () => { setShowAddModal(false); resetForm(); } : handlePrevStep}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900"
               >
-                Annulla
+                {step === 1 ? 'Annulla' : 'Indietro'}
               </button>
-              <button
-                onClick={addAction}
-                disabled={!selectedRiskItem || !description.trim() || saving}
-                className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition disabled:opacity-50"
-              >
-                {saving ? 'Salvataggio...' : 'Aggiungi Azione'}
-              </button>
+              
+              {step < 3 ? (
+                <button
+                  onClick={handleNextStep}
+                  disabled={(step === 1 && !selectedAssessment) || (step === 2 && !selectedRiskItem)}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Avanti
+                </button>
+              ) : (
+                <button
+                  onClick={addAction}
+                  disabled={!description.trim() || saving}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? 'Salvataggio...' : 'Aggiungi Azione'}
+                </button>
+              )}
             </div>
           </div>
         </div>
