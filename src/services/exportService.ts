@@ -107,9 +107,9 @@ export const exportToPDF = ({ assessment, riskItems, facilityName, actions = [],
   doc.setFont('helvetica', 'bold')
   
 const col1Label = margin + 10
-const col1Value = margin + 55
-const col2Label = pageWidth / 2 + 5
-const col2Value = pageWidth / 2 + 50
+const col1Value = margin + 45
+const col2Label = pageWidth / 2 + 10
+const col2Value = pageWidth / 2 + 45
 let infoY = boxY + 15
 
 const statusMap: Record<string, string> = {
@@ -118,18 +118,48 @@ const statusMap: Record<string, string> = {
   'completed': 'Completato'
 }
 
-doc.text('Struttura:', col1Label, infoY)
-// ... resto del codice
-
+// Struttura su riga intera (per nomi lunghi)
+doc.setFont('helvetica', 'bold')
 doc.text('Struttura:', col1Label, infoY)
 doc.setFont('helvetica', 'normal')
-doc.text(facilityName || '—', col1Value, infoY)
+const facilityText = facilityName || '—'
+// Tronca se troppo lungo
+const maxFacilityWidth = pageWidth - margin * 2 - 50
+const truncatedFacility = doc.splitTextToSize(facilityText, maxFacilityWidth)[0]
+doc.text(truncatedFacility, col1Value, infoY)
 
+infoY += 10
+doc.setFont('helvetica', 'bold')
+doc.text('Stato:', col1Label, infoY)
+doc.setFont('helvetica', 'normal')
+doc.text(statusMap[assessment.status] || assessment.status, col1Value, infoY)
 
 doc.setFont('helvetica', 'bold')
-doc.text('Stato:', col2Label, infoY)
+doc.text('Data Report:', col2Label, infoY)
 doc.setFont('helvetica', 'normal')
-doc.text(statusMap[assessment.status] || assessment.status, col2Value, infoY)
+doc.text(new Date().toLocaleDateString('it-IT'), col2Value, infoY)
+
+infoY += 10
+doc.setFont('helvetica', 'bold')
+doc.text('Data Assessment:', col1Label, infoY)
+doc.setFont('helvetica', 'normal')
+doc.text(new Date(assessment.created_at).toLocaleDateString('it-IT'), col1Value, infoY)
+
+doc.setFont('helvetica', 'bold')
+doc.text('Versione:', col2Label, infoY)
+doc.setFont('helvetica', 'normal')
+doc.text('1.0', col2Value, infoY)
+
+infoY += 10
+doc.setFont('helvetica', 'bold')
+doc.text('Redatto da:', col1Label, infoY)
+doc.setFont('helvetica', 'normal')
+doc.text('_________________________', col1Value, infoY)
+
+doc.setFont('helvetica', 'bold')
+doc.text('Approvato da:', col2Label, infoY)
+doc.setFont('helvetica', 'normal')
+doc.text('_________________________', col2Value, infoY)
 
 infoY += 10
 doc.setFont('helvetica', 'bold')
@@ -153,11 +183,6 @@ doc.text('Approvato da:  ________________________', col2Label, infoY)
 doc.setFont('helvetica', 'normal')
 
 
-infoY += 10
-doc.setFont('helvetica', 'bold')
-doc.text('Versione:', col1Label, infoY)
-doc.setFont('helvetica', 'normal')
-doc.text('1.0', col1Value, infoY)
 
   // Statistiche rapide
   const statsY = 185
