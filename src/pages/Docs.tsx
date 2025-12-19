@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { ClipboardPlus } from 'lucide-react'
 
 interface Section {
   id: string
@@ -288,66 +289,103 @@ export default function Docs() {
         </div>
       )
     },
-    {
-      id: 'actions',
-      title: 'Azioni Correttive',
-      icon: <CheckCircle2 className="w-5 h-5" />,
-      content: (
-        <div className="space-y-4">
-          <p className="text-gray-700 leading-relaxed">
-            Per ogni rischio identificato, puoi pianificare una o più <strong>azioni correttive</strong> 
-            per mitigare il rischio e ridurre il RPN.
-          </p>
+{
+  id: 'actions',
+  title: 'Azioni Correttive',
+  icon: <CheckCircle2 className="w-5 h-5" />,
+  content: (
+    <div className="space-y-4">
+      <p className="text-gray-700 leading-relaxed">
+        Per ogni rischio identificato, puoi pianificare una o più <strong>azioni correttive</strong> 
+        per mitigare il rischio e ridurre il RPN.
+      </p>
 
-          <h3 className="text-lg font-semibold text-gray-800 mt-6">Come aggiungere un'azione correttiva</h3>
-          
-          <ol className="space-y-3 text-gray-700">
-            <li className="flex gap-3">
-              <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-semibold text-sm">1</span>
-              <div>
-                <strong>Apri il dettaglio del rischio</strong>
-                <p className="text-sm text-gray-600 mt-1">Clicca sul rischio per cui vuoi aggiungere un'azione</p>
-              </div>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-semibold text-sm">2</span>
-              <div>
-                <strong>Clicca "Aggiungi Azione"</strong>
-                <p className="text-sm text-gray-600 mt-1">Si aprirà il form per inserire i dettagli</p>
-              </div>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-semibold text-sm">3</span>
-              <div>
-                <strong>Compila i campi</strong>
-                <p className="text-sm text-gray-600 mt-1">Descrizione, responsabile, scadenza e note</p>
-              </div>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-semibold text-sm">4</span>
-              <div>
-                <strong>Monitora lo stato</strong>
-                <p className="text-sm text-gray-600 mt-1">Pianificata → In corso → Completata</p>
-              </div>
-            </li>
-          </ol>
+      <h3 className="text-lg font-semibold text-gray-800 mt-6">Metodo 1: Dalla pagina Azioni Correttive</h3>
+      <p className="text-gray-600 text-sm mb-4">
+        Il processo guidato in 3 step ti permette di associare facilmente le azioni ai rischi giusti.
+      </p>
+      
+      <ol className="space-y-4 text-gray-700">
+        <li className="flex gap-3">
+          <span className="flex-shrink-0 w-8 h-8 bg-sky-100 text-sky-700 rounded-full flex items-center justify-center font-semibold">1</span>
+          <div>
+            <strong>Seleziona l'Assessment</strong>
+            <p className="text-sm text-gray-600 mt-1">
+              Clicca "Nuova Azione" e scegli l'assessment a cui appartiene il rischio da gestire.
+            </p>
+          </div>
+        </li>
+        <li className="flex gap-3">
+          <span className="flex-shrink-0 w-8 h-8 bg-sky-100 text-sky-700 rounded-full flex items-center justify-center font-semibold">2</span>
+          <div>
+            <strong>Seleziona il Rischio</strong>
+            <p className="text-sm text-gray-600 mt-1">
+              Vedrai solo i rischi dell'assessment selezionato, con RPN e classe di rischio visibili.
+            </p>
+          </div>
+        </li>
+        <li className="flex gap-3">
+          <span className="flex-shrink-0 w-8 h-8 bg-sky-100 text-sky-700 rounded-full flex items-center justify-center font-semibold">3</span>
+          <div>
+            <strong>Inserisci i dettagli</strong>
+            <p className="text-sm text-gray-600 mt-1">
+              Compila descrizione dell'azione, responsabile e data di scadenza.
+            </p>
+          </div>
+        </li>
+      </ol>
 
-          <div className="bg-sky-50 border border-sky-200 rounded-lg p-4 mt-6">
-            <div className="flex gap-3">
-              <Info className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-sky-900">Stati delle azioni</h4>
-                <div className="mt-2 space-y-1 text-sm">
-                  <p><span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span><strong>Pianificata:</strong> Azione identificata, da avviare</p>
-                  <p><span className="inline-block w-3 h-3 bg-yellow-500 rounded-full mr-2"></span><strong>In corso:</strong> Implementazione in atto</p>
-                  <p><span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span><strong>Completata:</strong> Azione conclusa</p>
-                </div>
-              </div>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
+        <div className="flex gap-3">
+          <Lightbulb className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-semibold text-amber-900">Metodo 2: Azione rapida dall'Assessment</h4>
+            <p className="text-amber-800 text-sm mt-1">
+              Puoi anche aggiungere azioni direttamente dalla pagina di dettaglio di un assessment, 
+              cliccando sull'icona{' '}
+<span className="inline-flex items-center justify-center w-5 h-5 text-sky-600 align-middle">
+  <ClipboardPlus className="w-4 h-4" />
+</span>{' '}
+accanto a ogni rischio nella tabella.
+
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <h3 className="text-lg font-semibold text-gray-800 mt-6">Gestione delle azioni</h3>
+      <p className="text-gray-700">
+        Dalla pagina Azioni Correttive puoi visualizzare tutte le azioni, filtrarle per stato 
+        e aggiornare il loro avanzamento.
+      </p>
+
+      <div className="bg-sky-50 border border-sky-200 rounded-lg p-4 mt-4">
+        <div className="flex gap-3">
+          <Info className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-semibold text-sky-900">Stati delle azioni</h4>
+            <div className="mt-2 space-y-1 text-sm">
+              <p><span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span><strong>Pianificata:</strong> Azione identificata, da avviare</p>
+              <p><span className="inline-block w-3 h-3 bg-yellow-500 rounded-full mr-2"></span><strong>In corso:</strong> Implementazione in atto</p>
+              <p><span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span><strong>Completata:</strong> Azione conclusa</p>
             </div>
           </div>
         </div>
-      )
-    },
+      </div>
+
+      <h3 className="text-lg font-semibold text-gray-800 mt-6">Filtri disponibili</h3>
+      <p className="text-gray-700">
+        Usa i filtri in alto per visualizzare:
+      </p>
+      <ul className="list-disc list-inside space-y-1 text-gray-700 mt-2">
+        <li><strong>Tutte</strong> - Mostra tutte le azioni</li>
+        <li><strong>Pianificate</strong> - Solo azioni da iniziare</li>
+        <li><strong>In Corso</strong> - Azioni in fase di implementazione</li>
+        <li><strong>Completate</strong> - Azioni già concluse</li>
+      </ul>
+    </div>
+  )
+},
     {
       id: 'charts',
       title: 'Grafici',
