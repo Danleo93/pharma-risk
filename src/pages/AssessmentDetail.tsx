@@ -17,6 +17,7 @@ import {
   Filter,
   RotateCcw,
   ClipboardPlus,
+  ClipboardCheck,
 } from 'lucide-react'
 import { SEVERITY_SCALE, PROBABILITY_SCALE, DETECTABILITY_SCALE } from '../types'
 
@@ -61,9 +62,11 @@ export default function AssessmentDetail() {
   const [quickActionDueDate, setQuickActionDueDate] = useState('')
   const [savingAction, setSavingAction] = useState(false)
 
+  // Popup visualizza azioni
+  const [showActionsPopup, setShowActionsPopup] = useState<string | null>(null)
+
   useEffect(() => {
     if (!id) return
-    // carico tutto insieme
     fetchAssessment()
     fetchRiskItems()
     fetchCatalogRisks()
@@ -72,6 +75,19 @@ export default function AssessmentDetail() {
     fetchUserSettings()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id])
+
+  // Chiudi popup quando clicchi fuori
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showActionsPopup && !(e.target as Element).closest('.actions-popup-container')) {
+        setShowActionsPopup(null)
+      }
+    }
+    if (showActionsPopup) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showActionsPopup])
 
   const fetchAssessment = async () => {
     const { data, error } = await supabase.from('risk_assessments').select('*').eq('id', id).single()
@@ -87,12 +103,10 @@ export default function AssessmentDetail() {
   const fetchRiskItems = async () => {
     const { data } = await supabase
       .from('risk_items')
-      .select(
-        `
+      .select(`
         *,
         risk_catalog_base (*)
-      `,
-      )
+      `)
       .eq('assessment_id', id)
       .order('created_at')
 
@@ -148,11 +162,15 @@ export default function AssessmentDetail() {
     : []
 
   // Categorie dei rischi nell'assessment
-  const riskCategories = [...new Set(riskItems.map((r) => r.risk_catalog_base?.category).filter(Boolean))]
+  const riskCategories = [...new Set(riskItems.map(r => r.risk_catalog_base?.category || 'Personalizzato').filter(Boolean))].sort()
 
   // Filtra i rischi nella tabella
   const filteredRiskItems = riskItems.filter((item) => {
-    if (filterCategory && item.risk_catalog_base?.category !== filterCategory) return false
+    if (filterCategory) {
+      const itemCategory = item.risk_catalog_base?.category || 'Personalizzato'
+      if (itemCategory !== filterCategory) return false
+    }
+    
     if (filterRiskClass && item.risk_class !== filterRiskClass) return false
     if (filterRpnMin && (item.rpn || 0) < parseInt(filterRpnMin)) return false
     if (filterRpnMax && (item.rpn || 0) > parseInt(filterRpnMax)) return false
@@ -210,12 +228,10 @@ export default function AssessmentDetail() {
         probability: null,
         detectability: null,
       })
-      .select(
-        `
+      .select(`
         *,
         risk_catalog_base (*)
-      `,
-      )
+      `)
       .single()
 
     if (!error && data) {
@@ -263,12 +279,10 @@ export default function AssessmentDetail() {
         probability: null,
         detectability: null,
       })
-      .select(
-        `
+      .select(`
         *,
         risk_catalog_base (*)
-      `,
-      )
+      `)
       .single()
 
     if (!error && data) {
@@ -300,12 +314,10 @@ export default function AssessmentDetail() {
         probability: null,
         detectability: null,
       })
-      .select(
-        `
+      .select(`
         *,
         risk_catalog_base (*)
-      `,
-      )
+      `)
       .single()
 
     if (!error && data) {
@@ -367,6 +379,11 @@ export default function AssessmentDetail() {
       setShowQuickAction(false)
     }
     setSavingAction(false)
+  }
+
+  // Helper per ottenere le azioni di un rischio
+  const getActionsForRisk = (riskId: string) => {
+    return actions.filter(a => a.risk_item_id === riskId)
   }
 
   const getRiskClassName = (riskClass: string | null) => {
@@ -610,9 +627,7 @@ export default function AssessmentDetail() {
                   <th className="text-center px-4 py-3 text-sm font-medium text-gray-600 w-24">D</th>
                   <th className="text-center px-4 py-3 text-sm font-medium text-gray-600 w-20">RPN</th>
                   <th className="text-center px-4 py-3 text-sm font-medium text-gray-600 w-32">Classe</th>
-
-                  {/* FIX: colonna più larga per non tagliare i bottoni */}
-                  <th className="text-center px-2 py-3 text-sm font-medium text-gray-600 w-32">Azioni</th>
+                  <th className="text-center px-2 py-3 text-sm font-medium text-gray-600 w-36">Azioni</th>
                 </tr>
               </thead>
 
@@ -681,9 +696,66 @@ export default function AssessmentDetail() {
                       </span>
                     </td>
 
-                    {/* FIX: padding ridotto + width colonna aumentata */}
                     <td className="px-2 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-1">
+                        {/* Icona azioni esistenti */}
+                        {getActionsForRisk(item.id).length > 0 && (
+                          <div className="relative actions-popup-container">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowActionsPopup(showActionsPopup === item.id ? null : item.id)
+                              }}
+                              className="text-green-600 hover:text-green-800 hover:bg-green-50 p-2 rounded-lg transition relative"
+                              title="Visualizza azioni correttive"
+                            >
+                              <ClipboardCheck className="w-4 h-4" />
+                              <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                                {getActionsForRisk(item.id).length}
+                              </span>
+                            </button>
+                            
+                            {/* Popup lista azioni */}
+                            {showActionsPopup === item.id && (
+                              <div className="absolute right-0 top-10 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                                <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+                                  <span className="font-medium text-gray-800 text-sm">Azioni Correttive</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setShowActionsPopup(null)
+                                    }}
+                                    className="text-gray-400 hover:text-gray-600"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                                <div className="max-h-48 overflow-y-auto">
+                                  {getActionsForRisk(item.id).map(action => (
+                                    <div key={action.id} className="p-3 border-b border-gray-50 last:border-0">
+                                      <p className="text-sm text-gray-800">{action.description}</p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                          action.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                          action.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-blue-100 text-blue-700'
+                                        }`}>
+                                          {action.status === 'completed' ? 'Completata' :
+                                           action.status === 'in_progress' ? 'In corso' : 'Pianificata'}
+                                        </span>
+                                        {action.responsible && (
+                                          <span className="text-xs text-gray-500">{action.responsible}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Aggiungi azione */}
                         <button
                           onClick={() => openQuickAction(item.id)}
                           className="text-sky-600 hover:text-sky-800 hover:bg-sky-50 p-2 rounded-lg transition"
@@ -692,6 +764,7 @@ export default function AssessmentDetail() {
                           <ClipboardPlus className="w-4 h-4" />
                         </button>
 
+                        {/* Elimina rischio */}
                         <button
                           onClick={() => deleteRiskItem(item.id)}
                           className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition"

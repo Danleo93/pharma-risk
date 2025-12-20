@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ActionPlan, RiskItem, RiskAssessment } from '../types'
-import { CheckCircle, Clock, AlertCircle, Plus, X, Calendar, User, FileText, ChevronRight } from 'lucide-react'
+import { CheckCircle, Clock, AlertCircle, Plus, X, Calendar, User, FileText, ChevronRight, Filter } from 'lucide-react'
 
 interface ActionWithRisk extends ActionPlan {
   risk_item?: RiskItem & {
     risk_catalog_base?: { name: string; category: string }
-    risk_assessment?: { title: string }
+    risk_assessment?: { title: string; id: string }
   }
 }
 
@@ -14,6 +14,7 @@ export default function Actions() {
   const [actions, setActions] = useState<ActionWithRisk[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
+  const [filterAssessment, setFilterAssessment] = useState<string>('')
   const [showAddModal, setShowAddModal] = useState(false)
   
   // Lista assessment e rischi
@@ -55,7 +56,7 @@ export default function Actions() {
         risk_item:risk_items (
           *,
           risk_catalog_base (*),
-          risk_assessment:risk_assessments (title)
+          risk_assessment:risk_assessments (id, title)
         )
       `)
       .order('created_at', { ascending: false })
@@ -81,7 +82,7 @@ export default function Actions() {
       .select(`
         *,
         risk_catalog_base (*),
-        risk_assessment:risk_assessments (title)
+        risk_assessment:risk_assessments (id, title)
       `)
       .order('created_at', { ascending: false })
 
@@ -106,7 +107,7 @@ export default function Actions() {
         risk_item:risk_items (
           *,
           risk_catalog_base (*),
-          risk_assessment:risk_assessments (title)
+          risk_assessment:risk_assessments (id, title)
         )
       `)
       .single()
@@ -178,10 +179,24 @@ export default function Actions() {
     }
   }
 
+  // Filtra le azioni per stato e assessment
   const filteredActions = actions.filter(a => {
-    if (filter === 'all') return true
-    return a.status === filter
+    // Filtro stato
+    if (filter !== 'all' && a.status !== filter) return false
+    // Filtro assessment
+    if (filterAssessment && a.risk_item?.risk_assessment?.id !== filterAssessment) return false
+    return true
   })
+
+  // Raggruppa le azioni per assessment
+  const groupedActions = filteredActions.reduce((groups, action) => {
+    const assessmentTitle = action.risk_item?.risk_assessment?.title || 'Senza Assessment'
+    if (!groups[assessmentTitle]) {
+      groups[assessmentTitle] = []
+    }
+    groups[assessmentTitle].push(action)
+    return groups
+  }, {} as Record<string, ActionWithRisk[]>)
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -235,6 +250,13 @@ export default function Actions() {
     return risk?.risk_catalog_base?.name || risk?.custom_risk_name || ''
   }
 
+  // Assessment che hanno azioni (per il filtro)
+  const assessmentsWithActions = [...new Set(
+    actions
+      .map(a => a.risk_item?.risk_assessment?.id)
+      .filter(Boolean)
+  )]
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -273,84 +295,125 @@ export default function Actions() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2 mb-6">
-        {['all', 'planned', 'in_progress', 'completed'].map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              filter === f 
-                ? 'bg-sky-600 text-white' 
-                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-            }`}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        {/* Filtro Stato */}
+        <div className="flex gap-2">
+          {['all', 'planned', 'in_progress', 'completed'].map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-lg font-medium transition ${
+                filter === f 
+                  ? 'bg-sky-600 text-white' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+              }`}
+            >
+              {f === 'all' ? 'Tutte' : getStatusLabel(f)}
+            </button>
+          ))}
+        </div>
+
+        {/* Filtro Assessment */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-gray-400" />
+          <select
+            value={filterAssessment}
+            onChange={(e) => setFilterAssessment(e.target.value)}
+            className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
           >
-            {f === 'all' ? 'Tutte' : getStatusLabel(f)}
-          </button>
-        ))}
+            <option value="">Tutti gli Assessment</option>
+            {assessments
+              .filter(a => assessmentsWithActions.includes(a.id))
+              .map(a => (
+                <option key={a.id} value={a.id}>{a.title}</option>
+              ))
+            }
+          </select>
+          {filterAssessment && (
+            <button
+              onClick={() => setFilterAssessment('')}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Actions List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      {/* Actions List - Raggruppate per Assessment */}
+      <div className="space-y-6">
         {loading ? (
-          <div className="p-12 text-center text-gray-500">Caricamento...</div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-500">
+            Caricamento...
+          </div>
         ) : filteredActions.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
             <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">Nessuna azione trovata</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {filteredActions.map(action => (
-              <div key={action.id} className="p-4 hover:bg-gray-50">
-                <div className="flex items-start gap-4">
-                  {getStatusIcon(action.status)}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800">{action.description}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <span className="text-sm text-gray-500">
-                        Rischio: {action.risk_item?.risk_catalog_base?.name || action.risk_item?.custom_risk_name || 'N/D'}
-                      </span>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-sm text-sky-600">
-                        {action.risk_item?.risk_assessment?.title || 'N/D'}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500">
-                      {action.responsible && (
-                        <span className="flex items-center gap-1">
-                          <User className="w-4 h-4" />
-                          {action.responsible}
-                        </span>
-                      )}
-                      {action.due_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          Scadenza: {new Date(action.due_date).toLocaleDateString('it-IT')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={action.status}
-                      onChange={(e) => updateActionStatus(action.id, e.target.value)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium border-0 ${getStatusColor(action.status)}`}
-                    >
-                      <option value="planned">Pianificata</option>
-                      <option value="in_progress">In Corso</option>
-                      <option value="completed">Completata</option>
-                    </select>
-                    <button
-                      onClick={() => deleteAction(action.id)}
-                      className="text-red-500 hover:text-red-700 p-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+          Object.entries(groupedActions).map(([assessmentTitle, groupActions]) => (
+            <div key={assessmentTitle} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* Header Assessment */}
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-sky-600" />
+                  <h3 className="font-semibold text-gray-800">{assessmentTitle}</h3>
+                  <span className="text-sm text-gray-500">({groupActions.length} azioni)</span>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Lista Azioni */}
+              <div className="divide-y divide-gray-100">
+                {groupActions.map(action => (
+                  <div key={action.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex items-start gap-4">
+                      {getStatusIcon(action.status)}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-800">{action.description}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-sm text-gray-500">
+                            Rischio: {action.risk_item?.risk_catalog_base?.name || action.risk_item?.custom_risk_name || 'N/D'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500">
+                          {action.responsible && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-4 h-4" />
+                              {action.responsible}
+                            </span>
+                          )}
+                          {action.due_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              Scadenza: {new Date(action.due_date).toLocaleDateString('it-IT')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={action.status}
+                          onChange={(e) => updateActionStatus(action.id, e.target.value)}
+                          className={`px-3 py-1 rounded-full text-sm font-medium border-0 ${getStatusColor(action.status)}`}
+                        >
+                          <option value="planned">Pianificata</option>
+                          <option value="in_progress">In Corso</option>
+                          <option value="completed">Completata</option>
+                        </select>
+                        <button
+                          onClick={() => deleteAction(action.id)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </div>
 

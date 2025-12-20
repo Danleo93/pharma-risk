@@ -128,23 +128,6 @@ const maxFacilityWidth = pageWidth - margin * 2 - 50
 const truncatedFacility = doc.splitTextToSize(facilityText, maxFacilityWidth)[0]
 doc.text(truncatedFacility, col1Value, infoY)
 
-infoY += 10
-doc.setFont('helvetica', 'bold')
-doc.text('Stato:', col1Label, infoY)
-doc.setFont('helvetica', 'normal')
-doc.text(statusMap[assessment.status] || assessment.status, col1Value, infoY)
-
-doc.setFont('helvetica', 'bold')
-doc.text('Data Report:', col2Label, infoY)
-doc.setFont('helvetica', 'normal')
-doc.text(new Date().toLocaleDateString('it-IT'), col2Value, infoY)
-
-infoY += 10
-doc.setFont('helvetica', 'bold')
-doc.text('Data Assessment:', col1Label, infoY)
-doc.setFont('helvetica', 'normal')
-doc.text(new Date(assessment.created_at).toLocaleDateString('it-IT'), col1Value, infoY)
-
 doc.setFont('helvetica', 'bold')
 doc.text('Versione:', col2Label, infoY)
 doc.setFont('helvetica', 'normal')
@@ -152,20 +135,16 @@ doc.text('1.0', col2Value, infoY)
 
 infoY += 10
 doc.setFont('helvetica', 'bold')
-doc.text('Redatto da:', col1Label, infoY)
+doc.text('Stato:', col1Label, infoY)
 doc.setFont('helvetica', 'normal')
-doc.text('_________________________', col1Value, infoY)
-
-doc.setFont('helvetica', 'bold')
-doc.text('Approvato da:', col2Label, infoY)
-doc.setFont('helvetica', 'normal')
-doc.text('_________________________', col2Value, infoY)
+doc.text(statusMap[assessment.status] || assessment.status, col1Value, infoY)
 
 infoY += 10
 doc.setFont('helvetica', 'bold')
 doc.text('Data Assessment:', col1Label, infoY)
 doc.setFont('helvetica', 'normal')
 doc.text(new Date(assessment.created_at).toLocaleDateString('it-IT'), col1Value, infoY)
+
 
 doc.setFont('helvetica', 'bold')
 doc.text('Data Report:', col2Label, infoY)
@@ -174,12 +153,12 @@ doc.text(new Date().toLocaleDateString('it-IT'), col2Value, infoY)
 
 infoY += 10
 doc.setFont('helvetica', 'bold')
-doc.text('Redatto da:  _______________________', col1Label, infoY)
+doc.text('Redatto da:____________________', col1Label, infoY)
 doc.setFont('helvetica', 'normal')
 
 
 doc.setFont('helvetica', 'bold')
-doc.text('Approvato da:  ________________________', col2Label, infoY)
+doc.text('Approvato da:_____________________', col2Label, infoY)
 doc.setFont('helvetica', 'normal')
 
 
