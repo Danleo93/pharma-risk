@@ -18,6 +18,8 @@ import Settings from './pages/Settings'
 import Assessments from './pages/Assessments'
 import RCADashboard from './pages/rca/RCADashboard'
 import RCAAssessments from './pages/rca/RCAAssessments'
+import NewRCAAssessment from './pages/rca/NewRCAAssessment'
+import RCAAssessmentDetail from './pages/rca/RCAAssessmentDetail'
 import RCAActions from './pages/rca/RCAActions'
 // Componente per proteggere le route
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -97,6 +99,8 @@ function AppRoutes() {
       {/* Analisi Reattiva - RCA placeholder */}
       <Route path="/rca/dashboard" element={<ProtectedRoute><RCADashboard /></ProtectedRoute>} />
       <Route path="/rca/assessments" element={<ProtectedRoute><RCAAssessments /></ProtectedRoute>} />
+      <Route path="/rca/assessment/new" element={<ProtectedRoute><NewRCAAssessment /></ProtectedRoute>} />
+      <Route path="/rca/assessment/:id" element={<ProtectedRoute><RCAAssessmentDetail /></ProtectedRoute>} />
       <Route path="/rca/actions" element={<ProtectedRoute><RCAActions /></ProtectedRoute>} />
       
       {/* Redirect legacy FMEA */}

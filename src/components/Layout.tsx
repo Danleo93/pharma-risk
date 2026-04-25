@@ -83,7 +83,12 @@ export default function Layout({ children }: LayoutProps) {
       subtitle: 'Analisi Reattiva',
       items: [
         { path: '/rca/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/rca/assessments', label: 'Assessment', icon: FileText },
+        {
+          path: '/rca/assessments',
+          label: 'Assessment',
+          icon: FileText,
+          activeMatch: ['/rca/assessments', '/rca/assessment'],
+        },
         { path: '/rca/actions', label: 'Azioni Correttive', icon: CheckSquare },
       ],
     },
