@@ -82,6 +82,33 @@ interface RCAFishboneBranch {
   updated_at: string
 }
 
+interface RCACause {
+  id: string
+  assessment_id: string
+  user_id: string
+  description: string
+  category: string | null
+  source_type: 'five_whys' | 'fishbone' | 'manual'
+  is_root_cause: boolean
+  confidence_level: 'low' | 'medium' | 'high' | null
+  evidence: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface RCAFishboneCause {
+  id: string
+  branch_id: string
+  assessment_id: string
+  user_id: string
+  cause_id: string
+  parent_id: string | null
+  sort_order: number
+  created_at: string
+  cause?: RCACause
+}
+
 export default function RCAAssessmentDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -96,6 +123,11 @@ export default function RCAAssessmentDetail() {
   const [fishboneError, setFishboneError] = useState<string | null>(null)
   const [showCustomBranchForm, setShowCustomBranchForm] = useState(false)
   const [customBranchName, setCustomBranchName] = useState('')
+  const [fishboneCausesByBranch, setFishboneCausesByBranch] = useState<Record<string, RCAFishboneCause[]>>({})
+  const [activeCauseFormBranchId, setActiveCauseFormBranchId] = useState<string | null>(null)
+  const [newCauseDescription, setNewCauseDescription] = useState('')
+  const [causeSaving, setCauseSaving] = useState(false)
+  const [causeError, setCauseError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id || !user) return
@@ -179,7 +211,43 @@ export default function RCAAssessmentDetail() {
       return
     }
 
-    setFishboneBranches((data || []) as RCAFishboneBranch[])
+    const branches = (data || []) as RCAFishboneBranch[]
+    setFishboneBranches(branches)
+    await fetchFishboneCauses(branches)
+  }
+
+  const fetchFishboneCauses = async (branches: RCAFishboneBranch[]) => {
+    if (!assessment || !user) return
+
+    if (branches.length === 0) {
+      setFishboneCausesByBranch({})
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('rca_fishbone_causes')
+      .select(`
+        *,
+        cause:rca_causes (*)
+      `)
+      .eq('assessment_id', assessment.id)
+      .eq('user_id', user.id)
+      .in('branch_id', branches.map((branch) => branch.id))
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      console.error('Errore caricamento cause Ishikawa:', error)
+      setFishboneError('Errore durante il caricamento delle cause Ishikawa')
+      return
+    }
+
+    const grouped = ((data || []) as RCAFishboneCause[]).reduce<Record<string, RCAFishboneCause[]>>((acc, item) => {
+      if (!acc[item.branch_id]) acc[item.branch_id] = []
+      acc[item.branch_id].push(item)
+      return acc
+    }, {})
+
+    setFishboneCausesByBranch(grouped)
   }
 
   const createFishboneDiagram = async () => {
@@ -209,6 +277,7 @@ export default function RCAAssessmentDetail() {
 
     setFishboneDiagram(data as RCAFishboneDiagram)
     setFishboneBranches([])
+    setFishboneCausesByBranch({})
     setFishboneSaving(false)
   }
 
@@ -329,6 +398,92 @@ export default function RCAAssessmentDetail() {
     }
 
     setFishboneBranches(fishboneBranches.filter((item) => item.id !== branch.id))
+    setFishboneCausesByBranch((current) => {
+      const next = { ...current }
+      delete next[branch.id]
+      return next
+    })
+  }
+
+  const getNextCauseSortOrder = (branchId: string) => {
+    const causes = fishboneCausesByBranch[branchId] || []
+    if (causes.length === 0) return 0
+    return Math.max(...causes.map((cause) => cause.sort_order)) + 1
+  }
+
+  const startAddCause = (branchId: string) => {
+    setActiveCauseFormBranchId(branchId)
+    setNewCauseDescription('')
+    setCauseError(null)
+  }
+
+  const cancelAddCause = () => {
+    setActiveCauseFormBranchId(null)
+    setNewCauseDescription('')
+    setCauseError(null)
+  }
+
+  const saveFishboneCause = async (branch: RCAFishboneBranch) => {
+    if (!assessment || !user) return
+
+    const description = newCauseDescription.trim()
+    if (!description) {
+      setCauseError('Inserisci una descrizione della causa')
+      return
+    }
+
+    setCauseSaving(true)
+    setCauseError(null)
+
+    const { data: causeData, error: causeInsertError } = await supabase
+      .from('rca_causes')
+      .insert({
+        assessment_id: assessment.id,
+        user_id: user.id,
+        description,
+        category: branch.name,
+        source_type: 'fishbone',
+        is_root_cause: false,
+      })
+      .select()
+      .single()
+
+    if (causeInsertError) {
+      console.error('Errore creazione causa Ishikawa:', causeInsertError)
+      setCauseError('Errore durante la creazione della causa')
+      setCauseSaving(false)
+      return
+    }
+
+    const cause = causeData as RCACause
+    const { data: fishboneCauseData, error: fishboneCauseInsertError } = await supabase
+      .from('rca_fishbone_causes')
+      .insert({
+        branch_id: branch.id,
+        assessment_id: assessment.id,
+        user_id: user.id,
+        cause_id: cause.id,
+        parent_id: null,
+        sort_order: getNextCauseSortOrder(branch.id),
+      })
+      .select()
+      .single()
+
+    if (fishboneCauseInsertError) {
+      console.error('Errore collegamento causa Ishikawa:', fishboneCauseInsertError)
+      setCauseError('Causa creata, ma errore durante il collegamento al diagramma')
+      setCauseSaving(false)
+      return
+    }
+
+    const fishboneCause = { ...(fishboneCauseData as RCAFishboneCause), cause }
+    setFishboneCausesByBranch({
+      ...fishboneCausesByBranch,
+      [branch.id]: [...(fishboneCausesByBranch[branch.id] || []), fishboneCause],
+    })
+    setActiveCauseFormBranchId(null)
+    setNewCauseDescription('')
+    setCauseSaving(false)
   }
 
   const getStatusColor = (status: RCAAssessmentStatus) => {
@@ -605,25 +760,103 @@ export default function RCAAssessmentDetail() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {fishboneBranches.map((branch, index) => (
-                <div key={branch.id} className="flex items-start justify-between gap-3 p-4 rounded-lg border border-gray-200">
-                  <div>
-                    <p className="font-medium text-gray-800">{branch.name}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {branch.source_type === 'standard' ? 'Categoria standard' : 'Categoria custom'}
-                    </p>
+                <div key={branch.id} className="p-4 rounded-lg border border-gray-200">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-gray-800">{branch.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {branch.source_type === 'standard' ? 'Categoria standard' : 'Categoria custom'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                        #{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeFishboneBranch(branch)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        title="Rimuovi categoria"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
-                      #{index + 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeFishboneBranch(branch)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Rimuovi categoria"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <h4 className="text-sm font-semibold text-gray-700">Cause</h4>
+                      <button
+                        type="button"
+                        onClick={() => startAddCause(branch.id)}
+                        className="inline-flex items-center gap-1.5 text-sm text-sky-700 hover:text-sky-800 font-medium"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Aggiungi causa
+                      </button>
+                    </div>
+
+                    {(fishboneCausesByBranch[branch.id] || []).length === 0 ? (
+                      <p className="text-sm text-gray-400">Nessuna causa inserita.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {(fishboneCausesByBranch[branch.id] || []).map((fishboneCause, causeIndex) => (
+                          <div key={fishboneCause.id} className="flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                            <span className="mt-0.5 text-xs font-medium text-gray-400">
+                              {causeIndex + 1}.
+                            </span>
+                            <p className="text-sm text-gray-700">
+                              {fishboneCause.cause?.description || 'Causa senza descrizione'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {activeCauseFormBranchId === branch.id && (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          saveFishboneCause(branch)
+                        }}
+                        className="mt-3 rounded-lg border border-sky-100 bg-sky-50 p-3"
+                      >
+                        <label className="block text-sm font-medium text-sky-900 mb-2">
+                          Nuova causa
+                        </label>
+                        <div className="flex flex-col gap-3">
+                          <input
+                            type="text"
+                            value={newCauseDescription}
+                            onChange={(e) => setNewCauseDescription(e.target.value)}
+                            className="w-full px-3 py-2 border border-sky-200 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                            placeholder="Descrivi la causa..."
+                            autoFocus
+                          />
+                          {causeError && (
+                            <div className="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm">
+                              {causeError}
+                            </div>
+                          )}
+                          <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                            <button
+                              type="button"
+                              onClick={cancelAddCause}
+                              className="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-lg font-medium hover:bg-gray-50 transition"
+                            >
+                              Annulla
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={causeSaving}
+                              className="px-3 py-2 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700 transition disabled:opacity-50"
+                            >
+                              {causeSaving ? 'Salvataggio...' : 'Salva'}
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 </div>
               ))}
