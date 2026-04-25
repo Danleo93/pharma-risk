@@ -100,7 +100,7 @@ export default function Dashboard() {
           </p>
         </div>
         <Link
-          to="/assessment/new"
+          to="/fmea/assessment/new"
           className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-3 rounded-lg font-medium transition"
         >
           <Plus className="w-5 h-5" />
@@ -270,7 +270,7 @@ export default function Dashboard() {
             <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 mb-4">Non hai ancora creato nessun assessment</p>
             <Link
-              to="/assessment/new"
+              to="/fmea/assessment/new"
               className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-medium"
             >
               <Plus className="w-4 h-4" />
@@ -282,7 +282,7 @@ export default function Dashboard() {
             {assessments.map((assessment) => (
               <Link
                 key={assessment.id}
-                to={`/assessment/${assessment.id}`}
+                to={`/fmea/assessment/${assessment.id}`}
                 className="flex items-center justify-between p-6 hover:bg-gray-50 transition"
               >
                 <div className="flex items-center gap-4">

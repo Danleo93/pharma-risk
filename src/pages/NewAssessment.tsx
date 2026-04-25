@@ -124,7 +124,7 @@ export default function NewAssessment() {
       if (assessmentError) throw assessmentError
 
       // Vai alla pagina dell'assessment
-      navigate(`/assessment/${assessment.id}`)
+      navigate(`/fmea/assessment/${assessment.id}`)
     } catch (err) {
       console.error('Errore:', err)
       setError('Errore durante la creazione dell\'assessment')
@@ -144,7 +144,7 @@ export default function NewAssessment() {
       {/* Header */}
       <div className="mb-8">
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/fmea/dashboard')}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft className="w-4 h-4" />

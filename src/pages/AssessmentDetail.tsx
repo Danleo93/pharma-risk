@@ -93,7 +93,7 @@ export default function AssessmentDetail() {
     const { data, error } = await supabase.from('risk_assessments').select('*').eq('id', id).single()
     if (error) {
       console.error('Errore:', error)
-      navigate('/dashboard')
+      navigate('/fmea/dashboard')
     } else {
       setAssessment(data)
     }
@@ -427,7 +427,7 @@ export default function AssessmentDetail() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+        <button onClick={() => navigate('/fmea/dashboard')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
           <ArrowLeft className="w-4 h-4" />
           Torna alla Dashboard
         </button>

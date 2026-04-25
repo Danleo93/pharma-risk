@@ -9,12 +9,31 @@ import {
   LogOut,
   Menu,
   X,
-  BookOpen
+  BookOpen,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react'
-import { useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 interface LayoutProps {
   children: React.ReactNode
+}
+
+interface NavItem {
+  path: string
+  label: string
+  icon: LucideIcon
+  activeMatch?: string[]
+}
+
+type SectionKey = 'fmea' | 'rca'
+
+interface NavSection {
+  key: SectionKey
+  title: string
+  subtitle: string
+  items: NavItem[]
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -22,22 +41,87 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [openSection, setOpenSection] = useState<SectionKey | null>(() => {
+    if (location.pathname.startsWith('/rca')) return 'rca'
+    if (location.pathname.startsWith('/fmea')) return 'fmea'
+    return null
+  })
 
   const handleSignOut = async () => {
     await signOut()
     navigate('/login')
   }
 
-const menuItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/assessments', label: 'Assessment', icon: FileText },
-  { path: '/risks', label: 'Catalogo Rischi', icon: AlertTriangle },
-  { path: '/actions', label: 'Azioni Correttive', icon: CheckSquare },
-  { path: '/settings', label: 'Impostazioni', icon: Settings },
-  { path: '/docs', label: 'Guida', icon: BookOpen },
-]
+  useEffect(() => {
+    if (location.pathname.startsWith('/rca')) {
+      setOpenSection('rca')
+    } else if (location.pathname.startsWith('/fmea')) {
+      setOpenSection('fmea')
+    }
+  }, [location.pathname])
 
-  const isActive = (path: string) => location.pathname.startsWith(path)
+  const navSections: NavSection[] = [
+    {
+      key: 'fmea',
+      title: 'FMEA',
+      subtitle: 'Analisi Proattiva',
+      items: [
+        { path: '/fmea/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        {
+          path: '/fmea/assessments',
+          label: 'Assessment',
+          icon: FileText,
+          activeMatch: ['/fmea/assessments', '/fmea/assessment'],
+        },
+        { path: '/fmea/risks', label: 'Catalogo Rischi', icon: AlertTriangle },
+        { path: '/fmea/actions', label: 'Azioni Correttive', icon: CheckSquare },
+      ],
+    },
+    {
+      key: 'rca',
+      title: 'RCA',
+      subtitle: 'Analisi Reattiva',
+      items: [
+        { path: '/rca/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { path: '/rca/assessments', label: 'Assessment', icon: FileText },
+        { path: '/rca/actions', label: 'Azioni Correttive', icon: CheckSquare },
+      ],
+    },
+  ]
+
+  const generalItems: NavItem[] = [
+    { path: '/settings', label: 'Impostazioni', icon: Settings },
+    { path: '/docs', label: 'Guida', icon: BookOpen },
+  ]
+
+  const isActive = (item: NavItem) => {
+    const matches = item.activeMatch || [item.path]
+    return matches.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`))
+  }
+
+  const getSectionClasses = (section: NavSection, expanded: boolean) => {
+    if (section.key === 'rca') {
+      return expanded
+        ? 'border-orange-200 bg-orange-50 text-orange-800'
+        : 'border-gray-200 bg-white text-gray-700 hover:border-orange-200 hover:bg-orange-50/60 hover:text-orange-800'
+    }
+
+    return expanded
+      ? 'border-sky-200 bg-sky-50 text-sky-800'
+      : 'border-gray-200 bg-white text-gray-700 hover:border-sky-200 hover:bg-sky-50/60 hover:text-sky-800'
+  }
+
+  const getActiveItemClasses = (section: NavSection) => {
+    return section.key === 'rca'
+      ? 'bg-orange-50 text-orange-700'
+      : 'bg-sky-50 text-sky-700'
+  }
+
+  const getInactiveItemClasses = (section: NavSection) => {
+    return section.key === 'rca'
+      ? 'text-gray-600 hover:bg-orange-50/70 hover:text-orange-800'
+      : 'text-gray-600 hover:bg-sky-50/70 hover:text-sky-800'
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -60,11 +144,11 @@ const menuItems = [
           {/* Logo */}
           <div className="p-6 border-b border-gray-100">
             <div className="flex items-center justify-between">
-              <Link to="/dashboard" className="flex items-center gap-3">
+              <Link to="/" className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-sky-600 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-800">PhaRMA T - Pharmacy Risk Management Assessment Tool</span>
+                <span className="text-xl font-bold text-gray-800">PhaRMA T</span>
               </Link>
               <button 
                 onClick={() => setSidebarOpen(false)}
@@ -76,26 +160,92 @@ const menuItems = [
           </div>
 
           {/* Menu */}
-          <nav className="flex-1 p-4 space-y-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon
+          <nav className="flex-1 p-4 space-y-3 overflow-y-auto">
+            {navSections.map((section) => {
+              const expanded = openSection === section.key
+              const SectionIcon = section.key === 'rca' ? AlertTriangle : LayoutDashboard
+
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition
-                    ${isActive(item.path) 
-                      ? 'bg-sky-50 text-sky-700' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
-                  `}
-                >
-                  <Icon className="w-5 h-5" />
-                  {item.label}
-                </Link>
+                <div key={section.key}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenSection(expanded ? null : section.key)}
+                    className={`
+                      w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border text-left transition
+                      ${getSectionClasses(section, expanded)}
+                    `}
+                  >
+                    <span className="flex items-center gap-3 min-w-0">
+                      <SectionIcon className="w-5 h-5 flex-shrink-0" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold uppercase tracking-wide">
+                          {section.title}
+                        </span>
+                        <span className="block text-xs font-medium opacity-80 truncate">
+                          {section.subtitle}
+                        </span>
+                      </span>
+                    </span>
+                    {expanded ? (
+                      <ChevronDown className="w-5 h-5 flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5 flex-shrink-0" />
+                    )}
+                  </button>
+
+                  {expanded && (
+                    <div className="mt-2 space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`
+                          flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition
+                          ${isActive(item)
+                            ? getActiveItemClasses(section)
+                            : getInactiveItemClasses(section)}
+                        `}
+                      >
+                        <Icon className="w-5 h-5" />
+                        {item.label}
+                      </Link>
+                    )
+                  })}
+                    </div>
+                  )}
+                </div>
               )
             })}
+
+            <div>
+              <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Generale
+              </p>
+              <div className="space-y-1">
+                {generalItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`
+                        flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition
+                        ${isActive(item)
+                          ? 'bg-sky-50 text-sky-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                      `}
+                    >
+                      <Icon className="w-5 h-5" />
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
           </nav>
 
 {/* User section */}

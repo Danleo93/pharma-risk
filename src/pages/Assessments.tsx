@@ -90,7 +90,7 @@ export default function Assessments() {
           <p className="text-gray-500 mt-1">Gestisci tutti i tuoi assessment FMEA/HFMEA</p>
         </div>
         <Link
-          to="/assessment/new"
+          to="/fmea/assessment/new"
           className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-3 rounded-lg font-medium transition"
         >
           <Plus className="w-5 h-5" />
@@ -165,7 +165,7 @@ export default function Assessments() {
           </p>
           {assessments.length === 0 && (
             <Link
-              to="/assessment/new"
+              to="/fmea/assessment/new"
               className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-medium"
             >
               <Plus className="w-4 h-4" />
@@ -184,7 +184,7 @@ export default function Assessments() {
                 {getStatusIcon(assessment.status)}
                 <div className="flex-1 min-w-0">
                   <Link
-                    to={`/assessment/${assessment.id}`}
+                    to={`/fmea/assessment/${assessment.id}`}
                     className="font-semibold text-gray-800 hover:text-sky-600 transition"
                   >
                     {assessment.title}
@@ -201,7 +201,7 @@ export default function Assessments() {
                     {getStatusLabel(assessment.status)}
                   </span>
                   <Link
-                    to={`/assessment/${assessment.id}`}
+                    to={`/fmea/assessment/${assessment.id}`}
                     className="px-4 py-2 bg-sky-50 text-sky-600 rounded-lg font-medium hover:bg-sky-100 transition"
                   >
                     Apri
