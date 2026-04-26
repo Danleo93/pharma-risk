@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, ChevronDown, ChevronRight, ClipboardList, MapPin, Plus, Target, X } from 'lucide-react'
+import { ArrowLeft, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Plus, Target, X } from 'lucide-react'
+import { toPng } from 'html-to-image'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import type { RCAAssessment, RCAAssessmentStatus, RCAEventType, RCAMethodology, RCASeverity } from '../../types'
+import { exportRCAToExcel, exportRCAToPDF, type RCAExportData } from '../../services/rcaExportService'
 
 const statusLabels: Record<RCAAssessmentStatus, string> = {
   draft: 'Bozza',
@@ -12,6 +14,14 @@ const statusLabels: Record<RCAAssessmentStatus, string> = {
   completed: 'Completato',
   archived: 'Archiviato',
 }
+
+const statusOptions: { value: RCAAssessmentStatus; label: string }[] = [
+  { value: 'draft', label: 'Bozza' },
+  { value: 'in_progress', label: 'In corso' },
+  { value: 'action_planned', label: 'Azioni pianificate' },
+  { value: 'completed', label: 'Completato' },
+  { value: 'archived', label: 'Archiviato' },
+]
 
 const eventTypeLabels: Record<RCAEventType, string> = {
   incident: 'Incidente',
@@ -165,8 +175,11 @@ export default function RCAAssessmentDetail() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
+  const reportIshikawaRef = useRef<HTMLDivElement | null>(null)
   const [assessment, setAssessment] = useState<RCAAssessment | null>(null)
   const [loading, setLoading] = useState(true)
+  const [statusUpdating, setStatusUpdating] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<RCATab>('event')
   const [fishboneDiagram, setFishboneDiagram] = useState<RCAFishboneDiagram | null>(null)
   const [fishboneBranches, setFishboneBranches] = useState<RCAFishboneBranch[]>([])
@@ -225,13 +238,13 @@ export default function RCAAssessmentDetail() {
   }, [assessment?.id, assessment?.methodology, tabParam])
 
   useEffect(() => {
-    if ((activeTab !== 'ishikawa' && activeTab !== 'five_whys' && activeTab !== 'causes') || !assessment || !user) return
+    if ((activeTab !== 'ishikawa' && activeTab !== 'five_whys' && activeTab !== 'causes' && activeTab !== 'report') || !assessment || !user) return
     fetchFishboneDiagram()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, assessment?.id, user?.id])
 
   useEffect(() => {
-    if ((activeTab !== 'five_whys' && activeTab !== 'ishikawa' && activeTab !== 'causes') || !assessment || !user) return
+    if ((activeTab !== 'five_whys' && activeTab !== 'ishikawa' && activeTab !== 'causes' && activeTab !== 'report') || !assessment || !user) return
     fetchFiveWhyChains()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, assessment?.id, user?.id])
@@ -974,16 +987,51 @@ export default function RCAAssessmentDetail() {
     setRcaActions((current) => current.filter((action) => action.id !== actionId))
   }
 
+  const updateAssessmentStatus = async (nextStatus: RCAAssessmentStatus) => {
+    if (!assessment || !user || nextStatus === assessment.status) return
+
+    setStatusUpdating(true)
+    setStatusError(null)
+
+    const nextClosedAt =
+      nextStatus === 'completed'
+        ? assessment.closed_at || new Date().toISOString()
+        : assessment.closed_at
+
+    const { data, error } = await supabase
+      .from('rca_assessments')
+      .update({
+        status: nextStatus,
+        closed_at: nextClosedAt,
+      })
+      .eq('id', assessment.id)
+      .eq('user_id', user.id)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('Errore aggiornamento stato RCA:', error)
+      setStatusError('Errore durante l aggiornamento dello stato RCA')
+      setStatusUpdating(false)
+      return
+    }
+
+    setAssessment(data as RCAAssessment)
+    setStatusUpdating(false)
+  }
+
   const getStatusColor = (status: RCAAssessmentStatus) => {
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-700'
-      case 'in_progress':
       case 'action_planned':
+        return 'bg-sky-100 text-sky-700'
+      case 'in_progress':
         return 'bg-yellow-100 text-yellow-700'
       case 'draft':
-      case 'archived':
         return 'bg-slate-100 text-slate-700'
+      case 'archived':
+        return 'bg-gray-100 text-gray-600'
       default:
         return 'bg-slate-100 text-slate-700'
     }
@@ -1013,6 +1061,7 @@ export default function RCAAssessmentDetail() {
     if (tab === 'event') return true
     if (tab === 'actions') return true
     if (tab === 'causes') return true
+    if (tab === 'report') return true
     if (tab === 'ishikawa') return methodology === 'fishbone' || methodology === 'combined'
     if (tab === 'five_whys') return methodology === '5_whys' || methodology === 'fishbone' || methodology === 'combined'
     return false
@@ -1108,6 +1157,109 @@ export default function RCAAssessmentDetail() {
     return date ? new Date(date).toLocaleDateString('it-IT') : 'N/D'
   }
 
+  const buildRCAExportData = (): RCAExportData | null => {
+    if (!assessment) return null
+
+    const causes = getAllAssessmentCauses().map((cause) => ({
+      id: cause.id,
+      description: cause.description,
+      category: cause.category,
+      source_type: cause.source_type,
+      is_root_cause: cause.is_root_cause,
+    }))
+
+    const branches = fishboneBranches.map((branch) => ({
+      id: branch.id,
+      name: branch.name,
+      source_type: branch.source_type,
+      causes: (fishboneCausesByBranch[branch.id] || [])
+        .map((fishboneCause) => fishboneCause.cause)
+        .filter((cause): cause is RCACause => Boolean(cause))
+        .map((cause) => ({
+          id: cause.id,
+          description: cause.description,
+          category: cause.category,
+          source_type: cause.source_type,
+          is_root_cause: cause.is_root_cause,
+        })),
+    }))
+
+    const exportFiveWhyChains = fiveWhyChains
+      .filter((chain) => chain.cause_id)
+      .map((chain) => ({
+        id: chain.id,
+        cause_id: chain.cause_id,
+        title: chain.title,
+        problem_statement: chain.problem_statement,
+        status: chain.status,
+        cause_description: chain.cause?.description || null,
+        cause_category: chain.cause?.category || null,
+        steps: (fiveWhyStepsByChain[chain.id] || []).map((step) => ({
+          id: step.id,
+          step_number: step.step_number,
+          why_question: step.why_question,
+          answer: step.answer,
+        })),
+      }))
+
+    return {
+      assessment,
+      branches,
+      causes,
+      candidateCauses: causes.filter((cause) => cause.is_root_cause),
+      fiveWhyChains: exportFiveWhyChains,
+      actions: rcaActions.map((action) => ({
+        id: action.id,
+        description: action.description,
+        cause_description: action.cause?.description || null,
+        cause_category: action.cause?.category || null,
+        responsible: action.responsible,
+        due_date: action.due_date,
+        priority: action.priority,
+        status: action.status,
+      })),
+    }
+  }
+
+  const exportRCAReportPDF = async () => {
+    const data = buildRCAExportData()
+    if (!data) return
+    await exportRCAToPDF(data)
+  }
+
+  const exportRCAReportExcel = () => {
+    const data = buildRCAExportData()
+    if (!data) return
+    exportRCAToExcel(data)
+  }
+
+  const exportIshikawaToPNG = async () => {
+    if (!assessment) {
+      console.warn('Export PNG Ishikawa non disponibile: assessment non caricato.')
+      return
+    }
+
+    if (!reportIshikawaRef.current) {
+      console.warn('Export PNG Ishikawa non disponibile: contenitore diagramma non trovato.')
+      return
+    }
+
+    try {
+      const dataUrl = await toPng(reportIshikawaRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      })
+      const cleanTitle = assessment.title.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_')
+      const link = document.createElement('a')
+      link.download = `RCA_Ishikawa_${cleanTitle}_${new Date().toISOString().split('T')[0]}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (error) {
+      console.error('Errore durante esportazione PNG Ishikawa:', error)
+    }
+  }
+
   const renderMethodologyCTA = (methodology: RCAMethodology | null) => {
     if (!methodology) {
       return (
@@ -1164,14 +1316,6 @@ export default function RCAAssessmentDetail() {
       </div>
     )
   }
-
-  const renderPlaceholder = (title: string, description: string) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-      <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-      <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
-      <p className="text-gray-500 mt-2 max-w-2xl mx-auto">{description}</p>
-    </div>
-  )
 
   const renderFishboneVisual = () => {
     const effectTitle = assessment?.event_title || assessment?.title || fishboneDiagram?.title || 'Evento RCA'
@@ -2337,6 +2481,576 @@ export default function RCAAssessmentDetail() {
     )
   }
 
+  const renderReportTab = () => {
+    if (!assessment) return null
+
+    if (fishboneLoading || fiveWhyLoading || actionsLoading) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-500">
+          <div className="w-12 h-12 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          Preparazione report RCA...
+        </div>
+      )
+    }
+
+    const allCauses = getAllAssessmentCauses()
+    const candidateCauses = allCauses.filter((cause) => cause.is_root_cause)
+    const linkedFiveWhyChains = fiveWhyChains.filter((chain) => chain.cause_id)
+    const kpis = [
+      { label: 'Categorie attive', value: fishboneBranches.length },
+      { label: 'Cause totali', value: allCauses.length },
+      { label: 'Cause candidate', value: candidateCauses.length },
+      { label: '5 Whys avviate', value: linkedFiveWhyChains.length },
+      { label: 'Azioni correttive', value: rcaActions.length },
+    ]
+
+    const reportEmpty = (message: string) => (
+      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+        {message}
+      </div>
+    )
+
+    const reportSection = (title: string, children: ReactNode) => (
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">{title}</h2>
+        {children}
+      </section>
+    )
+
+    const renderIshikawaReportDiagram = () => {
+      if (fishboneBranches.length >= 0) {
+        return renderIshikawaReportFishbone()
+      }
+
+      if (fishboneBranches.length === 0) {
+        return reportEmpty('Nessuna categoria Ishikawa attiva.')
+      }
+
+      const reportBranches = fishboneBranches.map((branch) => ({
+        branch,
+        causes: fishboneCausesByBranch[branch.id] || [],
+      }))
+
+      return (
+        <div ref={reportIshikawaRef} className="min-w-[1040px] rounded-xl border border-slate-100 bg-white p-5">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Figura Ishikawa RCA</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Categorie attive e cause emerse nell'analisi. Tutte le cause sono visibili per il report.
+                </p>
+              </div>
+              <div className="rounded-xl border border-sky-200 bg-white px-4 py-3 shadow-sm lg:max-w-xs">
+                <p className="text-xs font-semibold uppercase text-sky-700">Effetto</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">
+                  {assessment.event_title || assessment.title}
+                </p>
+              </div>
+            </div>
+
+            <div className="relative mt-5 hidden md:block h-10">
+              <div className="absolute left-0 right-12 top-1/2 h-1 -translate-y-1/2 rounded-full bg-sky-500"></div>
+              <div className="absolute right-8 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[8px] border-y-transparent border-l-[18px] border-l-sky-500"></div>
+              <div className="absolute left-4 top-1/2 h-px w-10 -translate-y-3 rotate-[-24deg] bg-slate-300"></div>
+              <div className="absolute left-4 top-1/2 h-px w-10 translate-y-3 rotate-[24deg] bg-slate-300"></div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {reportBranches.map(({ branch, causes }, index) => {
+                const hasCandidate = causes.some((fishboneCause) => fishboneCause.cause?.is_root_cause)
+
+                return (
+                  <div key={branch.id} className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${hasCandidate ? 'bg-red-200' : 'bg-sky-200'}`}></div>
+                    <div className="pl-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-slate-800">{branch.name}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {branch.source_type === 'standard' ? 'Categoria standard' : 'Categoria custom'} · {causes.length} {causes.length === 1 ? 'causa' : 'cause'}
+                          </p>
+                        </div>
+                        <span className="self-start rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500">
+                          #{index + 1}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        {causes.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">
+                            Nessuna causa
+                          </div>
+                        ) : (
+                          causes.map((fishboneCause) => (
+                        <span
+                          key={fishboneCause.id}
+                              className={`block rounded-lg border px-3 py-2 text-sm ${
+                            fishboneCause.cause?.is_root_cause
+                              ? 'bg-red-50 border-red-200 text-red-700'
+                              : 'bg-white border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {fishboneCause.cause?.description || 'Causa senza descrizione'}
+                              {fishboneCause.cause?.is_root_cause && (
+                                <span className="ml-2 text-xs font-semibold">Candidata</span>
+                              )}
+                        </span>
+                          ))
+                        )}
+                      </div>
+                  </div>
+                </div>
+                )
+              })}
+            </div>
+          </div>
+
+        </div>
+      )
+    }
+
+    const renderIshikawaReportFishbone = () => {
+      if (fishboneBranches.length === 0) {
+        return reportEmpty('Nessuna categoria Ishikawa attiva.')
+      }
+
+      const reportBranches = fishboneBranches.map((branch, index) => {
+        const causes = fishboneCausesByBranch[branch.id] || []
+        const spacing = fishboneBranches.length > 1 ? 62 / (fishboneBranches.length - 1) : 0
+
+        return {
+          branch,
+          causes,
+          index,
+          isTop: index % 2 === 0,
+          xPercent: fishboneBranches.length === 1 ? 44 : 13 + index * spacing,
+        }
+      })
+
+      const getCardHeight = (causeCount: number) => Math.max(116, 82 + Math.max(causeCount, 1) * 42)
+      const topHeight = Math.max(
+        150,
+        ...reportBranches.filter((item) => item.isTop).map((item) => getCardHeight(item.causes.length) + 22),
+      )
+      const bottomHeight = Math.max(
+        150,
+        ...reportBranches.filter((item) => !item.isTop).map((item) => getCardHeight(item.causes.length) + 22),
+      )
+      const axisY = topHeight + 54
+      const bottomStartY = axisY + 68
+      const diagramHeight = topHeight + bottomHeight + 148
+
+      return (
+        <div ref={reportIshikawaRef} className="min-w-[1040px] rounded-xl border border-slate-100 bg-white p-5">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Figura Ishikawa RCA</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Vista completa per report ed export PNG, con tutte le cause visibili.
+                </p>
+              </div>
+              <div className="rounded-xl border border-sky-200 bg-white px-4 py-3 shadow-sm lg:max-w-xs">
+                <p className="text-xs font-semibold uppercase text-sky-700">Effetto</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">
+                  {assessment.event_title || assessment.title}
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="relative mt-5 min-w-[980px] overflow-visible rounded-xl bg-white/80"
+              style={{ height: `${diagramHeight}px` }}
+              aria-label="Diagramma Ishikawa RCA per report"
+            >
+              <svg
+                className="absolute inset-0 h-full w-full overflow-visible"
+                viewBox={`0 0 100 ${diagramHeight}`}
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <line
+                  x1="6"
+                  y1={axisY}
+                  x2="80"
+                  y2={axisY}
+                  stroke="#0284c7"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                />
+                <polygon
+                  points={`80,${axisY - 5} 86,${axisY} 80,${axisY + 5}`}
+                  fill="#0284c7"
+                />
+                <line
+                  x1="6"
+                  y1={axisY}
+                  x2="1.8"
+                  y2={axisY - 16}
+                  stroke="#94a3b8"
+                  strokeWidth="0.55"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1="6"
+                  y1={axisY}
+                  x2="1.8"
+                  y2={axisY + 16}
+                  stroke="#94a3b8"
+                  strokeWidth="0.55"
+                  strokeLinecap="round"
+                />
+                {reportBranches.map((item) => {
+                  const branchEndY = item.isTop ? topHeight - 8 : bottomStartY + 8
+                  const branchEndX = Math.max(8, Math.min(77, item.xPercent - 4))
+
+                  return (
+                    <g key={item.branch.id}>
+                      <line
+                        x1={item.xPercent}
+                        y1={axisY}
+                        x2={branchEndX}
+                        y2={branchEndY}
+                        stroke={item.causes.some((fishboneCause) => fishboneCause.cause?.is_root_cause) ? '#fca5a5' : '#7dd3fc'}
+                        strokeWidth="0.75"
+                        strokeLinecap="round"
+                      />
+                      <circle
+                        cx={item.xPercent}
+                        cy={axisY}
+                        r="0.9"
+                        fill={item.causes.some((fishboneCause) => fishboneCause.cause?.is_root_cause) ? '#f87171' : '#0ea5e9'}
+                      />
+                    </g>
+                  )
+                })}
+              </svg>
+
+              <div
+                className="absolute right-[2%] w-[15%] -translate-y-1/2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 shadow-sm"
+                style={{ top: `${axisY}px` }}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Effetto</p>
+                <p className="mt-1 text-xs font-semibold leading-snug text-slate-800">
+                  {assessment.event_title || assessment.title}
+                </p>
+                {assessment.event_description && (
+                  <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-500">
+                    {assessment.event_description}
+                  </p>
+                )}
+              </div>
+
+              {reportBranches.map((item) => {
+                const cardHeight = getCardHeight(item.causes.length)
+                const top = item.isTop ? topHeight - cardHeight : bottomStartY
+                const hasCandidate = item.causes.some((fishboneCause) => fishboneCause.cause?.is_root_cause)
+
+                return (
+                  <div
+                    key={item.branch.id}
+                    className={`absolute w-[18%] min-w-[154px] -translate-x-1/2 rounded-xl border bg-white p-3 shadow-sm ${
+                      hasCandidate ? 'border-red-200' : 'border-sky-100'
+                    }`}
+                    style={{
+                      left: `${item.xPercent}%`,
+                      top: `${top}px`,
+                      minHeight: `${cardHeight}px`,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold leading-tight text-slate-800">{item.branch.name}</p>
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          {item.causes.length} {item.causes.length === 1 ? 'causa' : 'cause'}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                        #{item.index + 1}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      {item.causes.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-400">
+                          Nessuna causa
+                        </div>
+                      ) : (
+                        item.causes.map((fishboneCause) => (
+                          <div
+                            key={fishboneCause.id}
+                            className={`rounded-lg border px-2.5 py-2 text-[11px] leading-snug ${
+                              fishboneCause.cause?.is_root_cause
+                                ? 'border-red-200 bg-red-50 text-red-700'
+                                : 'border-slate-200 bg-white text-slate-600'
+                            }`}
+                          >
+                            <span>{fishboneCause.cause?.description || 'Causa senza descrizione'}</span>
+                            {fishboneCause.cause?.is_root_cause && (
+                              <span className="mt-1 block text-[10px] font-semibold">Candidata Root Cause</span>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-6">
+        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sky-700">Report RCA</p>
+              <h2 className="text-2xl font-semibold text-gray-900 mt-1">{assessment.title}</h2>
+              <p className="text-gray-500 mt-2">
+                Vista riepilogativa strutturata dell'assessment, pronta per futura esportazione PDF.
+              </p>
+            </div>
+            <div className="flex flex-col items-start lg:items-end gap-3">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
+                {statusLabels[assessment.status]}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={exportRCAReportPDF}
+                  className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
+                >
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={exportRCAReportExcel}
+                  className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition"
+                >
+                  Excel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {kpis.map((kpi) => (
+              <div key={kpi.label} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                <p className="text-2xl font-semibold text-gray-900">{kpi.value}</p>
+                <p className="text-sm text-gray-500 mt-1">{kpi.label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {reportSection(
+          'Dati evento',
+          <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <dt className="text-sm text-gray-500">Evento</dt>
+              <dd className="font-medium text-gray-800">{assessment.event_title || 'Non specificato'}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500">Tipologia</dt>
+              <dd className="font-medium text-gray-800">
+                {assessment.event_type ? eventTypeLabels[assessment.event_type] : 'Non specificato'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500">Data e ora</dt>
+              <dd className="font-medium text-gray-800">
+                {formatDate(assessment.event_date)} - {formatEventTime(assessment.event_time)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500">Area coinvolta</dt>
+              <dd className="font-medium text-gray-800">
+                {[assessment.location, assessment.department].filter(Boolean).join(' - ') || 'Non specificato'}
+              </dd>
+            </div>
+            <div className="md:col-span-2">
+              <dt className="text-sm text-gray-500">Descrizione</dt>
+              <dd className="mt-1 text-gray-700 whitespace-pre-wrap">
+                {assessment.event_description || 'Nessuna descrizione evento inserita.'}
+              </dd>
+            </div>
+          </dl>,
+        )}
+
+        {reportSection(
+          'Metodologia RCA',
+          <div className="flex flex-wrap gap-2">
+            <span className="px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-sm font-medium">
+              {assessment.methodology ? methodologyLabels[assessment.methodology] : 'Metodologia non definita'}
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(assessment.severity)}`}>
+              {severityLabels[assessment.severity || 'medium']}
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
+              {statusLabels[assessment.status]}
+            </span>
+          </div>,
+        )}
+
+        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">Diagramma Ishikawa</h2>
+            <button
+              type="button"
+              onClick={exportIshikawaToPNG}
+              disabled={fishboneBranches.length === 0}
+              className="inline-flex items-center justify-center gap-2 self-start sm:self-auto px-3 py-2 rounded-lg bg-white text-sky-700 border border-sky-200 text-sm font-medium hover:bg-sky-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              PNG
+            </button>
+          </div>
+          {renderIshikawaReportDiagram()}
+        </section>
+
+        {reportSection(
+          'Cause candidate e analisi',
+          candidateCauses.length === 0 ? reportEmpty('Nessuna causa candidata selezionata per il report.') : (
+            <div className="space-y-3">
+              {candidateCauses.map((cause) => {
+                const chain = getFiveWhyChainForCause(cause.id)
+                const steps = chain ? (fiveWhyStepsByChain[chain.id] || []) : []
+                const visibleSteps = steps.slice(0, 3)
+                const remainingSteps = steps.length - visibleSteps.length
+                const analysisStatus = steps.length === 0
+                  ? 'Da compilare'
+                  : steps.length >= FIVE_WHYS_MAX_STEPS
+                    ? 'Completa'
+                    : 'In corso'
+                const analysisStatusClass = steps.length === 0
+                  ? 'bg-slate-100 text-slate-600'
+                  : steps.length >= FIVE_WHYS_MAX_STEPS
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-yellow-100 text-yellow-700'
+
+                return (
+                  <div key={cause.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-gray-800">{cause.description}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className="px-2.5 py-1 rounded-full bg-white text-gray-600 border border-gray-100 text-xs font-medium">
+                            {cause.category || 'Categoria non specificata'}
+                          </span>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${analysisStatusClass}`}>
+                            {analysisStatus}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-medium">
+                            {steps.length}/{FIVE_WHYS_MAX_STEPS} perche
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {!chain ? (
+                      <p className="mt-4 text-sm text-gray-500">
+                        Analisi 5 Whys non ancora avviata per questa causa candidata.
+                      </p>
+                    ) : visibleSteps.length === 0 ? (
+                      <p className="mt-4 text-sm text-gray-500">
+                        Analisi avviata, nessun perche ancora compilato.
+                      </p>
+                    ) : (
+                      <div className="mt-4 space-y-2">
+                        {visibleSteps.map((step) => (
+                          <div key={step.id} className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+                            <p className="text-sm font-medium text-gray-800">{step.why_question}</p>
+                            <p className="text-sm text-gray-600 line-clamp-2">{step.answer}</p>
+                          </div>
+                        ))}
+                        {remainingSteps > 0 && (
+                          <p className="text-xs font-medium text-gray-400">+{remainingSteps} altri</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ),
+        )}
+
+        {reportSection(
+          "Piano d'azione",
+          rcaActions.length === 0 ? reportEmpty('Nessuna azione correttiva RCA registrata.') : (
+            <div className="overflow-hidden rounded-lg border border-gray-100">
+              <div className="hidden lg:grid grid-cols-[1.5fr_1.2fr_0.9fr_0.8fr_0.7fr_0.7fr] gap-3 bg-gray-50 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <span>Descrizione</span>
+                <span>Causa</span>
+                <span>Responsabile</span>
+                <span>Scadenza</span>
+                <span>Priorita</span>
+                <span>Stato</span>
+              </div>
+              {rcaActions.map((action) => (
+                <div key={action.id} className="grid grid-cols-1 lg:grid-cols-[1.5fr_1.2fr_0.9fr_0.8fr_0.7fr_0.7fr] gap-3 border-t border-gray-100 px-4 py-3 text-sm lg:items-start">
+                  <div>
+                    <p className="lg:hidden text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Descrizione</p>
+                    <p className="font-medium text-gray-800">{action.description}</p>
+                  </div>
+                  <div>
+                    <p className="lg:hidden text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Causa</p>
+                    <p className="text-gray-600">{action.cause?.description || 'Non collegata'}</p>
+                  </div>
+                  <div>
+                    <p className="lg:hidden text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Responsabile</p>
+                    <p className="text-gray-700">{action.responsible || 'Non assegnato'}</p>
+                  </div>
+                  <div>
+                    <p className="lg:hidden text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Scadenza</p>
+                    <p className="text-gray-700">{formatDate(action.due_date)}</p>
+                  </div>
+                  <div>
+                    <p className="lg:hidden text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Priorita</p>
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getActionPriorityColor(action.priority)}`}>
+                      {getActionPriorityLabel(action.priority)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="lg:hidden text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Stato</p>
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getActionStatusColor(action.status)}`}>
+                      {getActionStatusLabel(action.status)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ),
+        )}
+
+        {reportSection(
+          'Monitoraggio',
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+              <p className="text-sm text-gray-500">Rivalutazione prevista</p>
+              <p className="font-medium text-gray-800 mt-1">Da pianificare</p>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+              <p className="text-sm text-gray-500">Effectiveness check</p>
+              <p className="font-medium text-gray-800 mt-1">Da definire dopo implementazione azioni</p>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+              <p className="text-sm text-gray-500">Responsabile / Firma</p>
+              <p className="font-medium text-gray-800 mt-1">Non assegnato</p>
+            </div>
+            <p className="md:col-span-3 text-sm text-gray-500 mt-1">
+              Questa sezione sara completata nelle fasi successive del workflow RCA.
+            </p>
+          </div>,
+        )}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center">
@@ -2367,13 +3081,32 @@ export default function RCAAssessmentDetail() {
             <h1 className="text-3xl font-bold text-gray-800">{assessment.title}</h1>
             <p className="text-gray-500 mt-1">{assessment.event_title}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
-              {statusLabels[assessment.status]}
-            </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(assessment.severity)}`}>
-              {assessment.severity ? severityLabels[assessment.severity] : 'Severita N/D'}
-            </span>
+          <div className="flex flex-col items-start sm:items-end gap-2">
+            <div className="flex flex-wrap justify-start sm:justify-end gap-2">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
+                {statusLabels[assessment.status]}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(assessment.severity)}`}>
+                {assessment.severity ? severityLabels[assessment.severity] : 'Severita N/D'}
+              </span>
+            </div>
+            <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+              Stato RCA
+              <select
+                value={assessment.status}
+                disabled={statusUpdating}
+                onChange={(event) => updateAssessmentStatus(event.target.value as RCAAssessmentStatus)}
+                className="min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {statusError && <p className="text-xs text-red-600 max-w-xs text-left sm:text-right">{statusError}</p>}
+            {statusUpdating && <p className="text-xs text-gray-400">Aggiornamento stato...</p>}
           </div>
         </div>
       </div>
@@ -2516,10 +3249,7 @@ export default function RCAAssessmentDetail() {
       ) : activeTab === 'actions' ? (
         renderActionsTab()
       ) : (
-        renderPlaceholder(
-          'Report',
-          'Il report RCA riepiloghera evento, analisi, cause radice e azioni correttive.',
-        )
+        renderReportTab()
       )}
     </div>
   )

@@ -87,8 +87,9 @@ export default function RCAAssessments() {
     switch (status) {
       case 'completed':
         return <CheckCircle className="w-5 h-5 text-green-500" />
-      case 'in_progress':
       case 'action_planned':
+        return <Clock className="w-5 h-5 text-sky-500" />
+      case 'in_progress':
         return <Clock className="w-5 h-5 text-yellow-500" />
       default:
         return <FileText className="w-5 h-5 text-gray-400" />
@@ -99,13 +100,14 @@ export default function RCAAssessments() {
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-700'
-      case 'in_progress':
       case 'action_planned':
+        return 'bg-sky-100 text-sky-700'
+      case 'in_progress':
         return 'bg-yellow-100 text-yellow-700'
       case 'archived':
         return 'bg-gray-100 text-gray-600'
       default:
-        return 'bg-orange-100 text-orange-700'
+        return 'bg-slate-100 text-slate-700'
     }
   }
 
