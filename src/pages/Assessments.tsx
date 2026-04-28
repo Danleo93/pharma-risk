@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase'
 import type { RiskAssessment } from '../types'
 import { Plus, FileText, Clock, CheckCircle, AlertTriangle, Trash2, Search } from 'lucide-react'
 import { getFMEAAssessmentStatusColor, getFMEAAssessmentStatusLabel } from '../lib/labels'
+import { Card, CardContent } from '../components/ui/Card'
+import { EmptyState } from '../components/ui/EmptyState'
+import { PageHeader } from '../components/ui/PageHeader'
+import { StatCard } from '../components/ui/StatCard'
 
 export default function Assessments() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([])
@@ -67,117 +71,104 @@ export default function Assessments() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Risk Assessment</h1>
-          <p className="text-gray-500 mt-1">Gestisci tutti i tuoi assessment FMEA/HFMEA</p>
-        </div>
-        <Link
-          to="/fmea/assessment/new"
-          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-3 rounded-lg font-medium transition"
-        >
-          <Plus className="w-5 h-5" />
-          Nuovo Assessment
-        </Link>
-      </div>
+    <div className="clinical-page">
+      <PageHeader
+        title="Risk Assessment"
+        description="Gestisci tutti i tuoi assessment FMEA/HFMEA."
+        eyebrow="Analisi Proattiva"
+        actions={(
+          <Link
+            to="/fmea/assessment/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-5 py-3 font-medium text-white transition hover:bg-sky-800"
+          >
+            <Plus className="w-5 h-5" />
+            Nuovo Assessment
+          </Link>
+        )}
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Totale</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Bozze</p>
-          <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">In Corso</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Completati</p>
-          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+        <StatCard label="Totale" value={stats.total} icon={<FileText className="w-6 h-6" />} tone="fmea" />
+        <StatCard label="Bozze" value={stats.draft} icon={<FileText className="w-6 h-6" />} tone="neutral" />
+        <StatCard label="In corso" value={stats.inProgress} icon={<Clock className="w-6 h-6" />} tone="warning" />
+        <StatCard label="Completati" value={stats.completed} icon={<CheckCircle className="w-6 h-6" />} tone="success" />
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Cerca assessment..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-            />
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cerca assessment..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="clinical-input py-2 pl-10 pr-4"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {['all', 'draft', 'in_progress', 'completed'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status)}
+                  className={`rounded-lg px-4 py-2 font-medium transition ${
+                    filterStatus === status
+                      ? 'bg-sky-700 text-white'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-800'
+                  }`}
+                >
+                  {status === 'all' ? 'Tutti' : getFMEAAssessmentStatusLabel(status)}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {['all', 'draft', 'in_progress', 'completed'].map(status => (
-              <button
-                key={status}
-                onClick={() => setFilterStatus(status)}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  filterStatus === status
-                    ? 'bg-sky-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {status === 'all' ? 'Tutti' : getFMEAAssessmentStatusLabel(status)}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Assessment List */}
       {loading ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-500">
+        <Card>
+          <CardContent className="p-12 text-center text-slate-500">
           <div className="w-12 h-12 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           Caricamento...
-        </div>
+          </CardContent>
+        </Card>
       ) : filteredAssessments.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center">
-          <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 mb-4">
-            {assessments.length === 0 
-              ? "Non hai ancora creato nessun assessment" 
-              : "Nessun assessment trovato con i filtri selezionati"}
-          </p>
-          {assessments.length === 0 && (
-            <Link
-              to="/fmea/assessment/new"
-              className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              Crea il tuo primo assessment
-            </Link>
+        <EmptyState
+          icon={<AlertTriangle className="w-6 h-6" />}
+          title={assessments.length === 0 ? 'Non hai ancora creato nessun assessment' : 'Nessun assessment trovato'}
+          description={assessments.length === 0 ? undefined : 'Modifica ricerca o filtri per visualizzare altri assessment.'}
+          action={assessments.length === 0 && (
+          <Link
+            to="/fmea/assessment/new"
+            className="inline-flex items-center gap-2 font-medium text-sky-700 hover:text-sky-800"
+          >
+            <Plus className="w-4 h-4" />
+            Crea il tuo primo assessment
+          </Link>
           )}
-        </div>
+        />
       ) : (
         <div className="grid gap-4">
           {filteredAssessments.map(assessment => (
-            <div
-              key={assessment.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition"
-            >
+            <Card key={assessment.id} className="transition hover:shadow-clinical">
+              <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 {getStatusIcon(assessment.status)}
                 <div className="flex-1 min-w-0">
                   <Link
                     to={`/fmea/assessment/${assessment.id}`}
-                    className="font-semibold text-gray-800 hover:text-sky-600 transition"
+                    className="font-semibold text-slate-900 transition hover:text-sky-700"
                   >
                     {assessment.title}
                   </Link>
                   {assessment.description && (
-                    <p className="text-sm text-gray-500 truncate">{assessment.description}</p>
+                    <p className="truncate text-sm text-slate-500">{assessment.description}</p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="mt-1 text-xs text-slate-400">
                     Creato il {new Date(assessment.created_at).toLocaleDateString('it-IT')}
                   </p>
                 </div>
@@ -199,7 +190,8 @@ export default function Assessments() {
                   </button>
                 </div>
               </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

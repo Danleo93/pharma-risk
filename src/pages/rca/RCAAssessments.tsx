@@ -10,6 +10,10 @@ import {
   getRCASeverityColor,
   getRCASeverityLabel,
 } from '../../lib/labels'
+import { Card, CardContent } from '../../components/ui/Card'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { StatCard } from '../../components/ui/StatCard'
 
 export default function RCAAssessments() {
   const { user } = useAuth()
@@ -88,125 +92,112 @@ export default function RCAAssessments() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Assessment RCA</h1>
-          <p className="text-gray-500 mt-1">Gestisci gli assessment di Analisi Reattiva</p>
-        </div>
-        <Link
-          to="/rca/assessment/new"
-          className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-3 rounded-lg font-medium transition"
-        >
-          <Plus className="w-5 h-5" />
-          Nuovo Assessment
-        </Link>
+    <div className="clinical-page">
+      <PageHeader
+        title="Assessment RCA"
+        description="Gestisci gli assessment di Analisi Reattiva."
+        eyebrow="Analisi Reattiva"
+        actions={(
+          <Link
+            to="/rca/assessment/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-3 font-medium text-white transition hover:bg-amber-700"
+          >
+            <Plus className="w-5 h-5" />
+            Nuovo Assessment
+          </Link>
+        )}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+        <StatCard label="Totale" value={stats.total} icon={<FileText className="w-6 h-6" />} tone="rca" />
+        <StatCard label="Bozze" value={stats.draft} icon={<FileText className="w-6 h-6" />} tone="neutral" />
+        <StatCard label="In corso" value={stats.inProgress} icon={<Clock className="w-6 h-6" />} tone="warning" />
+        <StatCard label="Completati" value={stats.completed} icon={<CheckCircle className="w-6 h-6" />} tone="success" />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Totale</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Bozze</p>
-          <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">In corso</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Completati</p>
-          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Cerca per titolo o descrizione evento..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-            />
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cerca per titolo o descrizione evento..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="clinical-input py-2 pl-10 pr-4"
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="clinical-input px-4 py-2 lg:w-56"
+            >
+              <option value="all">Tutti gli stati</option>
+              <option value="draft">Bozza</option>
+              <option value="in_progress">In corso</option>
+              <option value="action_planned">Azioni pianificate</option>
+              <option value="completed">Completato</option>
+              <option value="archived">Archiviato</option>
+            </select>
+            <select
+              value={filterSeverity}
+              onChange={(e) => setFilterSeverity(e.target.value)}
+              className="clinical-input px-4 py-2 lg:w-52"
+            >
+              <option value="all">Tutte le severita'</option>
+              <option value="low">Bassa</option>
+              <option value="medium">Media</option>
+              <option value="high">Alta</option>
+              <option value="critical">Critica</option>
+            </select>
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-          >
-            <option value="all">Tutti gli stati</option>
-            <option value="draft">Bozza</option>
-            <option value="in_progress">In corso</option>
-            <option value="action_planned">Azioni pianificate</option>
-            <option value="completed">Completato</option>
-            <option value="archived">Archiviato</option>
-          </select>
-          <select
-            value={filterSeverity}
-            onChange={(e) => setFilterSeverity(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-          >
-            <option value="all">Tutte le severita'</option>
-            <option value="low">Bassa</option>
-            <option value="medium">Media</option>
-            <option value="high">Alta</option>
-            <option value="critical">Critica</option>
-          </select>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {loading ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-500">
+        <Card>
+          <CardContent className="p-12 text-center text-slate-500">
           <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           Caricamento...
-        </div>
+          </CardContent>
+        </Card>
       ) : filteredAssessments.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-800">
-            {assessments.length === 0 ? 'Nessun assessment RCA disponibile' : 'Nessun assessment trovato'}
-          </h2>
-          <p className="text-gray-500 mt-2 mb-6">
-            {assessments.length === 0
-              ? 'Crea il primo assessment per registrare un evento, incidente o near miss.'
-              : 'Modifica i filtri o il testo di ricerca.'}
-          </p>
-          {assessments.length === 0 && (
+        <EmptyState
+          icon={<AlertCircle className="w-6 h-6" />}
+          title={assessments.length === 0 ? 'Nessun assessment RCA disponibile' : 'Nessun assessment trovato'}
+          description={assessments.length === 0
+            ? 'Crea il primo assessment per registrare un evento, incidente o near miss.'
+            : 'Modifica i filtri o il testo di ricerca.'}
+          action={assessments.length === 0 && (
             <Link
               to="/rca/assessment/new"
-              className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 font-medium"
+              className="inline-flex items-center gap-2 font-medium text-amber-700 hover:text-amber-800"
             >
               <Plus className="w-4 h-4" />
               Crea assessment RCA
             </Link>
           )}
-        </div>
+        />
       ) : (
         <div className="grid gap-4">
           {filteredAssessments.map((assessment) => (
-            <div
-              key={assessment.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition"
-            >
+            <Card key={assessment.id} className="transition hover:shadow-clinical">
+              <CardContent className="p-4">
               <div className="flex items-start gap-4">
                 <div className="mt-1">{getStatusIcon(assessment.status)}</div>
                 <div className="flex-1 min-w-0">
                   <Link
                     to={`/rca/assessment/${assessment.id}`}
-                    className="font-semibold text-gray-800 hover:text-orange-600 transition"
+                    className="font-semibold text-slate-900 transition hover:text-amber-700"
                   >
                     {assessment.title}
                   </Link>
-                  <p className="text-sm text-gray-600 mt-1 truncate">{assessment.event_title}</p>
+                  <p className="mt-1 truncate text-sm text-slate-600">{assessment.event_title}</p>
                   {assessment.event_description && (
-                    <p className="text-sm text-gray-500 mt-1 truncate">{assessment.event_description}</p>
+                    <p className="mt-1 truncate text-sm text-slate-500">{assessment.event_description}</p>
                   )}
-                  <p className="text-xs text-gray-400 mt-2">
+                  <p className="mt-2 text-xs text-slate-400">
                     Creato il {new Date(assessment.created_at).toLocaleDateString('it-IT')}
                     {assessment.event_date && ` - Evento: ${new Date(assessment.event_date).toLocaleDateString('it-IT')}`}
                   </p>
@@ -234,7 +225,8 @@ export default function RCAAssessments() {
                   </button>
                 </div>
               </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

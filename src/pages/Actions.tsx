@@ -3,6 +3,10 @@ import { supabase } from '../lib/supabase'
 import type { ActionPlan, RiskItem, RiskAssessment } from '../types'
 import { CheckCircle, Clock, AlertCircle, Plus, X, Calendar, User, FileText, ChevronRight, Filter } from 'lucide-react'
 import { getFMEAActionStatusColor, getFMEAActionStatusLabel, getFMEARiskClassColor } from '../lib/labels'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { EmptyState } from '../components/ui/EmptyState'
+import { PageHeader } from '../components/ui/PageHeader'
+import { StatCard } from '../components/ui/StatCard'
 
 interface ActionWithRisk extends ActionPlan {
   risk_item?: RiskItem & {
@@ -234,54 +238,43 @@ export default function Actions() {
   )]
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Azioni Correttive</h1>
-          <p className="text-gray-500 mt-1">Gestisci le azioni per mitigare i rischi</p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-3 rounded-lg font-medium transition"
-        >
-          <Plus className="w-5 h-5" />
-          Nuova Azione
-        </button>
-      </div>
+    <div className="clinical-page">
+      <PageHeader
+        title="Azioni Correttive"
+        description="Gestisci le azioni per mitigare i rischi."
+        eyebrow="Analisi Proattiva"
+        actions={(
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-5 py-3 font-medium text-white transition hover:bg-sky-800"
+          >
+            <Plus className="w-5 h-5" />
+            Nuova Azione
+          </button>
+        )}
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Totale</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Pianificate</p>
-          <p className="text-2xl font-bold text-blue-600">{stats.planned}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">In Corso</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Completate</p>
-          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+        <StatCard label="Totale" value={stats.total} icon={<CheckCircle className="w-6 h-6" />} tone="fmea" />
+        <StatCard label="Pianificate" value={stats.planned} icon={<AlertCircle className="w-6 h-6" />} tone="clinical" />
+        <StatCard label="In corso" value={stats.inProgress} icon={<Clock className="w-6 h-6" />} tone="warning" />
+        <StatCard label="Completate" value={stats.completed} icon={<CheckCircle className="w-6 h-6" />} tone="success" />
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <Card className="mb-6">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row">
         {/* Filtro Stato */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['all', 'planned', 'in_progress', 'completed'].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-lg font-medium transition ${
                 filter === f 
-                  ? 'bg-sky-600 text-white' 
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                  ? 'bg-sky-700 text-white' 
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-800'
               }`}
             >
               {f === 'all' ? 'Tutte' : getFMEAActionStatusLabel(f)}
@@ -291,11 +284,11 @@ export default function Actions() {
 
         {/* Filtro Assessment */}
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-400" />
+          <Filter className="w-4 h-4 text-slate-400" />
           <select
             value={filterAssessment}
             onChange={(e) => setFilterAssessment(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+            className="clinical-input px-4 py-2"
           >
             <option value="">Tutti gli Assessment</option>
             {assessments
@@ -308,51 +301,55 @@ export default function Actions() {
           {filterAssessment && (
             <button
               onClick={() => setFilterAssessment('')}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-slate-400 hover:text-slate-600"
             >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Actions List - Raggruppate per Assessment */}
       <div className="space-y-6">
         {loading ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-500">
+          <Card>
+            <CardContent className="p-12 text-center text-slate-500">
             Caricamento...
-          </div>
+            </CardContent>
+          </Card>
         ) : filteredActions.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-            <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Nessuna azione trovata</p>
-          </div>
+          <EmptyState
+            icon={<AlertCircle className="w-6 h-6" />}
+            title="Nessuna azione trovata"
+            description="Modifica i filtri oppure crea una nuova azione correttiva."
+          />
         ) : (
           Object.entries(groupedActions).map(([assessmentTitle, groupActions]) => (
-            <div key={assessmentTitle} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <Card key={assessmentTitle} className="overflow-hidden">
               {/* Header Assessment */}
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-sky-600" />
-                  <h3 className="font-semibold text-gray-800">{assessmentTitle}</h3>
-                  <span className="text-sm text-gray-500">({groupActions.length} azioni)</span>
-                </div>
-              </div>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="w-5 h-5 text-sky-700" />
+                  {assessmentTitle}
+                  <span className="text-sm font-medium text-slate-500">({groupActions.length} azioni)</span>
+                </CardTitle>
+              </CardHeader>
 
               {/* Lista Azioni */}
               <div className="divide-y divide-gray-100">
                 {groupActions.map(action => (
-                  <div key={action.id} className="p-4 hover:bg-gray-50">
+                  <div key={action.id} className="p-4 transition hover:bg-slate-50">
                     <div className="flex items-start gap-4">
                       {getStatusIcon(action.status)}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-800">{action.description}</p>
+                        <p className="font-medium text-slate-900">{action.description}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-slate-500">
                             Rischio: {action.risk_item?.risk_catalog_base?.name || action.risk_item?.custom_risk_name || 'N/D'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500">
+                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-500">
                           {action.responsible && (
                             <span className="flex items-center gap-1">
                               <User className="w-4 h-4" />
@@ -388,7 +385,7 @@ export default function Actions() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           ))
         )}
       </div>

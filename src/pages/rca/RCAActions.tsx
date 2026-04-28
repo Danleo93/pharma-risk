@@ -18,6 +18,10 @@ import {
   type RCAPriority,
   type RootCauseStatus,
 } from '../../lib/labels'
+import { Card, CardContent } from '../../components/ui/Card'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { StatCard } from '../../components/ui/StatCard'
 
 type RCAActionStatus = string
 
@@ -261,90 +265,80 @@ export default function RCAActions() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Azioni Correttive RCA</h1>
-          <p className="text-gray-500 mt-1">
-            Monitora le azioni create dalle cause candidate negli assessment RCA.
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled
-          title="Crea azioni dal dettaglio assessment RCA"
-          className="flex items-center gap-2 bg-gray-200 text-gray-500 px-5 py-3 rounded-lg font-medium cursor-not-allowed"
-        >
-          Nuova Azione
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Totale</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Pianificate</p>
-          <p className="text-2xl font-bold text-blue-600">{stats.planned}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">In corso</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-gray-500 text-sm">Completate</p>
-          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-6">
-        {statusFilters.map((filter) => (
+    <div className="clinical-page">
+      <PageHeader
+        title="Azioni Correttive RCA"
+        description="Monitora le azioni create dalle cause candidate negli assessment RCA."
+        eyebrow="Analisi Reattiva"
+        actions={(
           <button
-            key={filter.value}
             type="button"
-            onClick={() => setFilterStatus(filter.value)}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              filterStatus === filter.value
-                ? 'bg-orange-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-700 border border-gray-200'
-            }`}
+            disabled
+            title="Crea azioni dal dettaglio assessment RCA"
+            className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-slate-200 px-5 py-3 font-medium text-slate-500"
           >
-            {filter.label}
+            Nuova Azione
           </button>
-        ))}
+        )}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+        <StatCard label="Totale" value={stats.total} icon={<ClipboardCheck className="w-6 h-6" />} tone="rca" />
+        <StatCard label="Pianificate" value={stats.planned} icon={<AlertCircle className="w-6 h-6" />} tone="clinical" />
+        <StatCard label="In corso" value={stats.inProgress} icon={<Calendar className="w-6 h-6" />} tone="warning" />
+        <StatCard label="Completate" value={stats.completed} icon={<ClipboardCheck className="w-6 h-6" />} tone="success" />
       </div>
+
+      <Card className="mb-6">
+        <CardContent className="flex flex-wrap gap-2 p-4">
+          {statusFilters.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => setFilterStatus(filter.value)}
+              className={`rounded-lg px-4 py-2 font-medium transition ${
+                filterStatus === filter.value
+                  ? 'bg-amber-600 text-white'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-amber-50 hover:text-amber-800'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </CardContent>
+      </Card>
 
       {loading ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-500">
+        <Card>
+          <CardContent className="p-12 text-center text-slate-500">
           <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           Caricamento...
-        </div>
+          </CardContent>
+        </Card>
       ) : error ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+        <Card>
+          <CardContent className="p-8">
           <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : filteredActions.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-800">
-            {actions.length === 0 ? 'Nessuna azione RCA presente' : 'Nessuna azione trovata'}
-          </h2>
-          <p className="text-gray-500 mt-2 max-w-2xl mx-auto">
-            {actions.length === 0
-              ? 'Le azioni create dalle cause candidate appariranno qui.'
-              : 'Modifica il filtro selezionato per visualizzare altre azioni.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={<AlertCircle className="w-6 h-6" />}
+          title={actions.length === 0 ? 'Nessuna azione RCA presente' : 'Nessuna azione trovata'}
+          description={actions.length === 0
+            ? 'Le azioni create dalle cause candidate appariranno qui.'
+            : 'Modifica il filtro selezionato per visualizzare altre azioni.'}
+        />
       ) : (
         <div className="space-y-4">
           {filteredActions.map((action) => (
-            <div key={action.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <Card key={action.id}>
+              <CardContent className="p-5">
               <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-gray-800">{action.description}</p>
+                  <p className="font-semibold text-slate-900">{action.description}</p>
 
                   <div className="flex flex-wrap gap-2 mt-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAActionStatusColor(action.status)}`}>
@@ -363,31 +357,31 @@ export default function RCAActions() {
                     <div className="flex items-start gap-2">
                       <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-gray-500">Assessment / Evento</p>
-                        <p className="font-medium text-gray-800">{action.assessment?.title || 'N/D'}</p>
-                        <p className="text-gray-600">{action.assessment?.event_title || 'N/D'}</p>
+                        <p className="text-slate-500">Assessment / Evento</p>
+                        <p className="font-medium text-slate-900">{action.assessment?.title || 'N/D'}</p>
+                        <p className="text-slate-600">{action.assessment?.event_title || 'N/D'}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <ClipboardCheck className="w-4 h-4 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-gray-500">Causa collegata</p>
-                        <p className="font-medium text-gray-800">{action.cause?.description || 'Non collegata'}</p>
-                        <p className="text-gray-600">{action.cause?.category || 'Categoria N/D'}</p>
+                        <p className="text-slate-500">Causa collegata</p>
+                        <p className="font-medium text-slate-900">{action.cause?.description || 'Non collegata'}</p>
+                        <p className="text-slate-600">{action.cause?.category || 'Categoria N/D'}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <User className="w-4 h-4 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-gray-500">Responsabile</p>
-                        <p className="font-medium text-gray-800">{action.responsible || 'Non assegnato'}</p>
+                        <p className="text-slate-500">Responsabile</p>
+                        <p className="font-medium text-slate-900">{action.responsible || 'Non assegnato'}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <Calendar className="w-4 h-4 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-gray-500">Scadenza</p>
-                        <p className="font-medium text-gray-800">{formatDate(action.due_date)}</p>
+                        <p className="text-slate-500">Scadenza</p>
+                        <p className="font-medium text-slate-900">{formatDate(action.due_date)}</p>
                       </div>
                     </div>
                   </div>
@@ -514,7 +508,8 @@ export default function RCAActions() {
                   </button>
                 </div>
               </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
