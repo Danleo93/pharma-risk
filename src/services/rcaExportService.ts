@@ -10,6 +10,9 @@ export interface RCAExportCause {
   category: string | null
   source_type: string
   is_root_cause: boolean
+  root_cause_status: string | null
+  root_cause_confirmed_at: string | null
+  root_cause_confirmation_notes: string | null
 }
 
 export interface RCAExportBranch {
@@ -34,6 +37,8 @@ export interface RCAExportFiveWhyChain {
   status: string
   cause_description: string | null
   cause_category: string | null
+  cause_root_cause_status: string | null
+  cause_root_cause_confirmation_notes: string | null
   steps: RCAExportFiveWhyStep[]
 }
 
@@ -46,6 +51,7 @@ export interface RCAExportAction {
   due_date: string | null
   priority: string | null
   status: string
+  cause_root_cause_status?: string | null
 }
 
 export interface RCAExportData {
@@ -64,7 +70,10 @@ const statusLabels: Record<string, string> = {
   completed: 'Completato',
   archived: 'Archiviato',
   planned: 'Pianificata',
-  cancelled: 'Annullata',
+}
+
+const getStatusLabel = (status: string) => {
+  return statusLabels[status] || statusLabels.planned
 }
 
 const methodologyLabels: Record<string, string> = {
@@ -121,6 +130,56 @@ const getFiveWhyStatus = (stepsCount: number) => {
   if (stepsCount >= 5) return 'Completa'
   return 'In corso'
 }
+
+const getEffectiveRootCauseStatus = (cause: Pick<RCAExportCause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
+  if (!cause?.is_root_cause) return null
+  if (cause.root_cause_status === 'confirmed') return 'confirmed'
+  if (cause.root_cause_status === 'not_confirmed') return 'not_confirmed'
+  return 'candidate'
+}
+
+const getRootCauseStatusLabel = (cause: Pick<RCAExportCause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
+  const status = getEffectiveRootCauseStatus(cause)
+  if (status === 'confirmed') return 'Root Cause confermata'
+  if (status === 'not_confirmed') return 'Non confermata'
+  if (status === 'candidate') return 'Candidata Root Cause'
+  return 'Non candidata'
+}
+
+const getRootCauseStatusLabelFromStatus = (status: string | null | undefined) => {
+  if (status === 'confirmed') return 'Root Cause confermata'
+  if (status === 'not_confirmed') return 'Non confermata'
+  if (status === 'candidate') return 'Candidata Root Cause'
+  return 'Non candidata'
+}
+
+const getRootCauseExportColors = (cause: Pick<RCAExportCause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
+  const status = getEffectiveRootCauseStatus(cause)
+  if (status === 'confirmed') {
+    return { border: '#a7f3d0', background: '#ecfdf5', text: '#047857' }
+  }
+  if (status === 'not_confirmed') {
+    return { border: '#cbd5e1', background: '#f8fafc', text: '#475569' }
+  }
+  if (status === 'candidate') {
+    return { border: '#fecaca', background: '#fef2f2', text: '#b91c1c' }
+  }
+  return { border: '#e2e8f0', background: '#ffffff', text: '#475569' }
+}
+
+const rcaMethodologyNotes = [
+  ['RCA', 'Analisi strutturata di evento, incidente o near miss per individuare cause contributive e prevenire recidive.'],
+  ['Ishikawa', 'Mappa causa-effetto che organizza le cause candidate per categoria e mantiene visibile il legame con l evento.'],
+  ['5 Whys', 'Approfondimento iterativo della causa candidata fino a un esito metodologico documentato.'],
+  ['Esito Root Cause', 'La causa candidata puo restare candidata, essere confermata come Root Cause o risultare non confermata.'],
+  ['Azioni correttive', 'Le azioni sono collegate alle cause, con responsabilita, priorita, scadenza e stato di avanzamento.'],
+]
+
+const rootCauseStatusLegend = [
+  ['Candidata Root Cause', 'Causa candidata emersa da Ishikawa, da approfondire o ancora non conclusa.'],
+  ['Root Cause confermata', 'Causa confermata dopo analisi 5 Whys o valutazione metodologica.'],
+  ['Non confermata', 'Causa candidata esclusa come Root Cause dopo approfondimento.'],
+]
 
 const addSectionTitle = (doc: jsPDF, title: string, y: number) => {
   doc.setFont('helvetica', 'bold')
@@ -509,26 +568,27 @@ const createIshikawaExportElement = (data: RCAExportData) => {
 
     item.branch.causes.forEach((cause) => {
       const causePill = document.createElement('div')
+      const colors = getRootCauseExportColors(cause)
       applyStyles(causePill, {
         'box-sizing': 'border-box',
         'border-radius': '8px',
-        border: cause.is_root_cause ? '1px solid #fecaca' : '1px solid #e2e8f0',
-        'background-color': cause.is_root_cause ? '#fef2f2' : '#ffffff',
+        border: `1px solid ${colors.border}`,
+        'background-color': colors.background,
         padding: '8px 10px',
         'font-size': '11px',
-        color: cause.is_root_cause ? '#b91c1c' : '#475569',
+        color: colors.text,
         'line-height': '1.3',
         'overflow-wrap': 'anywhere',
       })
       causesContainer.appendChild(causePill)
       causePill.appendChild(document.createTextNode(cause.description || 'Causa senza descrizione'))
       if (cause.is_root_cause) {
-        causePill.appendChild(createTextElement('span', 'Candidata Root Cause', {
+        causePill.appendChild(createTextElement('span', getRootCauseStatusLabel(cause), {
           display: 'block',
           'margin-top': '4px',
           'font-size': '10px',
           'font-weight': '700',
-          color: '#b91c1c',
+          color: colors.text,
         }))
       }
     })
@@ -618,6 +678,8 @@ const addIshikawaImagePage = async (doc: jsPDF, data: RCAExportData) => {
 
 export const exportRCAToPDF = async (data: RCAExportData) => {
   const { assessment, branches, causes, candidateCauses, fiveWhyChains, actions } = data
+  const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
+  const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
   let y = 18
@@ -641,6 +703,8 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
       ['Categorie attive', branches.length],
       ['Cause totali', causes.length],
       ['Cause candidate', candidateCauses.length],
+      ['Root cause confermate', confirmedRootCauses.length],
+      ['Non confermate', notConfirmedRootCauses.length],
       ['5 Whys avviate', fiveWhyChains.filter((chain) => chain.cause_id).length],
       ['Azioni correttive', actions.length],
     ],
@@ -668,15 +732,54 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   })
   y = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y) + 12
 
-  y = addPageIfNeeded(doc, y)
-  y = addSectionTitle(doc, 'Metodologia RCA', y)
+  y = addPageIfNeeded(doc, y, 95)
+  y = addSectionTitle(doc, 'METODOLOGIA RCA', y)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(55, 65, 81)
+  const methodologyIntro = "La Root Cause Analysis (RCA) documenta un evento, incidente o near miss per individuare le cause che hanno contribuito all'accadimento e trasformarle in azioni correttive tracciabili. Nel presente report Ishikawa supporta la mappatura causa-effetto, mentre le 5 Whys approfondiscono le cause candidate fino all'esito metodologico."
+  const methodologyLines = doc.splitTextToSize(methodologyIntro, pageWidth - 28)
+  doc.text(methodologyLines, 14, y)
+  y += methodologyLines.length * 4.5 + 6
+
   autoTable(doc, {
     startY: y,
     theme: 'grid',
+    head: [['Elemento', 'Criterio documentale']],
+    body: rcaMethodologyNotes,
+    styles: { fontSize: 8, cellPadding: 2.2 },
+    headStyles: { fillColor: [14, 116, 144] },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 38 },
+      1: { cellWidth: pageWidth - 66 },
+    },
+  })
+  y = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y) + 8
+
+  y = addPageIfNeeded(doc, y, 45)
+  autoTable(doc, {
+    startY: y,
+    theme: 'striped',
+    head: [['Esito Root Cause', 'Interpretazione']],
+    body: rootCauseStatusLegend,
+    styles: { fontSize: 8, cellPadding: 2.2 },
+    headStyles: { fillColor: [51, 65, 85] },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 50 },
+      1: { cellWidth: pageWidth - 78 },
+    },
+  })
+  y = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y) + 8
+
+  y = addPageIfNeeded(doc, y, 35)
+  autoTable(doc, {
+    startY: y,
+    theme: 'plain',
     body: [
       ['Metodologia', assessment.methodology ? methodologyLabels[assessment.methodology] : 'N/D'],
       ['Severita', assessment.severity ? severityLabels[assessment.severity] : 'N/D'],
-      ['Stato', statusLabels[assessment.status] || assessment.status],
+      ['Stato', getStatusLabel(assessment.status)],
     ],
     styles: { fontSize: 9, cellPadding: 2 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 } },
@@ -693,13 +796,15 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   autoTable(doc, {
     startY: y,
     theme: 'striped',
-    head: [['Categoria', 'Cause', 'Candidate']],
+    head: [['Categoria', 'Cause', 'Candidate', 'Confermate', 'Non confermate']],
     body: branches.length === 0
-      ? [['N/D', 'Nessuna categoria attiva', '0']]
+      ? [['N/D', 'Nessuna categoria attiva', '0', '0', '0']]
       : branches.map((branch) => [
         branch.name,
         branch.causes.length,
         branch.causes.filter((cause) => cause.is_root_cause).length,
+        branch.causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed').length,
+        branch.causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed').length,
       ]),
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [51, 65, 85] },
@@ -711,9 +816,9 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   autoTable(doc, {
     startY: y,
     theme: 'grid',
-    head: [['Causa candidata', 'Categoria', 'Stato 5 Whys', 'Preview']],
+    head: [['Causa candidata', 'Categoria', 'Esito Root Cause', 'Stato 5 Whys', 'Preview', 'Nota esito']],
     body: candidateCauses.length === 0
-      ? [['N/D', 'N/D', 'N/D', 'Nessuna causa candidata selezionata']]
+      ? [['N/D', 'N/D', 'N/D', 'N/D', 'Nessuna causa candidata selezionata', 'N/D']]
       : candidateCauses.map((cause) => {
         const chain = fiveWhyChains.find((item) => item.cause_id === cause.id)
         const steps = chain?.steps || []
@@ -722,8 +827,10 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
         return [
           cause.description,
           safeValue(cause.category),
+          getRootCauseStatusLabel(cause),
           getFiveWhyStatus(steps.length),
           preview ? `${preview}${remaining}` : 'Nessun perche compilato',
+          safeValue(cause.root_cause_confirmation_notes),
         ]
       }),
     styles: { fontSize: 8, cellPadding: 2 },
@@ -736,16 +843,17 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   autoTable(doc, {
     startY: y,
     theme: 'grid',
-    head: [['Descrizione', 'Causa', 'Responsabile', 'Scadenza', 'Priorita', 'Stato']],
+    head: [['Descrizione', 'Causa', 'Esito causa', 'Responsabile', 'Scadenza', 'Priorita', 'Stato']],
     body: actions.length === 0
-      ? [['N/D', 'N/D', 'N/D', 'N/D', 'N/D', 'Nessuna azione correttiva']]
+      ? [['N/D', 'N/D', 'N/D', 'N/D', 'N/D', 'N/D', 'Nessuna azione correttiva']]
       : actions.map((action) => [
         action.description,
         safeValue(action.cause_description),
+        getRootCauseStatusLabelFromStatus(action.cause_root_cause_status),
         safeValue(action.responsible),
         formatDate(action.due_date),
         action.priority ? priorityLabels[action.priority] : 'N/D',
-        statusLabels[action.status] || action.status,
+        getStatusLabel(action.status),
       ]),
     styles: { fontSize: 8, cellPadding: 2 },
     headStyles: { fillColor: [34, 197, 94] },
@@ -771,6 +879,8 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
 
 export const exportRCAToExcel = (data: RCAExportData) => {
   const { assessment, branches, causes, candidateCauses, fiveWhyChains, actions } = data
+  const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
+  const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
   const wb = XLSX.utils.book_new()
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
@@ -783,14 +893,24 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     ['Area coinvolta', [assessment.location, assessment.department].filter(Boolean).join(' - ') || 'N/D'],
     ['Metodologia', assessment.methodology ? methodologyLabels[assessment.methodology] : 'N/D'],
     ['Severita', assessment.severity ? severityLabels[assessment.severity] : 'N/D'],
-    ['Stato', statusLabels[assessment.status] || assessment.status],
+    ['Stato', getStatusLabel(assessment.status)],
   ]), 'Info')
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Elemento', 'Criterio documentale'],
+    ...rcaMethodologyNotes,
+    [],
+    ['Esito Root Cause', 'Interpretazione'],
+    ...rootCauseStatusLegend,
+  ]), 'Metodo RCA')
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     ['Indicatore', 'Valore'],
     ['Categorie attive', branches.length],
     ['Cause totali', causes.length],
     ['Cause candidate', candidateCauses.length],
+    ['Root cause confermate', confirmedRootCauses.length],
+    ['Non confermate', notConfirmedRootCauses.length],
     ['5 Whys avviate', fiveWhyChains.filter((chain) => chain.cause_id).length],
     ['Azioni correttive', actions.length],
   ]), 'KPI')
@@ -800,6 +920,8 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     Tipo: branch.source_type,
     Cause: branch.causes.length,
     Candidate: branch.causes.filter((cause) => cause.is_root_cause).length,
+    Confermate: branch.causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed').length,
+    NonConfermate: branch.causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed').length,
   }))), 'Ishikawa')
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(causes.map((cause) => ({
@@ -807,6 +929,9 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     Categoria: safeValue(cause.category),
     Fonte: cause.source_type,
     CandidataRootCause: cause.is_root_cause ? 'Si' : 'No',
+    EsitoRootCause: getRootCauseStatusLabel(cause),
+    DataConferma: formatDate(cause.root_cause_confirmed_at),
+    NoteConferma: safeValue(cause.root_cause_confirmation_notes),
   }))), 'Cause')
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fiveWhyChains.flatMap((chain) => {
@@ -814,6 +939,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
       return [{
         Causa: safeValue(chain.cause_description),
         Categoria: safeValue(chain.cause_category),
+        EsitoRootCause: getRootCauseStatusLabelFromStatus(chain.cause_root_cause_status),
         StatoAnalisi: getFiveWhyStatus(0),
         Step: '',
         Domanda: '',
@@ -824,6 +950,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     return chain.steps.map((step) => ({
       Causa: safeValue(chain.cause_description),
       Categoria: safeValue(chain.cause_category),
+      EsitoRootCause: getRootCauseStatusLabelFromStatus(chain.cause_root_cause_status),
       StatoAnalisi: getFiveWhyStatus(chain.steps.length),
       Step: String(step.step_number),
       Domanda: step.why_question,
@@ -835,10 +962,11 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     Descrizione: action.description,
     Causa: safeValue(action.cause_description),
     Categoria: safeValue(action.cause_category),
+    EsitoCausa: getRootCauseStatusLabelFromStatus(action.cause_root_cause_status),
     Responsabile: safeValue(action.responsible),
     Scadenza: formatDate(action.due_date),
     Priorita: action.priority ? priorityLabels[action.priority] : 'N/D',
-    Stato: statusLabels[action.status] || action.status,
+    Stato: getStatusLabel(action.status),
   }))), 'Azioni')
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Plus, Target, X } from 'lucide-react'
+import { ArrowLeft, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Pencil, Plus, Target, X } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -39,13 +39,14 @@ const severityLabels: Record<RCASeverity, string> = {
 }
 
 const methodologyLabels: Record<RCAMethodology, string> = {
-  '5_whys': '5 Whys',
+  '5_whys': '5 Whys (legacy)',
   fishbone: 'Ishikawa',
-  combined: 'Combinata',
+  combined: 'Ishikawa + 5 Whys',
 }
 
 type RCATab = 'event' | 'ishikawa' | 'five_whys' | 'causes' | 'actions' | 'report'
 type CauseFilter = 'all' | 'candidates' | 'with_actions' | 'without_actions'
+type RootCauseStatus = 'candidate' | 'confirmed' | 'not_confirmed'
 
 const tabs: { key: RCATab; label: string }[] = [
   { key: 'event', label: 'Evento' },
@@ -53,7 +54,7 @@ const tabs: { key: RCATab; label: string }[] = [
   { key: 'five_whys', label: '5 Whys' },
   { key: 'causes', label: 'Cause' },
   { key: 'actions', label: 'Azioni' },
-  { key: 'report', label: 'Report' },
+  { key: 'report', label: 'Statistiche e report' },
 ]
 
 const isValidTab = (value: string | null): value is RCATab => {
@@ -107,6 +108,9 @@ interface RCACause {
   category: string | null
   source_type: 'five_whys' | 'fishbone' | 'manual'
   is_root_cause: boolean
+  root_cause_status: RootCauseStatus | null
+  root_cause_confirmed_at: string | null
+  root_cause_confirmation_notes: string | null
   confidence_level: 'low' | 'medium' | 'high' | null
   evidence: string | null
   notes: string | null
@@ -134,15 +138,17 @@ interface RCAActionPlan {
   description: string
   responsible: string | null
   due_date: string | null
-  status: 'planned' | 'in_progress' | 'completed' | 'cancelled'
+  status: string
   priority: 'low' | 'medium' | 'high' | 'critical' | null
   completion_date: string | null
   effectiveness_check: string | null
   notes: string | null
   created_at: string
   updated_at: string
-  cause?: Pick<RCACause, 'description' | 'category' | 'is_root_cause'> | null
+  cause?: Pick<RCACause, 'description' | 'category' | 'is_root_cause' | 'root_cause_status' | 'root_cause_confirmed_at' | 'root_cause_confirmation_notes'> | null
 }
+
+type EditableRCAActionStatus = 'planned' | 'in_progress' | 'completed'
 
 interface RCAFiveWhyChain {
   id: string
@@ -154,7 +160,7 @@ interface RCAFiveWhyChain {
   status: 'draft' | 'completed'
   created_at: string
   updated_at: string
-  cause?: Pick<RCACause, 'description' | 'category' | 'is_root_cause'> | null
+  cause?: Pick<RCACause, 'description' | 'category' | 'is_root_cause' | 'root_cause_status' | 'root_cause_confirmed_at' | 'root_cause_confirmation_notes'> | null
 }
 
 interface RCAFiveWhyStep {
@@ -168,6 +174,26 @@ interface RCAFiveWhyStep {
   is_root_step: boolean
   created_at: string
   updated_at: string
+}
+
+const actionStatusOptions: { value: EditableRCAActionStatus; label: string }[] = [
+  { value: 'planned', label: 'Pianificata' },
+  { value: 'in_progress', label: 'In corso' },
+  { value: 'completed', label: 'Completata' },
+]
+
+const actionPriorityOptions: { value: '' | NonNullable<RCAActionPlan['priority']>; label: string }[] = [
+  { value: '', label: 'N/D' },
+  { value: 'low', label: 'Bassa' },
+  { value: 'medium', label: 'Media' },
+  { value: 'high', label: 'Alta' },
+  { value: 'critical', label: 'Critica' },
+]
+
+const normalizeActionStatus = (status: RCAActionPlan['status']): EditableRCAActionStatus => {
+  if (status === 'completed') return 'completed'
+  if (status === 'in_progress') return 'in_progress'
+  return 'planned'
 }
 
 export default function RCAAssessmentDetail() {
@@ -199,6 +225,14 @@ export default function RCAAssessmentDetail() {
   const [actionDueDate, setActionDueDate] = useState('')
   const [actionPriority, setActionPriority] = useState<'' | 'low' | 'medium' | 'high' | 'critical'>('')
   const [actionSaving, setActionSaving] = useState(false)
+  const [updatingActionStatusId, setUpdatingActionStatusId] = useState<string | null>(null)
+  const [editingActionId, setEditingActionId] = useState<string | null>(null)
+  const [savingEditActionId, setSavingEditActionId] = useState<string | null>(null)
+  const [editActionDescription, setEditActionDescription] = useState('')
+  const [editActionResponsible, setEditActionResponsible] = useState('')
+  const [editActionDueDate, setEditActionDueDate] = useState('')
+  const [editActionPriority, setEditActionPriority] = useState<'' | NonNullable<RCAActionPlan['priority']>>('')
+  const [editActionStatus, setEditActionStatus] = useState<EditableRCAActionStatus>('planned')
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccessCauseId, setActionSuccessCauseId] = useState<string | null>(null)
   const [rcaActions, setRcaActions] = useState<RCAActionPlan[]>([])
@@ -209,6 +243,8 @@ export default function RCAAssessmentDetail() {
   const [fiveWhyLoading, setFiveWhyLoading] = useState(false)
   const [fiveWhySaving, setFiveWhySaving] = useState(false)
   const [fiveWhyError, setFiveWhyError] = useState<string | null>(null)
+  const [rootCauseOutcomeSavingId, setRootCauseOutcomeSavingId] = useState<string | null>(null)
+  const [rootCauseNotesByCauseId, setRootCauseNotesByCauseId] = useState<Record<string, string>>({})
   const [expandedFiveWhyChainId, setExpandedFiveWhyChainId] = useState<string | null>(null)
   const [activeFiveWhyFormChainId, setActiveFiveWhyFormChainId] = useState<string | null>(null)
   const [newFiveWhyAnswer, setNewFiveWhyAnswer] = useState('')
@@ -285,7 +321,7 @@ export default function RCAAssessmentDetail() {
       .from('rca_action_plans')
       .select(`
         *,
-        cause:rca_causes (description, category, is_root_cause)
+        cause:rca_causes (description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes)
       `)
       .eq('assessment_id', assessment.id)
       .eq('user_id', user.id)
@@ -311,7 +347,7 @@ export default function RCAAssessmentDetail() {
       .from('rca_five_why_chains')
       .select(`
         *,
-        cause:rca_causes (description, category, is_root_cause)
+        cause:rca_causes (description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes)
       `)
       .eq('assessment_id', assessment.id)
       .eq('user_id', user.id)
@@ -390,7 +426,7 @@ export default function RCAAssessmentDetail() {
       })
       .select(`
         *,
-        cause:rca_causes (description, category, is_root_cause)
+        cause:rca_causes (description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes)
       `)
       .single()
 
@@ -402,7 +438,7 @@ export default function RCAAssessmentDetail() {
     }
 
     const chain = data as RCAFiveWhyChain
-    setFiveWhyChains([...fiveWhyChains, chain])
+    setFiveWhyChains((current) => [...current, chain])
     setFiveWhyStepsByChain((current) => ({ ...current, [chain.id]: [] }))
     setExpandedFiveWhyChainId(chain.id)
     setFiveWhySaving(false)
@@ -480,13 +516,54 @@ export default function RCAAssessmentDetail() {
     }
 
     const step = data as RCAFiveWhyStep
-    setFiveWhyStepsByChain({
-      ...fiveWhyStepsByChain,
-      [chain.id]: [...(fiveWhyStepsByChain[chain.id] || []), step],
-    })
+    setFiveWhyStepsByChain((current) => ({
+      ...current,
+      [chain.id]: [...(current[chain.id] || []), step],
+    }))
     setActiveFiveWhyFormChainId(null)
     setNewFiveWhyAnswer('')
     setFiveWhySaving(false)
+  }
+
+  const updateRootCauseOutcome = async (
+    cause: Pick<RCACause, 'id' | 'root_cause_confirmed_at'>,
+    status: RootCauseStatus,
+  ) => {
+    if (!user) return
+
+    setRootCauseOutcomeSavingId(cause.id)
+    setFiveWhyError(null)
+
+    const notes = (rootCauseNotesByCauseId[cause.id] || '').trim()
+    const patch: Partial<RCACause> = {
+      is_root_cause: true,
+      root_cause_status: status,
+      root_cause_confirmed_at:
+        status === 'confirmed'
+          ? cause.root_cause_confirmed_at || new Date().toISOString()
+          : null,
+      root_cause_confirmation_notes: status === 'candidate' ? null : notes || null,
+    }
+
+    const { error } = await supabase
+      .from('rca_causes')
+      .update(patch)
+      .eq('id', cause.id)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Errore aggiornamento esito Root Cause:', error)
+      setFiveWhyError('Errore durante il salvataggio dell esito Root Cause')
+      setRootCauseOutcomeSavingId(null)
+      return
+    }
+
+    updateCauseInLocalState(cause.id, patch)
+    setRootCauseNotesByCauseId((current) => ({
+      ...current,
+      [cause.id]: status === 'candidate' ? '' : notes,
+    }))
+    setRootCauseOutcomeSavingId(null)
   }
 
   const deleteFiveWhyChain = async (chainId: string) => {
@@ -702,7 +779,7 @@ export default function RCAAssessmentDetail() {
       console.error('Errore aggiunta categoria Ishikawa:', error)
       setFishboneError('Errore durante l aggiunta della categoria')
     } else {
-      setFishboneBranches([...fishboneBranches, data as RCAFishboneBranch])
+      setFishboneBranches((current) => [...current, data as RCAFishboneBranch])
     }
 
     setFishboneSaving(false)
@@ -745,7 +822,7 @@ export default function RCAAssessmentDetail() {
       console.error('Errore aggiunta categoria custom:', error)
       setFishboneError('Errore durante l aggiunta della categoria custom')
     } else {
-      setFishboneBranches([...fishboneBranches, data as RCAFishboneBranch])
+      setFishboneBranches((current) => [...current, data as RCAFishboneBranch])
       setCustomBranchName('')
       setShowCustomBranchForm(false)
     }
@@ -777,7 +854,7 @@ export default function RCAAssessmentDetail() {
       return
     }
 
-    setFishboneBranches(fishboneBranches.filter((item) => item.id !== branch.id))
+    setFishboneBranches((current) => current.filter((item) => item.id !== branch.id))
     setFishboneCausesByBranch((current) => {
       const next = { ...current }
       delete next[branch.id]
@@ -824,6 +901,9 @@ export default function RCAAssessmentDetail() {
         category: branch.name,
         source_type: 'fishbone',
         is_root_cause: false,
+        root_cause_status: null,
+        root_cause_confirmed_at: null,
+        root_cause_confirmation_notes: null,
       })
       .select()
       .single()
@@ -857,10 +937,10 @@ export default function RCAAssessmentDetail() {
     }
 
     const fishboneCause = { ...(fishboneCauseData as RCAFishboneCause), cause }
-    setFishboneCausesByBranch({
-      ...fishboneCausesByBranch,
-      [branch.id]: [...(fishboneCausesByBranch[branch.id] || []), fishboneCause],
-    })
+    setFishboneCausesByBranch((current) => ({
+      ...current,
+      [branch.id]: [...(current[branch.id] || []), fishboneCause],
+    }))
     setActiveCauseFormBranchId(null)
     setNewCauseDescription('')
     setCauseSaving(false)
@@ -871,10 +951,21 @@ export default function RCAAssessmentDetail() {
 
     const nextValue = !fishboneCause.cause.is_root_cause
     setCauseError(null)
+    const rootCausePatch = nextValue
+      ? {
+        is_root_cause: true,
+        root_cause_status: 'candidate' as RootCauseStatus,
+      }
+      : {
+        is_root_cause: false,
+        root_cause_status: null,
+        root_cause_confirmed_at: null,
+        root_cause_confirmation_notes: null,
+      }
 
     const { error } = await supabase
       .from('rca_causes')
-      .update({ is_root_cause: nextValue })
+      .update(rootCausePatch)
       .eq('id', fishboneCause.cause.id)
       .eq('user_id', user.id)
 
@@ -884,20 +975,7 @@ export default function RCAAssessmentDetail() {
       return
     }
 
-    setFishboneCausesByBranch((current) => {
-      const next = { ...current }
-      next[fishboneCause.branch_id] = (next[fishboneCause.branch_id] || []).map((item) => {
-        if (item.id !== fishboneCause.id || !item.cause) return item
-        return {
-          ...item,
-          cause: {
-            ...item.cause,
-            is_root_cause: nextValue,
-          },
-        }
-      })
-      return next
-    })
+    updateCauseInLocalState(fishboneCause.cause.id, rootCausePatch)
   }
 
   const startCreateAction = (causeId: string) => {
@@ -945,7 +1023,7 @@ export default function RCAAssessmentDetail() {
       })
       .select(`
         *,
-        cause:rca_causes (description, category, is_root_cause)
+        cause:rca_causes (description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes)
       `)
       .single()
 
@@ -962,7 +1040,7 @@ export default function RCAAssessmentDetail() {
     setActionDueDate('')
     setActionPriority('')
     setActionSuccessCauseId(cause.id)
-    setRcaActions([data as RCAActionPlan, ...rcaActions])
+    setRcaActions((current) => [data as RCAActionPlan, ...current])
     setActionSaving(false)
   }
 
@@ -985,6 +1063,116 @@ export default function RCAAssessmentDetail() {
     }
 
     setRcaActions((current) => current.filter((action) => action.id !== actionId))
+  }
+
+  const updateRCAActionStatus = async (action: RCAActionPlan, nextStatus: EditableRCAActionStatus) => {
+    if (!user || normalizeActionStatus(action.status) === nextStatus) return
+
+    setUpdatingActionStatusId(action.id)
+    setActionsError(null)
+
+    const nextCompletionDate =
+      nextStatus === 'completed'
+        ? action.completion_date || new Date().toISOString().split('T')[0]
+        : action.completion_date
+
+    const { data, error } = await supabase
+      .from('rca_action_plans')
+      .update({
+        status: nextStatus,
+        completion_date: nextCompletionDate,
+      })
+      .eq('id', action.id)
+      .eq('user_id', user.id)
+      .select(`
+        *,
+        cause:rca_causes (description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes)
+      `)
+      .single()
+
+    if (error) {
+      console.error('Errore aggiornamento stato azione RCA:', error)
+      setActionsError('Errore durante l aggiornamento dello stato dell azione RCA')
+      setUpdatingActionStatusId(null)
+      return
+    }
+
+    setRcaActions((current) =>
+      current.map((currentAction) =>
+        currentAction.id === action.id ? data as RCAActionPlan : currentAction,
+      ),
+    )
+    setUpdatingActionStatusId(null)
+  }
+
+  const startEditRCAAction = (action: RCAActionPlan) => {
+    setEditingActionId(action.id)
+    setActionsError(null)
+    setEditActionDescription(action.description)
+    setEditActionResponsible(action.responsible || '')
+    setEditActionDueDate(action.due_date || '')
+    setEditActionPriority(action.priority || '')
+    setEditActionStatus(normalizeActionStatus(action.status))
+  }
+
+  const cancelEditRCAAction = () => {
+    setEditingActionId(null)
+    setSavingEditActionId(null)
+    setEditActionDescription('')
+    setEditActionResponsible('')
+    setEditActionDueDate('')
+    setEditActionPriority('')
+    setEditActionStatus('planned')
+  }
+
+  const saveEditedRCAAction = async (action: RCAActionPlan) => {
+    if (!user) return
+
+    const description = editActionDescription.trim()
+    if (!description) {
+      setActionsError('La descrizione dell azione e obbligatoria')
+      return
+    }
+
+    setSavingEditActionId(action.id)
+    setActionsError(null)
+
+    const nextCompletionDate =
+      editActionStatus === 'completed'
+        ? action.completion_date || new Date().toISOString().split('T')[0]
+        : action.completion_date
+
+    const { data, error } = await supabase
+      .from('rca_action_plans')
+      .update({
+        description,
+        responsible: editActionResponsible.trim() || null,
+        due_date: editActionDueDate || null,
+        priority: editActionPriority || null,
+        status: editActionStatus,
+        completion_date: nextCompletionDate,
+      })
+      .eq('id', action.id)
+      .eq('user_id', user.id)
+      .select(`
+        *,
+        cause:rca_causes (description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes)
+      `)
+      .single()
+
+    if (error) {
+      console.error('Errore modifica azione RCA:', error)
+      setActionsError('Errore durante la modifica dell azione RCA')
+      setSavingEditActionId(null)
+      return
+    }
+
+    setRcaActions((current) =>
+      current.map((currentAction) =>
+        currentAction.id === action.id ? data as RCAActionPlan : currentAction,
+      ),
+    )
+    cancelEditRCAAction()
   }
 
   const updateAssessmentStatus = async (nextStatus: RCAAssessmentStatus) => {
@@ -1062,7 +1250,7 @@ export default function RCAAssessmentDetail() {
     if (tab === 'actions') return true
     if (tab === 'causes') return true
     if (tab === 'report') return true
-    if (tab === 'ishikawa') return methodology === 'fishbone' || methodology === 'combined'
+    if (tab === 'ishikawa') return methodology === 'fishbone' || methodology === 'combined' || methodology === '5_whys'
     if (tab === 'five_whys') return methodology === '5_whys' || methodology === 'fishbone' || methodology === 'combined'
     return false
   }
@@ -1097,27 +1285,87 @@ export default function RCAAssessmentDetail() {
     return getAllAssessmentCauses().filter((cause) => cause.is_root_cause)
   }
 
+  const getEffectiveRootCauseStatus = (cause: Pick<RCACause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
+    if (!cause?.is_root_cause) return null
+    if (cause.root_cause_status === 'confirmed') return 'confirmed'
+    if (cause.root_cause_status === 'not_confirmed') return 'not_confirmed'
+    return 'candidate'
+  }
+
+  const getRootCauseStatusLabel = (cause: Pick<RCACause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
+    const status = getEffectiveRootCauseStatus(cause)
+    if (status === 'confirmed') return 'Root Cause confermata'
+    if (status === 'not_confirmed') return 'Non confermata'
+    if (status === 'candidate') return 'Candidata Root Cause'
+    return null
+  }
+
+  const getRootCauseStatusColor = (cause: Pick<RCACause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
+    const status = getEffectiveRootCauseStatus(cause)
+    if (status === 'confirmed') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+    if (status === 'not_confirmed') return 'bg-slate-100 text-slate-600 border border-slate-200'
+    if (status === 'candidate') return 'bg-red-100 text-red-700 border border-red-200'
+    return ''
+  }
+
+  const renderRootCauseStatusBadge = (
+    cause: Pick<RCACause, 'is_root_cause' | 'root_cause_status'> | null | undefined,
+    className = 'px-2 py-1 text-xs',
+  ) => {
+    const label = getRootCauseStatusLabel(cause)
+    if (!label) return null
+
+    return (
+      <span className={`inline-flex items-center rounded-full font-medium ${className} ${getRootCauseStatusColor(cause)}`}>
+        {label}
+      </span>
+    )
+  }
+
+  const updateCauseInLocalState = (causeId: string, patch: Partial<RCACause>) => {
+    setFishboneCausesByBranch((current) => {
+      const next = { ...current }
+      Object.keys(next).forEach((branchId) => {
+        next[branchId] = (next[branchId] || []).map((item) => {
+          if (!item.cause || item.cause.id !== causeId) return item
+          return { ...item, cause: { ...item.cause, ...patch } }
+        })
+      })
+      return next
+    })
+
+    setFiveWhyChains((current) =>
+      current.map((chain) => {
+        if (chain.cause_id !== causeId || !chain.cause) return chain
+        return { ...chain, cause: { ...chain.cause, ...patch } }
+      }),
+    )
+
+    setRcaActions((current) =>
+      current.map((action) => {
+        if (action.cause_id !== causeId || !action.cause) return action
+        return { ...action, cause: { ...action.cause, ...patch } }
+      }),
+    )
+  }
+
   const getActionStatusLabel = (status: RCAActionPlan['status']) => {
-    switch (status) {
+    switch (normalizeActionStatus(status)) {
       case 'completed':
         return 'Completata'
       case 'in_progress':
         return 'In corso'
-      case 'cancelled':
-        return 'Annullata'
       default:
         return 'Pianificata'
     }
   }
 
   const getActionStatusColor = (status: RCAActionPlan['status']) => {
-    switch (status) {
+    switch (normalizeActionStatus(status)) {
       case 'completed':
         return 'bg-green-100 text-green-700'
       case 'in_progress':
         return 'bg-yellow-100 text-yellow-700'
-      case 'cancelled':
-        return 'bg-gray-100 text-gray-600'
       default:
         return 'bg-blue-100 text-blue-700'
     }
@@ -1166,6 +1414,9 @@ export default function RCAAssessmentDetail() {
       category: cause.category,
       source_type: cause.source_type,
       is_root_cause: cause.is_root_cause,
+      root_cause_status: cause.root_cause_status,
+      root_cause_confirmed_at: cause.root_cause_confirmed_at,
+      root_cause_confirmation_notes: cause.root_cause_confirmation_notes,
     }))
 
     const branches = fishboneBranches.map((branch) => ({
@@ -1181,6 +1432,9 @@ export default function RCAAssessmentDetail() {
           category: cause.category,
           source_type: cause.source_type,
           is_root_cause: cause.is_root_cause,
+          root_cause_status: cause.root_cause_status,
+          root_cause_confirmed_at: cause.root_cause_confirmed_at,
+          root_cause_confirmation_notes: cause.root_cause_confirmation_notes,
         })),
     }))
 
@@ -1194,6 +1448,8 @@ export default function RCAAssessmentDetail() {
         status: chain.status,
         cause_description: chain.cause?.description || null,
         cause_category: chain.cause?.category || null,
+        cause_root_cause_status: chain.cause ? getEffectiveRootCauseStatus(chain.cause) : null,
+        cause_root_cause_confirmation_notes: chain.cause?.root_cause_confirmation_notes || null,
         steps: (fiveWhyStepsByChain[chain.id] || []).map((step) => ({
           id: step.id,
           step_number: step.step_number,
@@ -1217,6 +1473,7 @@ export default function RCAAssessmentDetail() {
         due_date: action.due_date,
         priority: action.priority,
         status: action.status,
+        cause_root_cause_status: action.cause ? getEffectiveRootCauseStatus(action.cause) : null,
       })),
     }
   }
@@ -1277,10 +1534,10 @@ export default function RCAAssessmentDetail() {
       return (
         <button
           type="button"
-          onClick={() => changeTab('five_whys')}
+          onClick={() => changeTab('ishikawa')}
           className="inline-flex items-center justify-center w-full px-4 py-2.5 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700 transition"
         >
-          Inizia 5 Whys
+          Identifica causa candidata
         </button>
       )
     }
@@ -1314,188 +1571,6 @@ export default function RCAAssessmentDetail() {
           Continua con 5 Whys
         </button>
       </div>
-    )
-  }
-
-  const renderFishboneVisual = () => {
-    const effectTitle = assessment?.event_title || assessment?.title || fishboneDiagram?.title || 'Evento RCA'
-    const effectDescription = (assessment?.event_description || fishboneDiagram?.effect_statement || '').trim()
-    const shortEffectDescription = effectDescription.length > 140
-      ? `${effectDescription.slice(0, 140)}...`
-      : effectDescription
-
-    if (fishboneBranches.length === 0) {
-      return (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-          <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-800">Diagramma Ishikawa</h3>
-          <p className="text-gray-500 mt-2">
-            Attiva almeno una categoria per visualizzare la lisca di pesce.
-          </p>
-        </section>
-      )
-    }
-
-    const branchMetas = fishboneBranches.map((branch, index) => {
-      const x = fishboneBranches.length === 1
-        ? 470
-        : 135 + index * (720 / (fishboneBranches.length - 1))
-
-      return {
-        branch,
-        index,
-        x,
-        isTop: index % 2 === 0,
-        causes: fishboneCausesByBranch[branch.id] || [],
-      }
-    })
-
-    const renderCausePill = (fishboneCause: RCAFishboneCause) => {
-      const cause = fishboneCause.cause
-      const isCandidate = Boolean(cause?.is_root_cause)
-
-      return (
-        <div
-          key={fishboneCause.id}
-          className={`
-            truncate rounded-full border px-2 py-1 text-xs
-            ${isCandidate
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-white border-slate-200 text-slate-600'}
-          `}
-          title={cause?.description || 'Causa senza descrizione'}
-        >
-          {cause?.description || 'Causa senza descrizione'}
-        </div>
-      )
-    }
-
-    return (
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-5">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">Diagramma Ishikawa</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Vista grafica read-only delle categorie e delle cause candidate.
-            </p>
-          </div>
-          <span className="px-3 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100 text-sm font-medium self-start">
-            {fishboneBranches.length} categorie attive
-          </span>
-        </div>
-
-        <div className="hidden md:block overflow-x-auto">
-          <div className="relative h-[520px] min-w-[1120px] rounded-xl border border-slate-100 bg-slate-50/60">
-            <svg
-              className="absolute inset-0 h-full w-full"
-              viewBox="0 0 1120 520"
-              role="img"
-              aria-label="Diagramma Ishikawa read-only"
-            >
-              <line x1="80" y1="260" x2="880" y2="260" stroke="#0ea5e9" strokeWidth="5" strokeLinecap="round" />
-              <polygon points="880,248 910,260 880,272" fill="#0ea5e9" />
-              <line x1="100" y1="245" x2="135" y2="260" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-              <line x1="100" y1="275" x2="135" y2="260" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-
-              {branchMetas.map((meta) => {
-                const endY = meta.isTop ? 168 : 352
-                const cardY = meta.isTop ? 118 : 402
-
-                return (
-                  <g key={meta.branch.id}>
-                    <line
-                      x1={meta.x}
-                      y1="260"
-                      x2={meta.x - 40}
-                      y2={endY}
-                      stroke="#64748b"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      opacity="0.75"
-                    />
-                    <line
-                      x1={meta.x - 40}
-                      y1={endY}
-                      x2={meta.x}
-                      y2={cardY}
-                      stroke="#cbd5e1"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      opacity="0.9"
-                    />
-                    <circle cx={meta.x} cy="260" r="5" fill="#0ea5e9" />
-                  </g>
-                )
-              })}
-            </svg>
-
-            <div className="absolute left-[890px] top-1/2 w-[210px] -translate-y-1/2 rounded-xl border border-sky-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Effetto</p>
-              <h4 className="mt-1 text-base font-semibold text-slate-800">{effectTitle}</h4>
-              {shortEffectDescription && (
-                <p className="mt-2 text-xs leading-relaxed text-slate-500">{shortEffectDescription}</p>
-              )}
-            </div>
-
-            {branchMetas.map((meta) => {
-              const visibleCauses = meta.causes.slice(0, 3)
-              const remainingCauses = meta.causes.length - visibleCauses.length
-
-              return (
-                <div
-                  key={meta.branch.id}
-                  className="absolute w-[190px] -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
-                  style={{
-                    left: `${meta.x}px`,
-                    top: meta.isTop ? '34px' : '348px',
-                  }}
-                >
-                  <p className="text-sm font-semibold text-slate-800">{meta.branch.name}</p>
-                  <div className="mt-2 space-y-1.5">
-                    {visibleCauses.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-400">
-                        Nessuna causa
-                      </div>
-                    ) : (
-                      visibleCauses.map(renderCausePill)
-                    )}
-                    {remainingCauses > 0 && (
-                      <div className="text-xs font-medium text-slate-400">+{remainingCauses} altre cause</div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="md:hidden space-y-3">
-          <div className="rounded-xl border border-sky-100 bg-sky-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Effetto</p>
-            <h4 className="mt-1 font-semibold text-slate-800">{effectTitle}</h4>
-            {shortEffectDescription && (
-              <p className="mt-2 text-sm text-slate-600">{shortEffectDescription}</p>
-            )}
-          </div>
-
-          {fishboneBranches.map((branch) => {
-            const causes = fishboneCausesByBranch[branch.id] || []
-
-            return (
-              <div key={branch.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="font-semibold text-slate-800">{branch.name}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {causes.length === 0 ? (
-                    <span className="text-sm text-slate-400">Nessuna causa</span>
-                  ) : (
-                    causes.map(renderCausePill)
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </section>
     )
   }
 
@@ -1734,11 +1809,7 @@ export default function RCAAssessmentDetail() {
                                   </p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2 self-start">
-                                  {isCandidateRootCause && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 text-xs font-medium">
-                                      Candidata Root Cause
-                                    </span>
-                                  )}
+                                  {isCandidateRootCause && renderRootCauseStatusBadge(fishboneCause.cause)}
                                   {!isCandidateRootCause && (
                                     <button
                                       type="button"
@@ -1938,7 +2009,6 @@ export default function RCAAssessmentDetail() {
           )}
         </section>
 
-        {renderFishboneVisual()}
       </div>
     )
   }
@@ -1969,59 +2039,10 @@ export default function RCAAssessmentDetail() {
       const steps = fiveWhyStepsByChain[chain.id] || []
       const hasReachedFiveWhyLimit = steps.length >= FIVE_WHYS_MAX_STEPS
       const isExpanded = true
+      const rootCauseStatus = getEffectiveRootCauseStatus(chain.cause)
 
       return (
         <section key={chain.id} className="border-t border-sky-100 bg-white">
-          <div className="hidden">
-            <button
-              type="button"
-              onClick={() => toggleFiveWhyChain(chain.id)}
-              aria-expanded={isExpanded}
-              className="flex-1 text-left p-5 hover:bg-sky-50/50 transition"
-            >
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    {isExpanded ? (
-                      <ChevronDown className="w-5 h-5 text-sky-600 shrink-0" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
-                    )}
-                    <h2 className="font-semibold text-gray-800 truncate">
-                      {chain.cause?.description || chain.problem_statement || chain.title}
-                    </h2>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-3 ml-7">
-                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-                      {chain.cause?.category || 'Categoria non specificata'}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">
-                      {chain.status === 'completed' ? 'Completato' : 'Bozza'}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-medium">
-                      {steps.length}/{FIVE_WHYS_MAX_STEPS} perché
-                    </span>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 lg:text-right lg:max-w-xs">
-                  {isExpanded ? 'Chiudi analisi' : 'Apri analisi'}
-                </p>
-              </div>
-            </button>
-
-            <div className="flex items-start p-4 pl-0">
-              <button
-                type="button"
-                onClick={() => deleteFiveWhyChain(chain.id)}
-                aria-label="Elimina analisi 5 Whys"
-                title="Elimina analisi"
-                className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
           {isExpanded && (
           <div className="p-6 pt-5 border-t border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -2131,6 +2152,94 @@ export default function RCAAssessmentDetail() {
                 </div>
               </form>
             )}
+
+            {chain.cause_id && chain.cause && (
+              <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">Esito analisi</h4>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Conferma o escludi metodologicamente la causa candidata dopo la catena 5 Whys.
+                    </p>
+                    <div className="mt-3">
+                      {renderRootCauseStatusBadge(chain.cause)}
+                    </div>
+                  </div>
+                  {chain.cause.root_cause_confirmed_at && (
+                    <p className="text-xs text-gray-500">
+                      Confermata il {formatDate(chain.cause.root_cause_confirmed_at)}
+                    </p>
+                  )}
+                </div>
+
+                <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
+                  Nota esito opzionale
+                </label>
+                <textarea
+                  value={rootCauseNotesByCauseId[chain.cause_id] ?? chain.cause.root_cause_confirmation_notes ?? ''}
+                  onChange={(event) =>
+                    setRootCauseNotesByCauseId((current) => ({
+                      ...current,
+                      [chain.cause_id!]: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none"
+                  placeholder="Aggiungi una breve motivazione dell'esito..."
+                />
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {(rootCauseStatus === 'candidate' || rootCauseStatus === 'not_confirmed') && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateRootCauseOutcome(
+                          { id: chain.cause_id!, root_cause_confirmed_at: chain.cause?.root_cause_confirmed_at || null },
+                          'confirmed',
+                        )
+                      }
+                      disabled={rootCauseOutcomeSavingId === chain.cause_id}
+                      className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50"
+                    >
+                      Conferma Root Cause
+                    </button>
+                  )}
+                  {rootCauseStatus === 'candidate' && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateRootCauseOutcome(
+                          { id: chain.cause_id!, root_cause_confirmed_at: chain.cause?.root_cause_confirmed_at || null },
+                          'not_confirmed',
+                        )
+                      }
+                      disabled={rootCauseOutcomeSavingId === chain.cause_id}
+                      className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition disabled:opacity-50"
+                    >
+                      Non confermare
+                    </button>
+                  )}
+                  {(rootCauseStatus === 'confirmed' || rootCauseStatus === 'not_confirmed') && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateRootCauseOutcome(
+                          { id: chain.cause_id!, root_cause_confirmed_at: chain.cause?.root_cause_confirmed_at || null },
+                          'candidate',
+                        )
+                      }
+                      disabled={rootCauseOutcomeSavingId === chain.cause_id}
+                      className="px-3 py-2 rounded-lg border border-sky-200 bg-white text-sky-700 text-sm font-medium hover:bg-sky-50 transition disabled:opacity-50"
+                    >
+                      Riporta a candidata
+                    </button>
+                  )}
+                  {rootCauseOutcomeSavingId === chain.cause_id && (
+                    <span className="self-center text-xs text-gray-400">Salvataggio esito...</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           )}
         </section>
@@ -2211,9 +2320,7 @@ export default function RCAAssessmentDetail() {
                             <p className="font-medium text-gray-800">{cause.description}</p>
                           </div>
                           <div className="flex flex-wrap gap-2 mt-3 ml-7">
-                            <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 text-xs font-medium">
-                              Causa candidata
-                            </span>
+                            {renderRootCauseStatusBadge(cause, 'px-2.5 py-1 text-xs')}
                             <span className="px-2.5 py-1 rounded-full bg-white text-gray-600 border border-gray-100 text-xs font-medium">
                               {cause.category || 'Categoria non specificata'}
                             </span>
@@ -2330,11 +2437,7 @@ export default function RCAAssessmentDetail() {
                           <span className="px-2.5 py-1 rounded-full bg-white text-gray-600 border border-gray-100 text-xs font-medium">
                             {cause.category || 'Categoria non specificata'}
                           </span>
-                          {cause.is_root_cause && (
-                            <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 text-xs font-medium">
-                              Candidata Root Cause
-                            </span>
-                          )}
+                          {cause.is_root_cause && renderRootCauseStatusBadge(cause, 'px-2.5 py-1 text-xs')}
                           {linkedActions.length > 0 && (
                             <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
                               {linkedActionsLabel}
@@ -2450,29 +2553,137 @@ export default function RCAAssessmentDetail() {
                     </span>
                   </div>
                 </div>
+
+                {editingActionId === action.id && (
+                  <div className="mt-5 rounded-xl border border-sky-100 bg-sky-50/40 p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Descrizione azione *
+                        </label>
+                        <textarea
+                          value={editActionDescription}
+                          onChange={(event) => setEditActionDescription(event.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Responsabile</label>
+                        <input
+                          type="text"
+                          value={editActionResponsible}
+                          onChange={(event) => setEditActionResponsible(event.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Scadenza</label>
+                        <input
+                          type="date"
+                          value={editActionDueDate}
+                          onChange={(event) => setEditActionDueDate(event.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Priorita</label>
+                        <select
+                          value={editActionPriority}
+                          onChange={(event) => setEditActionPriority(event.target.value as '' | NonNullable<RCAActionPlan['priority']>)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        >
+                          {actionPriorityOptions.map((option) => (
+                            <option key={option.value || 'none'} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+                        <select
+                          value={editActionStatus}
+                          onChange={(event) => setEditActionStatus(event.target.value as EditableRCAActionStatus)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        >
+                          {actionStatusOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <button
+                        type="button"
+                        onClick={() => saveEditedRCAAction(action)}
+                        disabled={savingEditActionId === action.id}
+                        className="px-4 py-2 rounded-lg bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 transition disabled:opacity-60"
+                      >
+                        {savingEditActionId === action.id ? 'Salvataggio...' : 'Salva'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditRCAAction}
+                        disabled={savingEditActionId === action.id}
+                        className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-white transition disabled:opacity-60"
+                      >
+                        Annulla
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getActionStatusColor(action.status)}`}>
-                  {getActionStatusLabel(action.status)}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getActionPriorityColor(action.priority)}`}>
-                  {getActionPriorityLabel(action.priority)}
-                </span>
-                {action.cause?.is_root_cause && (
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200">
-                    Candidata Root Cause
+              <div className="flex flex-col items-start lg:items-end gap-2">
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getActionStatusColor(action.status)}`}>
+                    {getActionStatusLabel(action.status)}
                   </span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getActionPriorityColor(action.priority)}`}>
+                    {getActionPriorityLabel(action.priority)}
+                  </span>
+                  {action.cause?.is_root_cause && renderRootCauseStatusBadge(action.cause, 'px-3 py-1 text-sm')}
+                  <button
+                    type="button"
+                    onClick={() => deleteRCAAction(action.id)}
+                    aria-label="Elimina azione RCA"
+                    title="Elimina azione"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startEditRCAAction(action)}
+                    aria-label="Modifica azione RCA"
+                    title="Modifica azione"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-sky-100 text-sky-500 hover:bg-sky-50 hover:text-sky-700 transition"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+                <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+                  Stato azione
+                  <select
+                    value={normalizeActionStatus(action.status)}
+                    disabled={updatingActionStatusId === action.id}
+                    onChange={(event) => updateRCAActionStatus(action, event.target.value as EditableRCAActionStatus)}
+                    className="min-w-[170px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                  >
+                    {actionStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {updatingActionStatusId === action.id && (
+                  <p className="text-xs text-gray-400">Aggiornamento...</p>
                 )}
-                <button
-                  type="button"
-                  onClick={() => deleteRCAAction(action.id)}
-                  aria-label="Elimina azione RCA"
-                  title="Elimina azione"
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
             </div>
           </div>
@@ -2495,11 +2706,15 @@ export default function RCAAssessmentDetail() {
 
     const allCauses = getAllAssessmentCauses()
     const candidateCauses = allCauses.filter((cause) => cause.is_root_cause)
+    const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
+    const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
     const linkedFiveWhyChains = fiveWhyChains.filter((chain) => chain.cause_id)
     const kpis = [
       { label: 'Categorie attive', value: fishboneBranches.length },
       { label: 'Cause totali', value: allCauses.length },
       { label: 'Cause candidate', value: candidateCauses.length },
+      { label: 'Root cause confermate', value: confirmedRootCauses.length },
+      { label: 'Non confermate', value: notConfirmedRootCauses.length },
       { label: '5 Whys avviate', value: linkedFiveWhyChains.length },
       { label: 'Azioni correttive', value: rcaActions.length },
     ]
@@ -2517,98 +2732,7 @@ export default function RCAAssessmentDetail() {
       </section>
     )
 
-    const renderIshikawaReportDiagram = () => {
-      if (fishboneBranches.length >= 0) {
-        return renderIshikawaReportFishbone()
-      }
-
-      if (fishboneBranches.length === 0) {
-        return reportEmpty('Nessuna categoria Ishikawa attiva.')
-      }
-
-      const reportBranches = fishboneBranches.map((branch) => ({
-        branch,
-        causes: fishboneCausesByBranch[branch.id] || [],
-      }))
-
-      return (
-        <div ref={reportIshikawaRef} className="min-w-[1040px] rounded-xl border border-slate-100 bg-white p-5">
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Figura Ishikawa RCA</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Categorie attive e cause emerse nell'analisi. Tutte le cause sono visibili per il report.
-                </p>
-              </div>
-              <div className="rounded-xl border border-sky-200 bg-white px-4 py-3 shadow-sm lg:max-w-xs">
-                <p className="text-xs font-semibold uppercase text-sky-700">Effetto</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
-                  {assessment.event_title || assessment.title}
-                </p>
-              </div>
-            </div>
-
-            <div className="relative mt-5 hidden md:block h-10">
-              <div className="absolute left-0 right-12 top-1/2 h-1 -translate-y-1/2 rounded-full bg-sky-500"></div>
-              <div className="absolute right-8 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[8px] border-y-transparent border-l-[18px] border-l-sky-500"></div>
-              <div className="absolute left-4 top-1/2 h-px w-10 -translate-y-3 rotate-[-24deg] bg-slate-300"></div>
-              <div className="absolute left-4 top-1/2 h-px w-10 translate-y-3 rotate-[24deg] bg-slate-300"></div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {reportBranches.map(({ branch, causes }, index) => {
-                const hasCandidate = causes.some((fishboneCause) => fishboneCause.cause?.is_root_cause)
-
-                return (
-                  <div key={branch.id} className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${hasCandidate ? 'bg-red-200' : 'bg-sky-200'}`}></div>
-                    <div className="pl-3">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-slate-800">{branch.name}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {branch.source_type === 'standard' ? 'Categoria standard' : 'Categoria custom'} · {causes.length} {causes.length === 1 ? 'causa' : 'cause'}
-                          </p>
-                        </div>
-                        <span className="self-start rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500">
-                          #{index + 1}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 space-y-2">
-                        {causes.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">
-                            Nessuna causa
-                          </div>
-                        ) : (
-                          causes.map((fishboneCause) => (
-                        <span
-                          key={fishboneCause.id}
-                              className={`block rounded-lg border px-3 py-2 text-sm ${
-                            fishboneCause.cause?.is_root_cause
-                              ? 'bg-red-50 border-red-200 text-red-700'
-                              : 'bg-white border-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {fishboneCause.cause?.description || 'Causa senza descrizione'}
-                              {fishboneCause.cause?.is_root_cause && (
-                                <span className="ml-2 text-xs font-semibold">Candidata</span>
-                              )}
-                        </span>
-                          ))
-                        )}
-                      </div>
-                  </div>
-                </div>
-                )
-              })}
-            </div>
-          </div>
-
-        </div>
-      )
-    }
+    const renderIshikawaReportDiagram = () => renderIshikawaReportFishbone()
 
     const renderIshikawaReportFishbone = () => {
       if (fishboneBranches.length === 0) {
@@ -2781,14 +2905,20 @@ export default function RCAAssessmentDetail() {
                           <div
                             key={fishboneCause.id}
                             className={`rounded-lg border px-2.5 py-2 text-[11px] leading-snug ${
-                              fishboneCause.cause?.is_root_cause
-                                ? 'border-red-200 bg-red-50 text-red-700'
-                                : 'border-slate-200 bg-white text-slate-600'
+                              getEffectiveRootCauseStatus(fishboneCause.cause) === 'confirmed'
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : getEffectiveRootCauseStatus(fishboneCause.cause) === 'not_confirmed'
+                                  ? 'border-slate-200 bg-slate-50 text-slate-600'
+                                  : fishboneCause.cause?.is_root_cause
+                                    ? 'border-red-200 bg-red-50 text-red-700'
+                                    : 'border-slate-200 bg-white text-slate-600'
                             }`}
                           >
                             <span>{fishboneCause.cause?.description || 'Causa senza descrizione'}</span>
                             {fishboneCause.cause?.is_root_cause && (
-                              <span className="mt-1 block text-[10px] font-semibold">Candidata Root Cause</span>
+                              <span className="mt-1 block text-[10px] font-semibold">
+                                {getRootCauseStatusLabel(fishboneCause.cause)}
+                              </span>
                             )}
                           </div>
                         ))
@@ -2808,7 +2938,7 @@ export default function RCAAssessmentDetail() {
         <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-sky-700">Report RCA</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sky-700">Statistiche e report RCA</p>
               <h2 className="text-2xl font-semibold text-gray-900 mt-1">{assessment.title}</h2>
               <p className="text-gray-500 mt-2">
                 Vista riepilogativa strutturata dell'assessment, pronta per futura esportazione PDF.
@@ -2837,7 +2967,7 @@ export default function RCAAssessmentDetail() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
             {kpis.map((kpi) => (
               <div key={kpi.label} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
                 <p className="text-2xl font-semibold text-gray-900">{kpi.value}</p>
@@ -2883,16 +3013,60 @@ export default function RCAAssessmentDetail() {
 
         {reportSection(
           'Metodologia RCA',
-          <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-sm font-medium">
-              {assessment.methodology ? methodologyLabels[assessment.methodology] : 'Metodologia non definita'}
-            </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(assessment.severity)}`}>
-              {severityLabels[assessment.severity || 'medium']}
-            </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
-              {statusLabels[assessment.status]}
-            </span>
+          <div className="space-y-5">
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-sm font-medium">
+                {assessment.methodology ? methodologyLabels[assessment.methodology] : 'Metodologia non definita'}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(assessment.severity)}`}>
+                {severityLabels[assessment.severity || 'medium']}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
+                {statusLabels[assessment.status]}
+              </span>
+            </div>
+
+            <p className="text-sm leading-relaxed text-gray-600">
+              La Root Cause Analysis documenta in modo strutturato un evento, incidente o near miss per individuare
+              le cause che hanno contribuito all'accadimento e tradurle in azioni correttive verificabili.
+            </p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+                <h3 className="text-sm font-semibold text-sky-900">Ishikawa</h3>
+                <p className="text-sm text-sky-800/80 mt-2">
+                  Mappa causa-effetto usata per raccogliere cause candidate per categoria, mantenendo visibile
+                  il legame tra evento, fattori contributivi e aree coinvolte.
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-semibold text-slate-900">5 Whys</h3>
+                <p className="text-sm text-slate-600 mt-2">
+                  Approfondisce una causa candidata con domande iterative, fino a un esito metodologico:
+                  confermata, non confermata o ancora candidata.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="text-sm font-semibold text-gray-800">Esito e azioni correttive</h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Una causa candidata diventa Root Cause confermata solo dopo l'analisi. Le azioni correttive RCA
+                restano collegate alle cause e permettono di pianificare responsabilita, scadenze e verifica futura
+                dell'efficacia.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 border border-red-200">
+                  Candidata Root Cause
+                </span>
+                <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 border border-emerald-200">
+                  Root Cause confermata
+                </span>
+                <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 border border-slate-200">
+                  Non confermata
+                </span>
+              </div>
+            </div>
           </div>,
         )}
 
@@ -2941,6 +3115,7 @@ export default function RCAAssessmentDetail() {
                           <span className="px-2.5 py-1 rounded-full bg-white text-gray-600 border border-gray-100 text-xs font-medium">
                             {cause.category || 'Categoria non specificata'}
                           </span>
+                          {renderRootCauseStatusBadge(cause, 'px-2.5 py-1 text-xs')}
                           <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${analysisStatusClass}`}>
                             {analysisStatus}
                           </span>
@@ -2970,6 +3145,14 @@ export default function RCAAssessmentDetail() {
                         {remainingSteps > 0 && (
                           <p className="text-xs font-medium text-gray-400">+{remainingSteps} altri</p>
                         )}
+                      </div>
+                    )}
+                    {cause.root_cause_confirmation_notes && (
+                      <div className="mt-4 rounded-lg border border-gray-100 bg-white px-3 py-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Nota esito</p>
+                        <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                          {cause.root_cause_confirmation_notes}
+                        </p>
                       </div>
                     )}
                   </div>

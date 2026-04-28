@@ -18,6 +18,7 @@ import type { RCAAssessment, RCAAssessmentStatus, RCASeverity } from '../../type
 interface RCADashboardCause {
   id: string
   is_root_cause: boolean
+  root_cause_status: 'candidate' | 'confirmed' | 'not_confirmed' | null
 }
 
 interface RCADashboardFiveWhyChain {
@@ -26,8 +27,16 @@ interface RCADashboardFiveWhyChain {
 
 interface RCADashboardAction {
   id: string
-  status: 'planned' | 'in_progress' | 'completed' | 'cancelled'
+  status: string
   due_date: string | null
+}
+
+type DashboardActionStatus = 'planned' | 'in_progress' | 'completed'
+
+const normalizeActionStatus = (status: string): DashboardActionStatus => {
+  if (status === 'completed') return 'completed'
+  if (status === 'in_progress') return 'in_progress'
+  return 'planned'
 }
 
 const statusLabels: Record<RCAAssessmentStatus, string> = {
@@ -113,7 +122,7 @@ export default function RCADashboard() {
         .order('created_at', { ascending: false }),
       supabase
         .from('rca_causes')
-        .select('id, is_root_cause')
+        .select('id, is_root_cause, root_cause_status')
         .eq('user_id', user.id),
       supabase
         .from('rca_five_why_chains')
@@ -163,19 +172,22 @@ export default function RCADashboard() {
   }
 
   const actionCounts = {
-    planned: actions.filter((action) => action.status === 'planned').length,
-    inProgress: actions.filter((action) => action.status === 'in_progress').length,
-    completed: actions.filter((action) => action.status === 'completed').length,
-    cancelled: actions.filter((action) => action.status === 'cancelled').length,
+    planned: actions.filter((action) => normalizeActionStatus(action.status) === 'planned').length,
+    inProgress: actions.filter((action) => normalizeActionStatus(action.status) === 'in_progress').length,
+    completed: actions.filter((action) => normalizeActionStatus(action.status) === 'completed').length,
     overdue: actions.filter((action) =>
       Boolean(action.due_date) &&
       action.due_date! < today &&
-      action.status !== 'completed' &&
-      action.status !== 'cancelled',
+      normalizeActionStatus(action.status) !== 'completed',
     ).length,
   }
 
-  const candidateCauses = causes.filter((cause) => cause.is_root_cause).length
+  const candidateCauses = causes.filter((cause) =>
+    cause.root_cause_status === 'candidate' ||
+    (!cause.root_cause_status && cause.is_root_cause),
+  ).length
+  const confirmedRootCauses = causes.filter((cause) => cause.root_cause_status === 'confirmed').length
+  const notConfirmedRootCauses = causes.filter((cause) => cause.root_cause_status === 'not_confirmed').length
   const latestAssessments = assessments.slice(0, 5)
 
   const metricCards = [
@@ -196,6 +208,18 @@ export default function RCADashboard() {
       value: candidateCauses,
       icon: AlertTriangle,
       color: 'bg-red-100 text-red-600',
+    },
+    {
+      label: 'Root cause confermate',
+      value: confirmedRootCauses,
+      icon: CheckCircle,
+      color: 'bg-green-100 text-green-600',
+    },
+    {
+      label: 'Cause non confermate',
+      value: notConfirmedRootCauses,
+      icon: AlertCircle,
+      color: 'bg-slate-100 text-slate-600',
     },
     {
       label: '5 Whys avviate',
@@ -342,10 +366,6 @@ export default function RCADashboard() {
                 <div className="rounded-lg bg-green-50 p-3">
                   <p className="text-2xl font-bold text-green-700">{actionCounts.completed}</p>
                   <p className="text-xs text-gray-500">Completate</p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-2xl font-bold text-gray-700">{actionCounts.cancelled}</p>
-                  <p className="text-xs text-gray-500">Annullate</p>
                 </div>
                 <div className="col-span-2 rounded-lg bg-rose-50 p-3">
                   <p className="text-2xl font-bold text-rose-700">{actionCounts.overdue}</p>

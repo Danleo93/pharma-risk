@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, Calendar, ClipboardCheck, FileText, User } from 'lucide-react'
+import { AlertCircle, Calendar, ClipboardCheck, FileText, Pencil, Trash2, User } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 
-type RCAActionStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled'
+type RCAActionStatus = string
+type EditableRCAActionStatus = 'planned' | 'in_progress' | 'completed'
 type RCAPriority = 'low' | 'medium' | 'high' | 'critical'
+type RootCauseStatus = 'candidate' | 'confirmed' | 'not_confirmed'
 
 interface RCAActionWithRelations {
   id: string
@@ -25,6 +27,9 @@ interface RCAActionWithRelations {
     description: string
     category: string | null
     is_root_cause: boolean
+    root_cause_status: RootCauseStatus | null
+    root_cause_confirmed_at: string | null
+    root_cause_confirmation_notes: string | null
   } | null
   assessment?: {
     title: string
@@ -34,20 +39,47 @@ interface RCAActionWithRelations {
   } | null
 }
 
-const statusFilters: { value: 'all' | RCAActionStatus; label: string }[] = [
+const statusFilters: { value: 'all' | EditableRCAActionStatus; label: string }[] = [
   { value: 'all', label: 'Tutte' },
   { value: 'planned', label: 'Pianificate' },
   { value: 'in_progress', label: 'In corso' },
   { value: 'completed', label: 'Completate' },
-  { value: 'cancelled', label: 'Annullate' },
 ]
+
+const actionStatusOptions: { value: EditableRCAActionStatus; label: string }[] = [
+  { value: 'planned', label: 'Pianificata' },
+  { value: 'in_progress', label: 'In corso' },
+  { value: 'completed', label: 'Completata' },
+]
+
+const priorityOptions: { value: '' | RCAPriority; label: string }[] = [
+  { value: '', label: 'N/D' },
+  { value: 'low', label: 'Bassa' },
+  { value: 'medium', label: 'Media' },
+  { value: 'high', label: 'Alta' },
+  { value: 'critical', label: 'Critica' },
+]
+
+const normalizeActionStatus = (status: RCAActionStatus): EditableRCAActionStatus => {
+  if (status === 'completed') return 'completed'
+  if (status === 'in_progress') return 'in_progress'
+  return 'planned'
+}
 
 export default function RCAActions() {
   const { user } = useAuth()
   const [actions, setActions] = useState<RCAActionWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<'all' | RCAActionStatus>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | EditableRCAActionStatus>('all')
+  const [updatingActionId, setUpdatingActionId] = useState<string | null>(null)
+  const [editingActionId, setEditingActionId] = useState<string | null>(null)
+  const [savingEditActionId, setSavingEditActionId] = useState<string | null>(null)
+  const [editDescription, setEditDescription] = useState('')
+  const [editResponsible, setEditResponsible] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [editPriority, setEditPriority] = useState<'' | RCAPriority>('')
+  const [editStatus, setEditStatus] = useState<EditableRCAActionStatus>('planned')
 
   useEffect(() => {
     if (!user) return
@@ -65,7 +97,7 @@ export default function RCAActions() {
       .from('rca_action_plans')
       .select(`
         *,
-        cause:rca_causes(description, category, is_root_cause),
+        cause:rca_causes(description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes),
         assessment:rca_assessments(title, event_title, severity, status)
       `)
       .eq('user_id', user.id)
@@ -81,41 +113,208 @@ export default function RCAActions() {
     setLoading(false)
   }
 
+  const updateActionStatus = async (action: RCAActionWithRelations, nextStatus: EditableRCAActionStatus) => {
+    if (!user || normalizeActionStatus(action.status) === nextStatus) return
+
+    setUpdatingActionId(action.id)
+    setError(null)
+
+    const nextCompletionDate =
+      nextStatus === 'completed'
+        ? action.completion_date || new Date().toISOString().split('T')[0]
+        : action.completion_date
+
+    const { data, error: updateError } = await supabase
+      .from('rca_action_plans')
+      .update({
+        status: nextStatus,
+        completion_date: nextCompletionDate,
+      })
+      .eq('id', action.id)
+      .eq('user_id', user.id)
+      .select(`
+        *,
+        cause:rca_causes(description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes),
+        assessment:rca_assessments(title, event_title, severity, status)
+      `)
+      .single()
+
+    if (updateError) {
+      console.error('Errore aggiornamento stato azione RCA:', updateError)
+      setError('Errore durante l aggiornamento dello stato dell azione RCA')
+      setUpdatingActionId(null)
+      return
+    }
+
+    setActions((current) =>
+      current.map((currentAction) =>
+        currentAction.id === action.id ? data as RCAActionWithRelations : currentAction,
+      ),
+    )
+    setUpdatingActionId(null)
+  }
+
+  const deleteAction = async (actionId: string) => {
+    if (!user) return
+    if (!confirm('Eliminare questa azione correttiva RCA?')) return
+
+    const { error: deleteError } = await supabase
+      .from('rca_action_plans')
+      .delete()
+      .eq('id', actionId)
+      .eq('user_id', user.id)
+
+    if (deleteError) {
+      console.error('Errore eliminazione azione RCA:', deleteError)
+      setError('Errore durante l eliminazione dell azione RCA')
+      return
+    }
+
+    setActions((current) => current.filter((action) => action.id !== actionId))
+  }
+
+  const startEditAction = (action: RCAActionWithRelations) => {
+    setEditingActionId(action.id)
+    setError(null)
+    setEditDescription(action.description)
+    setEditResponsible(action.responsible || '')
+    setEditDueDate(action.due_date || '')
+    setEditPriority(action.priority || '')
+    setEditStatus(normalizeActionStatus(action.status))
+  }
+
+  const cancelEditAction = () => {
+    setEditingActionId(null)
+    setSavingEditActionId(null)
+    setEditDescription('')
+    setEditResponsible('')
+    setEditDueDate('')
+    setEditPriority('')
+    setEditStatus('planned')
+  }
+
+  const saveEditedAction = async (action: RCAActionWithRelations) => {
+    if (!user) return
+
+    const description = editDescription.trim()
+    if (!description) {
+      setError('La descrizione dell azione e obbligatoria')
+      return
+    }
+
+    setSavingEditActionId(action.id)
+    setError(null)
+
+    const nextCompletionDate =
+      editStatus === 'completed'
+        ? action.completion_date || new Date().toISOString().split('T')[0]
+        : action.completion_date
+
+    const { data, error: updateError } = await supabase
+      .from('rca_action_plans')
+      .update({
+        description,
+        responsible: editResponsible.trim() || null,
+        due_date: editDueDate || null,
+        priority: editPriority || null,
+        status: editStatus,
+        completion_date: nextCompletionDate,
+      })
+      .eq('id', action.id)
+      .eq('user_id', user.id)
+      .select(`
+        *,
+        cause:rca_causes(description, category, is_root_cause, root_cause_status, root_cause_confirmed_at, root_cause_confirmation_notes),
+        assessment:rca_assessments(title, event_title, severity, status)
+      `)
+      .single()
+
+    if (updateError) {
+      console.error('Errore modifica azione RCA:', updateError)
+      setError('Errore durante la modifica dell azione RCA')
+      setSavingEditActionId(null)
+      return
+    }
+
+    setActions((current) =>
+      current.map((currentAction) =>
+        currentAction.id === action.id ? data as RCAActionWithRelations : currentAction,
+      ),
+    )
+    cancelEditAction()
+  }
+
   const filteredActions = actions.filter((action) => {
-    return filterStatus === 'all' || action.status === filterStatus
+    return filterStatus === 'all' || normalizeActionStatus(action.status) === filterStatus
   })
 
   const stats = {
     total: actions.length,
-    planned: actions.filter((action) => action.status === 'planned').length,
+    planned: actions.filter((action) => normalizeActionStatus(action.status) === 'planned').length,
     inProgress: actions.filter((action) => action.status === 'in_progress').length,
     completed: actions.filter((action) => action.status === 'completed').length,
   }
 
   const getStatusLabel = (status: RCAActionStatus) => {
-    switch (status) {
+    switch (normalizeActionStatus(status)) {
       case 'completed':
         return 'Completata'
       case 'in_progress':
         return 'In corso'
-      case 'cancelled':
-        return 'Annullata'
       default:
         return 'Pianificata'
     }
   }
 
   const getStatusColor = (status: RCAActionStatus) => {
-    switch (status) {
+    switch (normalizeActionStatus(status)) {
       case 'completed':
         return 'bg-green-100 text-green-700'
       case 'in_progress':
         return 'bg-yellow-100 text-yellow-700'
-      case 'cancelled':
-        return 'bg-gray-100 text-gray-600'
       default:
         return 'bg-blue-100 text-blue-700'
     }
+  }
+
+  const getEffectiveRootCauseStatus = (
+    cause: Pick<NonNullable<RCAActionWithRelations['cause']>, 'is_root_cause' | 'root_cause_status'> | null | undefined,
+  ) => {
+    if (!cause?.is_root_cause) return null
+    if (cause.root_cause_status === 'confirmed') return 'confirmed'
+    if (cause.root_cause_status === 'not_confirmed') return 'not_confirmed'
+    return 'candidate'
+  }
+
+  const getRootCauseStatusLabel = (
+    cause: Pick<NonNullable<RCAActionWithRelations['cause']>, 'is_root_cause' | 'root_cause_status'> | null | undefined,
+  ) => {
+    const status = getEffectiveRootCauseStatus(cause)
+    if (status === 'confirmed') return 'Root Cause confermata'
+    if (status === 'not_confirmed') return 'Non confermata'
+    if (status === 'candidate') return 'Candidata Root Cause'
+    return null
+  }
+
+  const getRootCauseStatusColor = (
+    cause: Pick<NonNullable<RCAActionWithRelations['cause']>, 'is_root_cause' | 'root_cause_status'> | null | undefined,
+  ) => {
+    const status = getEffectiveRootCauseStatus(cause)
+    if (status === 'confirmed') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+    if (status === 'not_confirmed') return 'bg-slate-100 text-slate-600 border border-slate-200'
+    if (status === 'candidate') return 'bg-red-100 text-red-700 border border-red-200'
+    return ''
+  }
+
+  const renderRootCauseStatusBadge = (cause: RCAActionWithRelations['cause']) => {
+    const label = getRootCauseStatusLabel(cause)
+    if (!label) return null
+
+    return (
+      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRootCauseStatusColor(cause)}`}>
+        {label}
+      </span>
+    )
   }
 
   const getPriorityLabel = (priority: RCAPriority | null) => {
@@ -250,7 +449,7 @@ export default function RCAActions() {
           {filteredActions.map((action) => (
             <div key={action.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
               <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-semibold text-gray-800">{action.description}</p>
 
                   <div className="flex flex-wrap gap-2 mt-3">
@@ -263,11 +462,7 @@ export default function RCAActions() {
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(action.assessment?.severity)}`}>
                       Severita evento: {action.assessment?.severity || 'N/D'}
                     </span>
-                    {action.cause?.is_root_cause && (
-                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200">
-                        Candidata Root Cause
-                      </span>
-                    )}
+                    {action.cause?.is_root_cause && renderRootCauseStatusBadge(action.cause)}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-sm">
@@ -302,6 +497,127 @@ export default function RCAActions() {
                       </div>
                     </div>
                   </div>
+
+                  {editingActionId === action.id && (
+                    <div className="mt-5 rounded-xl border border-orange-100 bg-orange-50/40 p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Descrizione azione *
+                          </label>
+                          <textarea
+                            value={editDescription}
+                            onChange={(event) => setEditDescription(event.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Responsabile</label>
+                          <input
+                            type="text"
+                            value={editResponsible}
+                            onChange={(event) => setEditResponsible(event.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Scadenza</label>
+                          <input
+                            type="date"
+                            value={editDueDate}
+                            onChange={(event) => setEditDueDate(event.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Priorita</label>
+                          <select
+                            value={editPriority}
+                            onChange={(event) => setEditPriority(event.target.value as '' | RCAPriority)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                          >
+                            {priorityOptions.map((option) => (
+                              <option key={option.value || 'none'} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+                          <select
+                            value={editStatus}
+                            onChange={(event) => setEditStatus(event.target.value as EditableRCAActionStatus)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                          >
+                            {actionStatusOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <button
+                          type="button"
+                          onClick={() => saveEditedAction(action)}
+                          disabled={savingEditActionId === action.id}
+                          className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 transition disabled:opacity-60"
+                        >
+                          {savingEditActionId === action.id ? 'Salvataggio...' : 'Salva'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditAction}
+                          disabled={savingEditActionId === action.id}
+                          className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-white transition disabled:opacity-60"
+                        >
+                          Annulla
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col items-start lg:items-end gap-2">
+                  <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+                    Stato azione
+                    <select
+                      value={normalizeActionStatus(action.status)}
+                      disabled={updatingActionId === action.id}
+                      onChange={(event) => updateActionStatus(action, event.target.value as EditableRCAActionStatus)}
+                      className="min-w-[170px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                    >
+                      {actionStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {updatingActionId === action.id && (
+                    <p className="text-xs text-gray-400">Aggiornamento...</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => startEditAction(action)}
+                    aria-label="Modifica azione RCA"
+                    title="Modifica azione"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-orange-100 text-orange-500 hover:bg-orange-50 hover:text-orange-700 transition"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteAction(action.id)}
+                    aria-label="Elimina azione RCA"
+                    title="Elimina azione"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>

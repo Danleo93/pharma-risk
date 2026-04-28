@@ -170,8 +170,7 @@ export default function NewRCAAssessment() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
               >
                 <option value="">Da definire</option>
-                <option value="combined">Combinata</option>
-                <option value="5_whys">5 Whys</option>
+                <option value="combined">Ishikawa + 5 Whys</option>
                 <option value="fishbone">Ishikawa</option>
               </select>
             </div>
