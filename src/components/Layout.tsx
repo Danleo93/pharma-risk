@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   BookOpen,
+  Mail,
   ChevronDown,
   ChevronRight
 } from 'lucide-react'
@@ -97,6 +98,7 @@ export default function Layout({ children }: LayoutProps) {
   const generalItems: NavItem[] = [
     { path: '/settings', label: 'Impostazioni', icon: Settings },
     { path: '/docs', label: 'Guida', icon: BookOpen },
+    { path: '/contacts', label: 'Contatti', icon: Mail },
   ]
 
   const isActive = (item: NavItem) => {

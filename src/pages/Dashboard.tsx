@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { RiskAssessment, RiskItem, ActionPlan } from '../types'
 import { Plus, FileText, AlertTriangle, CheckCircle, Clock, Shield, ClipboardCheck } from 'lucide-react'
+import { getFMEAAssessmentStatusColor, getFMEAAssessmentStatusLabel } from '../lib/labels'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -64,28 +65,6 @@ export default function Dashboard() {
         return <Clock className="w-5 h-5 text-yellow-500" />
       default:
         return <FileText className="w-5 h-5 text-gray-400" />
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Completato'
-      case 'in_progress':
-        return 'In corso'
-      default:
-        return 'Bozza'
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-700'
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-700'
-      default:
-        return 'bg-gray-100 text-gray-700'
     }
   }
 
@@ -294,8 +273,8 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
-                  {getStatusLabel(assessment.status)}
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getFMEAAssessmentStatusColor(assessment.status)}`}>
+                  {getFMEAAssessmentStatusLabel(assessment.status)}
                 </span>
               </Link>
             ))}

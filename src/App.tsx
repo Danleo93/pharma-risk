@@ -1,6 +1,7 @@
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Docs from './pages/Docs'
+import Contacts from './pages/Contacts'
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -87,6 +88,7 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/docs" element={<ProtectedRoute><Docs /></ProtectedRoute>} />
+      <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
 
       {/* Analisi Proattiva - FMEA */}
       <Route path="/fmea/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

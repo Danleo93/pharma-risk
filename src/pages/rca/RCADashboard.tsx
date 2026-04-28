@@ -14,11 +14,20 @@ import {
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import type { RCAAssessment, RCAAssessmentStatus, RCASeverity } from '../../types'
+import {
+  getEffectiveRootCauseStatus,
+  getRCAAssessmentStatusColor,
+  getRCAAssessmentStatusLabel,
+  getRCASeverityColor,
+  getRCASeverityLabel,
+  normalizeRCAActionStatus,
+  type RootCauseStatus,
+} from '../../lib/labels'
 
 interface RCADashboardCause {
   id: string
   is_root_cause: boolean
-  root_cause_status: 'candidate' | 'confirmed' | 'not_confirmed' | null
+  root_cause_status: RootCauseStatus | null
 }
 
 interface RCADashboardFiveWhyChain {
@@ -29,59 +38,6 @@ interface RCADashboardAction {
   id: string
   status: string
   due_date: string | null
-}
-
-type DashboardActionStatus = 'planned' | 'in_progress' | 'completed'
-
-const normalizeActionStatus = (status: string): DashboardActionStatus => {
-  if (status === 'completed') return 'completed'
-  if (status === 'in_progress') return 'in_progress'
-  return 'planned'
-}
-
-const statusLabels: Record<RCAAssessmentStatus, string> = {
-  draft: 'Bozza',
-  in_progress: 'In corso',
-  action_planned: 'Azioni pianificate',
-  completed: 'Completato',
-  archived: 'Archiviato',
-}
-
-const severityLabels: Record<RCASeverity, string> = {
-  low: 'Bassa',
-  medium: 'Media',
-  high: 'Alta',
-  critical: 'Critica',
-}
-
-const getStatusColor = (status: RCAAssessmentStatus) => {
-  switch (status) {
-    case 'completed':
-      return 'bg-green-100 text-green-700'
-    case 'action_planned':
-      return 'bg-sky-100 text-sky-700'
-    case 'in_progress':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'archived':
-      return 'bg-gray-100 text-gray-600'
-    default:
-      return 'bg-slate-100 text-slate-700'
-  }
-}
-
-const getSeverityColor = (severity: RCASeverity) => {
-  switch (severity) {
-    case 'critical':
-      return 'bg-red-100 text-red-700'
-    case 'high':
-      return 'bg-orange-100 text-orange-700'
-    case 'medium':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'low':
-      return 'bg-green-100 text-green-700'
-    default:
-      return 'bg-gray-100 text-gray-600'
-  }
 }
 
 const formatDate = (date: string | null) => {
@@ -172,22 +128,19 @@ export default function RCADashboard() {
   }
 
   const actionCounts = {
-    planned: actions.filter((action) => normalizeActionStatus(action.status) === 'planned').length,
-    inProgress: actions.filter((action) => normalizeActionStatus(action.status) === 'in_progress').length,
-    completed: actions.filter((action) => normalizeActionStatus(action.status) === 'completed').length,
+    planned: actions.filter((action) => normalizeRCAActionStatus(action.status) === 'planned').length,
+    inProgress: actions.filter((action) => normalizeRCAActionStatus(action.status) === 'in_progress').length,
+    completed: actions.filter((action) => normalizeRCAActionStatus(action.status) === 'completed').length,
     overdue: actions.filter((action) =>
       Boolean(action.due_date) &&
       action.due_date! < today &&
-      normalizeActionStatus(action.status) !== 'completed',
+      normalizeRCAActionStatus(action.status) !== 'completed',
     ).length,
   }
 
-  const candidateCauses = causes.filter((cause) =>
-    cause.root_cause_status === 'candidate' ||
-    (!cause.root_cause_status && cause.is_root_cause),
-  ).length
-  const confirmedRootCauses = causes.filter((cause) => cause.root_cause_status === 'confirmed').length
-  const notConfirmedRootCauses = causes.filter((cause) => cause.root_cause_status === 'not_confirmed').length
+  const candidateCauses = causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'candidate').length
+  const confirmedRootCauses = causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed').length
+  const notConfirmedRootCauses = causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed').length
   const latestAssessments = assessments.slice(0, 5)
 
   const metricCards = [
@@ -317,8 +270,8 @@ export default function RCADashboard() {
               <div className="space-y-3">
                 {Object.entries(assessmentStatusCounts).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between gap-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(status as RCAAssessmentStatus)}`}>
-                      {statusLabels[status as RCAAssessmentStatus]}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAAssessmentStatusColor(status as RCAAssessmentStatus)}`}>
+                      {getRCAAssessmentStatusLabel(status as RCAAssessmentStatus)}
                     </span>
                     <span className="text-lg font-semibold text-gray-800">{count}</span>
                   </div>
@@ -337,8 +290,8 @@ export default function RCADashboard() {
               <div className="grid grid-cols-2 gap-3">
                 {Object.entries(severityCounts).map(([severity, count]) => (
                   <div key={severity} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(severity as RCASeverity)}`}>
-                      {severityLabels[severity as RCASeverity]}
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getRCASeverityColor(severity as RCASeverity)}`}>
+                      {getRCASeverityLabel(severity as RCASeverity)}
                     </span>
                     <p className="text-2xl font-bold text-gray-800 mt-2">{count}</p>
                   </div>
@@ -408,12 +361,12 @@ export default function RCADashboard() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 md:justify-end">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
-                      {statusLabels[assessment.status]}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAAssessmentStatusColor(assessment.status)}`}>
+                      {getRCAAssessmentStatusLabel(assessment.status)}
                     </span>
                     {assessment.severity && (
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(assessment.severity)}`}>
-                        {severityLabels[assessment.severity]}
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCASeverityColor(assessment.severity)}`}>
+                        {getRCASeverityLabel(assessment.severity)}
                       </span>
                     )}
                   </div>

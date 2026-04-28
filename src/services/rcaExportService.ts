@@ -3,6 +3,16 @@ import autoTable from 'jspdf-autotable'
 import { toPng } from 'html-to-image'
 import * as XLSX from 'xlsx'
 import type { RCAAssessment } from '../types'
+import {
+  RCA_EVENT_TYPE_LABELS,
+  RCA_METHODOLOGY_LABELS,
+  getEffectiveRootCauseStatus,
+  getRCAActionStatusLabel,
+  getRCAAssessmentStatusLabel,
+  getRCAPriorityLabel,
+  getRCASeverityLabel,
+  getRootCauseStatusLabel,
+} from '../lib/labels'
 
 export interface RCAExportCause {
   id: string
@@ -63,46 +73,8 @@ export interface RCAExportData {
   actions: RCAExportAction[]
 }
 
-const statusLabels: Record<string, string> = {
-  draft: 'Bozza',
-  in_progress: 'In corso',
-  action_planned: 'Azioni pianificate',
-  completed: 'Completato',
-  archived: 'Archiviato',
-  planned: 'Pianificata',
-}
-
-const getStatusLabel = (status: string) => {
-  return statusLabels[status] || statusLabels.planned
-}
-
-const methodologyLabels: Record<string, string> = {
-  '5_whys': '5 Whys',
-  fishbone: 'Ishikawa',
-  combined: 'Ishikawa + 5 Whys',
-}
-
-const severityLabels: Record<string, string> = {
-  low: 'Bassa',
-  medium: 'Media',
-  high: 'Alta',
-  critical: 'Critica',
-}
-
-const eventTypeLabels: Record<string, string> = {
-  incident: 'Incidente',
-  near_miss: 'Near miss',
-  non_conformity: 'Non conformita',
-  complaint: 'Reclamo',
-  other: 'Altro',
-}
-
-const priorityLabels: Record<string, string> = {
-  low: 'Bassa',
-  medium: 'Media',
-  high: 'Alta',
-  critical: 'Critica',
-}
+const methodologyLabels = RCA_METHODOLOGY_LABELS
+const eventTypeLabels = RCA_EVENT_TYPE_LABELS
 
 const formatDate = (date: string | null | undefined) => {
   return date ? new Date(date).toLocaleDateString('it-IT') : 'N/D'
@@ -131,26 +103,8 @@ const getFiveWhyStatus = (stepsCount: number) => {
   return 'In corso'
 }
 
-const getEffectiveRootCauseStatus = (cause: Pick<RCAExportCause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
-  if (!cause?.is_root_cause) return null
-  if (cause.root_cause_status === 'confirmed') return 'confirmed'
-  if (cause.root_cause_status === 'not_confirmed') return 'not_confirmed'
-  return 'candidate'
-}
-
-const getRootCauseStatusLabel = (cause: Pick<RCAExportCause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
-  const status = getEffectiveRootCauseStatus(cause)
-  if (status === 'confirmed') return 'Root Cause confermata'
-  if (status === 'not_confirmed') return 'Non confermata'
-  if (status === 'candidate') return 'Candidata Root Cause'
-  return 'Non candidata'
-}
-
 const getRootCauseStatusLabelFromStatus = (status: string | null | undefined) => {
-  if (status === 'confirmed') return 'Root Cause confermata'
-  if (status === 'not_confirmed') return 'Non confermata'
-  if (status === 'candidate') return 'Candidata Root Cause'
-  return 'Non candidata'
+  return getRootCauseStatusLabel(status, 'Non candidata') || 'Non candidata'
 }
 
 const getRootCauseExportColors = (cause: Pick<RCAExportCause, 'is_root_cause' | 'root_cause_status'> | null | undefined) => {
@@ -583,7 +537,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
       causesContainer.appendChild(causePill)
       causePill.appendChild(document.createTextNode(cause.description || 'Causa senza descrizione'))
       if (cause.is_root_cause) {
-        causePill.appendChild(createTextElement('span', getRootCauseStatusLabel(cause), {
+        causePill.appendChild(createTextElement('span', getRootCauseStatusLabel(cause, 'Non candidata') || 'Non candidata', {
           display: 'block',
           'margin-top': '4px',
           'font-size': '10px',
@@ -778,8 +732,8 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
     theme: 'plain',
     body: [
       ['Metodologia', assessment.methodology ? methodologyLabels[assessment.methodology] : 'N/D'],
-      ['Severita', assessment.severity ? severityLabels[assessment.severity] : 'N/D'],
-      ['Stato', getStatusLabel(assessment.status)],
+      ['Severita', assessment.severity ? getRCASeverityLabel(assessment.severity) : 'N/D'],
+      ['Stato', getRCAAssessmentStatusLabel(assessment.status)],
     ],
     styles: { fontSize: 9, cellPadding: 2 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 } },
@@ -827,7 +781,7 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
         return [
           cause.description,
           safeValue(cause.category),
-          getRootCauseStatusLabel(cause),
+          getRootCauseStatusLabel(cause, 'Non candidata') || 'Non candidata',
           getFiveWhyStatus(steps.length),
           preview ? `${preview}${remaining}` : 'Nessun perche compilato',
           safeValue(cause.root_cause_confirmation_notes),
@@ -852,8 +806,8 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
         getRootCauseStatusLabelFromStatus(action.cause_root_cause_status),
         safeValue(action.responsible),
         formatDate(action.due_date),
-        action.priority ? priorityLabels[action.priority] : 'N/D',
-        getStatusLabel(action.status),
+        action.priority ? getRCAPriorityLabel(action.priority) : 'N/D',
+        getRCAActionStatusLabel(action.status),
       ]),
     styles: { fontSize: 8, cellPadding: 2 },
     headStyles: { fillColor: [34, 197, 94] },
@@ -892,8 +846,8 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     ['Ora evento', assessment.event_time ? assessment.event_time.slice(0, 5) : 'N/D'],
     ['Area coinvolta', [assessment.location, assessment.department].filter(Boolean).join(' - ') || 'N/D'],
     ['Metodologia', assessment.methodology ? methodologyLabels[assessment.methodology] : 'N/D'],
-    ['Severita', assessment.severity ? severityLabels[assessment.severity] : 'N/D'],
-    ['Stato', getStatusLabel(assessment.status)],
+    ['Severita', assessment.severity ? getRCASeverityLabel(assessment.severity) : 'N/D'],
+    ['Stato', getRCAAssessmentStatusLabel(assessment.status)],
   ]), 'Info')
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
@@ -929,7 +883,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     Categoria: safeValue(cause.category),
     Fonte: cause.source_type,
     CandidataRootCause: cause.is_root_cause ? 'Si' : 'No',
-    EsitoRootCause: getRootCauseStatusLabel(cause),
+    EsitoRootCause: getRootCauseStatusLabel(cause, 'Non candidata') || 'Non candidata',
     DataConferma: formatDate(cause.root_cause_confirmed_at),
     NoteConferma: safeValue(cause.root_cause_confirmation_notes),
   }))), 'Cause')
@@ -965,8 +919,8 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     EsitoCausa: getRootCauseStatusLabelFromStatus(action.cause_root_cause_status),
     Responsabile: safeValue(action.responsible),
     Scadenza: formatDate(action.due_date),
-    Priorita: action.priority ? priorityLabels[action.priority] : 'N/D',
-    Stato: getStatusLabel(action.status),
+    Priorita: action.priority ? getRCAPriorityLabel(action.priority) : 'N/D',
+    Stato: getRCAActionStatusLabel(action.status),
   }))), 'Azioni')
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([

@@ -21,7 +21,7 @@ export default function NewRCAAssessment() {
   const [location, setLocation] = useState('')
   const [department, setDepartment] = useState('')
   const [severity, setSeverity] = useState<RCASeverity | ''>('')
-  const [methodology, setMethodology] = useState<RCAMethodology | ''>('combined')
+  const [methodology, setMethodology] = useState<RCAMethodology>('combined')
   const [immediateContainment, setImmediateContainment] = useState('')
 
   const handleSubmit = async () => {
@@ -41,7 +41,7 @@ export default function NewRCAAssessment() {
         title: title.trim(),
         description: description.trim() || null,
         status: 'draft',
-        methodology: methodology || null,
+        methodology,
         event_title: eventTitle.trim(),
         event_description: eventDescription.trim() || null,
         event_type: eventType || null,
@@ -163,16 +163,18 @@ export default function NewRCAAssessment() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Metodologia prevista</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Metodologia di analisi</label>
               <select
                 value={methodology}
-                onChange={(e) => setMethodology(e.target.value as RCAMethodology | '')}
+                onChange={(e) => setMethodology(e.target.value as RCAMethodology)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
               >
-                <option value="">Da definire</option>
                 <option value="combined">Ishikawa + 5 Whys</option>
                 <option value="fishbone">Ishikawa</option>
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Il percorso consigliato usa Ishikawa per identificare cause candidate e 5 Whys per approfondirle.
+              </p>
             </div>
           </div>
 

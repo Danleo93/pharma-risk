@@ -3,22 +3,13 @@ import { Link } from 'react-router-dom'
 import { AlertCircle, CheckCircle, Clock, FileText, Plus, Search, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import type { RCAAssessment, RCAAssessmentStatus, RCASeverity } from '../../types'
-
-const statusLabels: Record<RCAAssessmentStatus, string> = {
-  draft: 'Bozza',
-  in_progress: 'In corso',
-  action_planned: 'Azioni pianificate',
-  completed: 'Completato',
-  archived: 'Archiviato',
-}
-
-const severityLabels: Record<RCASeverity, string> = {
-  low: 'Bassa',
-  medium: 'Media',
-  high: 'Alta',
-  critical: 'Critica',
-}
+import type { RCAAssessment, RCAAssessmentStatus } from '../../types'
+import {
+  getRCAAssessmentStatusColor,
+  getRCAAssessmentStatusLabel,
+  getRCASeverityColor,
+  getRCASeverityLabel,
+} from '../../lib/labels'
 
 export default function RCAAssessments() {
   const { user } = useAuth()
@@ -93,36 +84,6 @@ export default function RCAAssessments() {
         return <Clock className="w-5 h-5 text-yellow-500" />
       default:
         return <FileText className="w-5 h-5 text-gray-400" />
-    }
-  }
-
-  const getStatusColor = (status: RCAAssessmentStatus) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-700'
-      case 'action_planned':
-        return 'bg-sky-100 text-sky-700'
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-700'
-      case 'archived':
-        return 'bg-gray-100 text-gray-600'
-      default:
-        return 'bg-slate-100 text-slate-700'
-    }
-  }
-
-  const getSeverityColor = (severity: RCASeverity | null) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-100 text-red-700'
-      case 'high':
-        return 'bg-orange-100 text-orange-700'
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-700'
-      case 'low':
-        return 'bg-green-100 text-green-700'
-      default:
-        return 'bg-gray-100 text-gray-600'
     }
   }
 
@@ -251,11 +212,11 @@ export default function RCAAssessments() {
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(assessment.status)}`}>
-                    {statusLabels[assessment.status]}
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAAssessmentStatusColor(assessment.status)}`}>
+                    {getRCAAssessmentStatusLabel(assessment.status)}
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(assessment.severity)}`}>
-                    {assessment.severity ? severityLabels[assessment.severity] : 'N/D'}
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCASeverityColor(assessment.severity)}`}>
+                    {assessment.severity ? getRCASeverityLabel(assessment.severity) : 'N/D'}
                   </span>
                   <Link
                     to={`/rca/assessment/${assessment.id}`}

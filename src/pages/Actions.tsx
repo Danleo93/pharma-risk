@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ActionPlan, RiskItem, RiskAssessment } from '../types'
 import { CheckCircle, Clock, AlertCircle, Plus, X, Calendar, User, FileText, ChevronRight, Filter } from 'lucide-react'
+import { getFMEAActionStatusColor, getFMEAActionStatusLabel, getFMEARiskClassColor } from '../lib/labels'
 
 interface ActionWithRisk extends ActionPlan {
   risk_item?: RiskItem & {
@@ -209,31 +210,6 @@ export default function Actions() {
     }
   }
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'completed': return 'Completata'
-      case 'in_progress': return 'In Corso'
-      default: return 'Pianificata'
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-700'
-      case 'in_progress': return 'bg-yellow-100 text-yellow-700'
-      default: return 'bg-blue-100 text-blue-700'
-    }
-  }
-
-  const getRiskClassColor = (riskClass: string | null) => {
-    switch (riskClass) {
-      case 'Alta': return 'bg-red-100 text-red-700'
-      case 'Media': return 'bg-yellow-100 text-yellow-700'
-      case 'Bassa': return 'bg-green-100 text-green-700'
-      default: return 'bg-gray-100 text-gray-700'
-    }
-  }
-
   const stats = {
     total: actions.length,
     planned: actions.filter(a => a.status === 'planned').length,
@@ -308,7 +284,7 @@ export default function Actions() {
                   : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
               }`}
             >
-              {f === 'all' ? 'Tutte' : getStatusLabel(f)}
+              {f === 'all' ? 'Tutte' : getFMEAActionStatusLabel(f)}
             </button>
           ))}
         </div>
@@ -395,7 +371,7 @@ export default function Actions() {
                         <select
                           value={action.status}
                           onChange={(e) => updateActionStatus(action.id, e.target.value)}
-                          className={`px-3 py-1 rounded-full text-sm font-medium border-0 ${getStatusColor(action.status)}`}
+                          className={`px-3 py-1 rounded-full text-sm font-medium border-0 ${getFMEAActionStatusColor(action.status)}`}
                         >
                           <option value="planned">Pianificata</option>
                           <option value="in_progress">In Corso</option>
@@ -535,7 +511,7 @@ export default function Actions() {
                                 {risk.risk_catalog_base?.category || 'Personalizzato'} • RPN: {risk.rpn || 'N/D'}
                               </p>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskClassColor(risk.risk_class)}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFMEARiskClassColor(risk.risk_class)}`}>
                               {risk.risk_class || 'N/D'}
                             </span>
                           </div>

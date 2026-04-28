@@ -2,11 +2,24 @@ import { useEffect, useState } from 'react'
 import { AlertCircle, Calendar, ClipboardCheck, FileText, Pencil, Trash2, User } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import {
+  RCA_ACTION_STATUS_FILTER_OPTIONS,
+  RCA_ACTION_STATUS_OPTIONS,
+  RCA_PRIORITY_OPTIONS,
+  getRCAActionStatusColor,
+  getRCAActionStatusLabel,
+  getRCAPriorityColor,
+  getRCAPriorityLabel,
+  getRCASeverityColor,
+  getRootCauseStatusColor,
+  getRootCauseStatusLabel,
+  normalizeRCAActionStatus,
+  type RCAActionStatus as EditableRCAActionStatus,
+  type RCAPriority,
+  type RootCauseStatus,
+} from '../../lib/labels'
 
 type RCAActionStatus = string
-type EditableRCAActionStatus = 'planned' | 'in_progress' | 'completed'
-type RCAPriority = 'low' | 'medium' | 'high' | 'critical'
-type RootCauseStatus = 'candidate' | 'confirmed' | 'not_confirmed'
 
 interface RCAActionWithRelations {
   id: string
@@ -39,32 +52,9 @@ interface RCAActionWithRelations {
   } | null
 }
 
-const statusFilters: { value: 'all' | EditableRCAActionStatus; label: string }[] = [
-  { value: 'all', label: 'Tutte' },
-  { value: 'planned', label: 'Pianificate' },
-  { value: 'in_progress', label: 'In corso' },
-  { value: 'completed', label: 'Completate' },
-]
-
-const actionStatusOptions: { value: EditableRCAActionStatus; label: string }[] = [
-  { value: 'planned', label: 'Pianificata' },
-  { value: 'in_progress', label: 'In corso' },
-  { value: 'completed', label: 'Completata' },
-]
-
-const priorityOptions: { value: '' | RCAPriority; label: string }[] = [
-  { value: '', label: 'N/D' },
-  { value: 'low', label: 'Bassa' },
-  { value: 'medium', label: 'Media' },
-  { value: 'high', label: 'Alta' },
-  { value: 'critical', label: 'Critica' },
-]
-
-const normalizeActionStatus = (status: RCAActionStatus): EditableRCAActionStatus => {
-  if (status === 'completed') return 'completed'
-  if (status === 'in_progress') return 'in_progress'
-  return 'planned'
-}
+const statusFilters = RCA_ACTION_STATUS_FILTER_OPTIONS
+const actionStatusOptions = RCA_ACTION_STATUS_OPTIONS
+const priorityOptions = RCA_PRIORITY_OPTIONS
 
 export default function RCAActions() {
   const { user } = useAuth()
@@ -114,7 +104,7 @@ export default function RCAActions() {
   }
 
   const updateActionStatus = async (action: RCAActionWithRelations, nextStatus: EditableRCAActionStatus) => {
-    if (!user || normalizeActionStatus(action.status) === nextStatus) return
+    if (!user || normalizeRCAActionStatus(action.status) === nextStatus) return
 
     setUpdatingActionId(action.id)
     setError(null)
@@ -180,7 +170,7 @@ export default function RCAActions() {
     setEditResponsible(action.responsible || '')
     setEditDueDate(action.due_date || '')
     setEditPriority(action.priority || '')
-    setEditStatus(normalizeActionStatus(action.status))
+    setEditStatus(normalizeRCAActionStatus(action.status))
   }
 
   const cancelEditAction = () => {
@@ -245,65 +235,14 @@ export default function RCAActions() {
   }
 
   const filteredActions = actions.filter((action) => {
-    return filterStatus === 'all' || normalizeActionStatus(action.status) === filterStatus
+    return filterStatus === 'all' || normalizeRCAActionStatus(action.status) === filterStatus
   })
 
   const stats = {
     total: actions.length,
-    planned: actions.filter((action) => normalizeActionStatus(action.status) === 'planned').length,
-    inProgress: actions.filter((action) => action.status === 'in_progress').length,
-    completed: actions.filter((action) => action.status === 'completed').length,
-  }
-
-  const getStatusLabel = (status: RCAActionStatus) => {
-    switch (normalizeActionStatus(status)) {
-      case 'completed':
-        return 'Completata'
-      case 'in_progress':
-        return 'In corso'
-      default:
-        return 'Pianificata'
-    }
-  }
-
-  const getStatusColor = (status: RCAActionStatus) => {
-    switch (normalizeActionStatus(status)) {
-      case 'completed':
-        return 'bg-green-100 text-green-700'
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-700'
-      default:
-        return 'bg-blue-100 text-blue-700'
-    }
-  }
-
-  const getEffectiveRootCauseStatus = (
-    cause: Pick<NonNullable<RCAActionWithRelations['cause']>, 'is_root_cause' | 'root_cause_status'> | null | undefined,
-  ) => {
-    if (!cause?.is_root_cause) return null
-    if (cause.root_cause_status === 'confirmed') return 'confirmed'
-    if (cause.root_cause_status === 'not_confirmed') return 'not_confirmed'
-    return 'candidate'
-  }
-
-  const getRootCauseStatusLabel = (
-    cause: Pick<NonNullable<RCAActionWithRelations['cause']>, 'is_root_cause' | 'root_cause_status'> | null | undefined,
-  ) => {
-    const status = getEffectiveRootCauseStatus(cause)
-    if (status === 'confirmed') return 'Root Cause confermata'
-    if (status === 'not_confirmed') return 'Non confermata'
-    if (status === 'candidate') return 'Candidata Root Cause'
-    return null
-  }
-
-  const getRootCauseStatusColor = (
-    cause: Pick<NonNullable<RCAActionWithRelations['cause']>, 'is_root_cause' | 'root_cause_status'> | null | undefined,
-  ) => {
-    const status = getEffectiveRootCauseStatus(cause)
-    if (status === 'confirmed') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-    if (status === 'not_confirmed') return 'bg-slate-100 text-slate-600 border border-slate-200'
-    if (status === 'candidate') return 'bg-red-100 text-red-700 border border-red-200'
-    return ''
+    planned: actions.filter((action) => normalizeRCAActionStatus(action.status) === 'planned').length,
+    inProgress: actions.filter((action) => normalizeRCAActionStatus(action.status) === 'in_progress').length,
+    completed: actions.filter((action) => normalizeRCAActionStatus(action.status) === 'completed').length,
   }
 
   const renderRootCauseStatusBadge = (cause: RCAActionWithRelations['cause']) => {
@@ -315,51 +254,6 @@ export default function RCAActions() {
         {label}
       </span>
     )
-  }
-
-  const getPriorityLabel = (priority: RCAPriority | null) => {
-    switch (priority) {
-      case 'critical':
-        return 'Critica'
-      case 'high':
-        return 'Alta'
-      case 'medium':
-        return 'Media'
-      case 'low':
-        return 'Bassa'
-      default:
-        return 'N/D'
-    }
-  }
-
-  const getPriorityColor = (priority: RCAPriority | null) => {
-    switch (priority) {
-      case 'critical':
-        return 'bg-red-100 text-red-700'
-      case 'high':
-        return 'bg-orange-100 text-orange-700'
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-700'
-      case 'low':
-        return 'bg-green-100 text-green-700'
-      default:
-        return 'bg-gray-100 text-gray-600'
-    }
-  }
-
-  const getSeverityColor = (severity: string | null | undefined) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-100 text-red-700'
-      case 'high':
-        return 'bg-orange-100 text-orange-700'
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-700'
-      case 'low':
-        return 'bg-green-100 text-green-700'
-      default:
-        return 'bg-gray-100 text-gray-600'
-    }
   }
 
   const formatDate = (date: string | null) => {
@@ -453,13 +347,13 @@ export default function RCAActions() {
                   <p className="font-semibold text-gray-800">{action.description}</p>
 
                   <div className="flex flex-wrap gap-2 mt-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(action.status)}`}>
-                      {getStatusLabel(action.status)}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAActionStatusColor(action.status)}`}>
+                      {getRCAActionStatusLabel(action.status)}
                     </span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(action.priority)}`}>
-                      Priorita: {getPriorityLabel(action.priority)}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAPriorityColor(action.priority)}`}>
+                      Priorita: {getRCAPriorityLabel(action.priority)}
                     </span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(action.assessment?.severity)}`}>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCASeverityColor(action.assessment?.severity)}`}>
                       Severita evento: {action.assessment?.severity || 'N/D'}
                     </span>
                     {action.cause?.is_root_cause && renderRootCauseStatusBadge(action.cause)}
@@ -585,7 +479,7 @@ export default function RCAActions() {
                   <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
                     Stato azione
                     <select
-                      value={normalizeActionStatus(action.status)}
+                      value={normalizeRCAActionStatus(action.status)}
                       disabled={updatingActionId === action.id}
                       onChange={(event) => updateActionStatus(action, event.target.value as EditableRCAActionStatus)}
                       className="min-w-[170px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none disabled:bg-gray-50 disabled:text-gray-400"

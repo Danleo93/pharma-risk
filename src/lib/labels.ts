@@ -1,0 +1,266 @@
+import type { RCAAssessmentStatus, RCASeverity } from '../types'
+
+export type RCAActionStatus = 'planned' | 'in_progress' | 'completed'
+export type RCAPriority = 'low' | 'medium' | 'high' | 'critical'
+export type RootCauseStatus = 'candidate' | 'confirmed' | 'not_confirmed'
+export type FMEAStatus = 'draft' | 'in_progress' | 'completed'
+export type FMEAActionStatus = 'planned' | 'in_progress' | 'completed'
+export type FMEARiskClass = 'Alta' | 'Media' | 'Bassa'
+
+type RootCauseLike = {
+  is_root_cause?: boolean | null
+  root_cause_status?: RootCauseStatus | string | null
+}
+
+export const RCA_ASSESSMENT_STATUS_OPTIONS: { value: RCAAssessmentStatus; label: string }[] = [
+  { value: 'draft', label: 'Bozza' },
+  { value: 'in_progress', label: 'In corso' },
+  { value: 'action_planned', label: 'Azioni pianificate' },
+  { value: 'completed', label: 'Completato' },
+  { value: 'archived', label: 'Archiviato' },
+]
+
+export const RCA_ACTION_STATUS_OPTIONS: { value: RCAActionStatus; label: string }[] = [
+  { value: 'planned', label: 'Pianificata' },
+  { value: 'in_progress', label: 'In corso' },
+  { value: 'completed', label: 'Completata' },
+]
+
+export const RCA_ACTION_STATUS_FILTER_OPTIONS: { value: 'all' | RCAActionStatus; label: string }[] = [
+  { value: 'all', label: 'Tutte' },
+  { value: 'planned', label: 'Pianificate' },
+  { value: 'in_progress', label: 'In corso' },
+  { value: 'completed', label: 'Completate' },
+]
+
+export const RCA_PRIORITY_OPTIONS: { value: '' | RCAPriority; label: string }[] = [
+  { value: '', label: 'N/D' },
+  { value: 'low', label: 'Bassa' },
+  { value: 'medium', label: 'Media' },
+  { value: 'high', label: 'Alta' },
+  { value: 'critical', label: 'Critica' },
+]
+
+export const RCA_METHODOLOGY_LABELS: Record<string, string> = {
+  '5_whys': '5 Whys (legacy)',
+  fishbone: 'Ishikawa',
+  combined: 'Ishikawa + 5 Whys',
+}
+
+export const RCA_EVENT_TYPE_LABELS: Record<string, string> = {
+  incident: 'Incidente',
+  near_miss: 'Near miss',
+  non_conformity: 'Non conformita',
+  complaint: 'Reclamo',
+  other: 'Altro',
+}
+
+export const getRCAAssessmentStatusLabel = (status: RCAAssessmentStatus | string | null | undefined) => {
+  switch (status) {
+    case 'draft':
+      return 'Bozza'
+    case 'in_progress':
+      return 'In corso'
+    case 'action_planned':
+      return 'Azioni pianificate'
+    case 'completed':
+      return 'Completato'
+    case 'archived':
+      return 'Archiviato'
+    default:
+      return 'Bozza'
+  }
+}
+
+export const getRCAAssessmentStatusColor = (status: RCAAssessmentStatus | string | null | undefined) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-100 text-green-700'
+    case 'action_planned':
+      return 'bg-sky-100 text-sky-700'
+    case 'in_progress':
+      return 'bg-yellow-100 text-yellow-700'
+    case 'archived':
+      return 'bg-gray-100 text-gray-600'
+    case 'draft':
+    default:
+      return 'bg-slate-100 text-slate-700'
+  }
+}
+
+export const getRCASeverityLabel = (severity: RCASeverity | string | null | undefined) => {
+  switch (severity) {
+    case 'low':
+      return 'Bassa'
+    case 'medium':
+      return 'Media'
+    case 'high':
+      return 'Alta'
+    case 'critical':
+      return 'Critica'
+    default:
+      return 'N/D'
+  }
+}
+
+export const getRCASeverityColor = (severity: RCASeverity | string | null | undefined) => {
+  switch (severity) {
+    case 'low':
+      return 'bg-green-100 text-green-700'
+    case 'medium':
+      return 'bg-yellow-100 text-yellow-700'
+    case 'high':
+      return 'bg-orange-100 text-orange-700'
+    case 'critical':
+      return 'bg-red-100 text-red-700'
+    default:
+      return 'bg-gray-100 text-gray-600'
+  }
+}
+
+export const normalizeRCAActionStatus = (status: string | null | undefined): RCAActionStatus => {
+  if (status === 'completed') return 'completed'
+  if (status === 'in_progress') return 'in_progress'
+  return 'planned'
+}
+
+export const getRCAActionStatusLabel = (status: string | null | undefined) => {
+  switch (normalizeRCAActionStatus(status)) {
+    case 'completed':
+      return 'Completata'
+    case 'in_progress':
+      return 'In corso'
+    default:
+      return 'Pianificata'
+  }
+}
+
+export const getRCAActionStatusColor = (status: string | null | undefined) => {
+  switch (normalizeRCAActionStatus(status)) {
+    case 'completed':
+      return 'bg-green-100 text-green-700'
+    case 'in_progress':
+      return 'bg-yellow-100 text-yellow-700'
+    default:
+      return 'bg-blue-100 text-blue-700'
+  }
+}
+
+export const getRCAPriorityLabel = (priority: RCAPriority | string | null | undefined) => {
+  switch (priority) {
+    case 'critical':
+      return 'Critica'
+    case 'high':
+      return 'Alta'
+    case 'medium':
+      return 'Media'
+    case 'low':
+      return 'Bassa'
+    default:
+      return 'N/D'
+  }
+}
+
+export const getRCAPriorityColor = (priority: RCAPriority | string | null | undefined) => {
+  switch (priority) {
+    case 'critical':
+      return 'bg-red-100 text-red-700'
+    case 'high':
+      return 'bg-orange-100 text-orange-700'
+    case 'medium':
+      return 'bg-yellow-100 text-yellow-700'
+    case 'low':
+      return 'bg-green-100 text-green-700'
+    default:
+      return 'bg-gray-100 text-gray-600'
+  }
+}
+
+export const getEffectiveRootCauseStatus = (cause: RootCauseLike | null | undefined): RootCauseStatus | null => {
+  if (!cause?.is_root_cause) return null
+  if (cause.root_cause_status === 'confirmed') return 'confirmed'
+  if (cause.root_cause_status === 'not_confirmed') return 'not_confirmed'
+  return 'candidate'
+}
+
+export const getRootCauseStatusLabel = (
+  causeOrStatus: RootCauseLike | RootCauseStatus | string | null | undefined,
+  fallback: string | null = null,
+) => {
+  const status = typeof causeOrStatus === 'string'
+    ? causeOrStatus
+    : getEffectiveRootCauseStatus(causeOrStatus)
+
+  if (status === 'confirmed') return 'Root Cause confermata'
+  if (status === 'not_confirmed') return 'Non confermata'
+  if (status === 'candidate') return 'Candidata Root Cause'
+  return fallback
+}
+
+export const getRootCauseStatusColor = (causeOrStatus: RootCauseLike | RootCauseStatus | string | null | undefined) => {
+  const status = typeof causeOrStatus === 'string'
+    ? causeOrStatus
+    : getEffectiveRootCauseStatus(causeOrStatus)
+
+  if (status === 'confirmed') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+  if (status === 'not_confirmed') return 'bg-slate-100 text-slate-600 border border-slate-200'
+  if (status === 'candidate') return 'bg-red-100 text-red-700 border border-red-200'
+  return ''
+}
+
+export const getFMEAAssessmentStatusLabel = (status: FMEAStatus | string | null | undefined) => {
+  switch (status) {
+    case 'completed':
+      return 'Completato'
+    case 'in_progress':
+      return 'In Corso'
+    default:
+      return 'Bozza'
+  }
+}
+
+export const getFMEAAssessmentStatusColor = (status: FMEAStatus | string | null | undefined) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-100 text-green-700'
+    case 'in_progress':
+      return 'bg-yellow-100 text-yellow-700'
+    default:
+      return 'bg-gray-100 text-gray-600'
+  }
+}
+
+export const getFMEAActionStatusLabel = (status: FMEAActionStatus | string | null | undefined) => {
+  switch (status) {
+    case 'completed':
+      return 'Completata'
+    case 'in_progress':
+      return 'In Corso'
+    default:
+      return 'Pianificata'
+  }
+}
+
+export const getFMEAActionStatusColor = (status: FMEAActionStatus | string | null | undefined) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-100 text-green-700'
+    case 'in_progress':
+      return 'bg-yellow-100 text-yellow-700'
+    default:
+      return 'bg-blue-100 text-blue-700'
+  }
+}
+
+export const getFMEARiskClassColor = (riskClass: FMEARiskClass | string | null | undefined) => {
+  switch (riskClass) {
+    case 'Alta':
+      return 'bg-red-100 text-red-700'
+    case 'Media':
+      return 'bg-yellow-100 text-yellow-700'
+    case 'Bassa':
+      return 'bg-green-100 text-green-700'
+    default:
+      return 'bg-gray-100 text-gray-700'
+  }
+}
