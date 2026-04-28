@@ -5,6 +5,10 @@ import { supabase } from '../lib/supabase'
 import type { RiskAssessment, RiskItem, ActionPlan } from '../types'
 import { Plus, FileText, AlertTriangle, CheckCircle, Clock, Shield, ClipboardCheck } from 'lucide-react'
 import { getFMEAAssessmentStatusColor, getFMEAAssessmentStatusLabel } from '../lib/labels'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { EmptyState } from '../components/ui/EmptyState'
+import { PageHeader } from '../components/ui/PageHeader'
+import { StatCard } from '../components/ui/StatCard'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -69,82 +73,60 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-500 mt-1">
-            Benvenuto, {user?.email}
-          </p>
-        </div>
-        <Link
-          to="/fmea/assessment/new"
-          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-3 rounded-lg font-medium transition"
-        >
-          <Plus className="w-5 h-5" />
-          Nuovo Assessment
-        </Link>
-      </div>
+    <div className="clinical-page">
+      <PageHeader
+        title="Dashboard"
+        description={`Benvenuto, ${user?.email}`}
+        eyebrow="Analisi Proattiva"
+        actions={(
+          <Link
+            to="/fmea/assessment/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-5 py-3 font-medium text-white transition hover:bg-sky-800"
+          >
+            <Plus className="w-5 h-5" />
+            Nuovo Assessment
+          </Link>
+        )}
+      />
 
       {/* Stats Cards - Assessment */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="bg-sky-100 p-3 rounded-lg">
-              <FileText className="w-6 h-6 text-sky-600" />
-            </div>
-            <div>
-              <p className="text-gray-500 text-sm">Totale Assessment</p>
-              <p className="text-2xl font-bold text-gray-800">{assessments.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="bg-yellow-100 p-3 rounded-lg">
-              <Clock className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-gray-500 text-sm">In Corso</p>
-              <p className="text-2xl font-bold text-gray-800">
-                {assessments.filter(a => a.status === 'in_progress').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="bg-green-100 p-3 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-gray-500 text-sm">Completati</p>
-              <p className="text-2xl font-bold text-gray-800">
-                {assessments.filter(a => a.status === 'completed').length}
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 mb-6">
+        <StatCard
+          label="Totale Assessment"
+          value={assessments.length}
+          icon={<FileText className="w-6 h-6" />}
+          tone="fmea"
+        />
+        <StatCard
+          label="In Corso"
+          value={assessments.filter(a => a.status === 'in_progress').length}
+          icon={<Clock className="w-6 h-6" />}
+          tone="warning"
+        />
+        <StatCard
+          label="Completati"
+          value={assessments.filter(a => a.status === 'completed').length}
+          icon={<CheckCircle className="w-6 h-6" />}
+          tone="success"
+        />
       </div>
 
       {/* Stats Cards - Rischi e Azioni */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Distribuzione Rischi */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <Card>
+          <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="bg-purple-100 p-2 rounded-lg">
-              <Shield className="w-5 h-5 text-purple-600" />
+            <div className="bg-slate-100 text-slate-700 p-2 rounded-lg">
+              <Shield className="w-5 h-5" />
             </div>
-            <h3 className="font-semibold text-gray-800">Distribuzione Rischi</h3>
+            <h3 className="font-semibold text-slate-900">Distribuzione Rischi</h3>
           </div>
           
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Totale rischi identificati</span>
-              <span className="font-bold text-gray-800">{totalRisks}</span>
+              <span className="text-sm text-slate-600">Totale rischi identificati</span>
+              <span className="font-bold text-slate-900">{totalRisks}</span>
             </div>
             
             <div className="space-y-2">
@@ -155,7 +137,7 @@ export default function Dashboard() {
                 </span>
                 <span className="font-medium">{highRisks} ({highPercent}%)</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-slate-200 rounded-full h-2">
                 <div className="bg-red-500 h-2 rounded-full" style={{ width: `${highPercent}%` }}></div>
               </div>
             </div>
@@ -168,7 +150,7 @@ export default function Dashboard() {
                 </span>
                 <span className="font-medium">{mediumRisks} ({mediumPercent}%)</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-slate-200 rounded-full h-2">
                 <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${mediumPercent}%` }}></div>
               </div>
             </div>
@@ -181,26 +163,28 @@ export default function Dashboard() {
                 </span>
                 <span className="font-medium">{lowRisks} ({lowPercent}%)</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-slate-200 rounded-full h-2">
                 <div className="bg-green-500 h-2 rounded-full" style={{ width: `${lowPercent}%` }}></div>
               </div>
             </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Stato Azioni Correttive */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <Card>
+          <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="bg-orange-100 p-2 rounded-lg">
-              <ClipboardCheck className="w-5 h-5 text-orange-600" />
+            <div className="bg-orange-50 text-orange-700 p-2 rounded-lg">
+              <ClipboardCheck className="w-5 h-5" />
             </div>
-            <h3 className="font-semibold text-gray-800">Azioni Correttive</h3>
+            <h3 className="font-semibold text-slate-900">Azioni Correttive</h3>
           </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Totale azioni</span>
-              <span className="font-bold text-gray-800">{totalActions}</span>
+              <span className="text-sm text-slate-600">Totale azioni</span>
+              <span className="font-bold text-slate-900">{totalActions}</span>
             </div>
 
             <div className="grid grid-cols-3 gap-3 py-2">
@@ -223,7 +207,7 @@ export default function Dashboard() {
                 <span className="text-gray-600">Completamento</span>
                 <span className="font-medium text-green-600">{completedPercent}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
+              <div className="w-full bg-slate-200 rounded-full h-3">
                 <div 
                   className="bg-green-500 h-3 rounded-full transition-all duration-500" 
                   style={{ width: `${completedPercent}%` }}
@@ -231,30 +215,35 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Assessment List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-100">
-          <h2 className="text-xl font-semibold text-gray-800">I tuoi Risk Assessment</h2>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>I tuoi Risk Assessment</CardTitle>
+        </CardHeader>
 
         {loading ? (
-          <div className="p-12 text-center text-gray-500">
+          <div className="p-12 text-center text-slate-500">
             Caricamento...
           </div>
         ) : assessments.length === 0 ? (
-          <div className="p-12 text-center">
-            <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">Non hai ancora creato nessun assessment</p>
-            <Link
-              to="/fmea/assessment/new"
-              className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              Crea il tuo primo assessment
-            </Link>
+          <div className="p-6">
+            <EmptyState
+              icon={<AlertTriangle className="w-6 h-6" />}
+              title="Non hai ancora creato nessun assessment"
+              action={(
+                <Link
+                  to="/fmea/assessment/new"
+                  className="inline-flex items-center gap-2 text-sky-700 hover:text-sky-800 font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Crea il tuo primo assessment
+                </Link>
+              )}
+            />
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -262,13 +251,13 @@ export default function Dashboard() {
               <Link
                 key={assessment.id}
                 to={`/fmea/assessment/${assessment.id}`}
-                className="flex items-center justify-between p-6 hover:bg-gray-50 transition"
+                className="flex items-center justify-between p-6 hover:bg-slate-50 transition"
               >
                 <div className="flex items-center gap-4">
                   {getStatusIcon(assessment.status)}
                   <div>
-                    <h3 className="font-medium text-gray-800">{assessment.title}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="font-medium text-slate-900">{assessment.title}</h3>
+                    <p className="text-sm text-slate-500">
                       Creato il {new Date(assessment.created_at).toLocaleDateString('it-IT')}
                     </p>
                   </div>
@@ -280,7 +269,7 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }
