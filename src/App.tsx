@@ -24,6 +24,12 @@ import RCAAssessmentDetail from './pages/rca/RCAAssessmentDetail'
 import RCAActions from './pages/rca/RCAActions'
 import GapDashboard from './pages/gap/GapDashboard'
 import GapAssessments from './pages/gap/GapAssessments'
+import NewGapAssessment from './pages/gap/NewGapAssessment'
+import GapAssessmentDetail from './pages/gap/GapAssessmentDetail'
+import GapProcesses from './pages/gap/GapProcesses'
+import GapProcessDetail from './pages/gap/GapProcessDetail'
+import GapStandards from './pages/gap/GapStandards'
+import GapActions from './pages/gap/GapActions'
 // Componente per proteggere le route
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -110,6 +116,12 @@ function AppRoutes() {
       {/* Gap Analysis */}
       <Route path="/gap/dashboard" element={<ProtectedRoute><GapDashboard /></ProtectedRoute>} />
       <Route path="/gap/assessments" element={<ProtectedRoute><GapAssessments /></ProtectedRoute>} />
+      <Route path="/gap/assessment/new" element={<ProtectedRoute><NewGapAssessment /></ProtectedRoute>} />
+      <Route path="/gap/assessment/:id" element={<ProtectedRoute><GapAssessmentDetail /></ProtectedRoute>} />
+      <Route path="/gap/processes" element={<ProtectedRoute><GapProcesses /></ProtectedRoute>} />
+      <Route path="/gap/process/:id" element={<ProtectedRoute><GapProcessDetail /></ProtectedRoute>} />
+      <Route path="/gap/standards" element={<ProtectedRoute><GapStandards /></ProtectedRoute>} />
+      <Route path="/gap/actions" element={<ProtectedRoute><GapActions /></ProtectedRoute>} />
       
       {/* Redirect legacy FMEA */}
       <Route path="/dashboard" element={<Navigate to="/fmea/dashboard" replace />} />
