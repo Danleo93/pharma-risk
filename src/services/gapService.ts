@@ -7,6 +7,7 @@ import type {
   GapAssessment,
   GapAssessmentProcess,
   GapProcess,
+  GapStandard,
 } from '../types/gap'
 
 interface GapAssessmentFullData {
@@ -14,6 +15,15 @@ interface GapAssessmentFullData {
   evaluations: GapActivityEvaluation[]
   actions: GapAction[]
   processes: GapProcess[]
+}
+
+export interface GapStandardInput {
+  code: string
+  name: string
+  version?: string | null
+  issuing_body?: string | null
+  description?: string | null
+  url?: string | null
 }
 
 const throwIfError = (error: unknown) => {
@@ -56,6 +66,66 @@ export const getGapProcesses = async (userId: string): Promise<GapProcess[]> => 
 
   throwIfError(error)
   return (data || []) as GapProcess[]
+}
+
+export const getGapStandards = async (userId: string): Promise<GapStandard[]> => {
+  const { data, error } = await supabase
+    .from('gap_standards')
+    .select('*')
+    .eq('user_id', userId)
+    .order('code', { ascending: true })
+    .order('name', { ascending: true })
+
+  throwIfError(error)
+  return (data || []) as GapStandard[]
+}
+
+export const createGapStandard = async (
+  userId: string,
+  payload: GapStandardInput,
+): Promise<GapStandard> => {
+  const { data, error } = await supabase
+    .from('gap_standards')
+    .insert({
+      ...payload,
+      user_id: userId,
+      is_template: false,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapStandard
+}
+
+export const updateGapStandard = async (
+  id: string,
+  userId: string,
+  payload: GapStandardInput,
+): Promise<GapStandard> => {
+  const { data, error } = await supabase
+    .from('gap_standards')
+    .update({
+      ...payload,
+      is_template: false,
+    })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapStandard
+}
+
+export const deleteGapStandard = async (id: string, userId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('gap_standards')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  throwIfError(error)
 }
 
 export const getGapAreasByProcess = async (
