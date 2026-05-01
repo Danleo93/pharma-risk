@@ -45,7 +45,7 @@ const navSections: NavSection[] = [
     key: 'fmea',
     title: 'FMEA',
     subtitle: 'Analisi Proattiva',
-    description: 'Prevenzione e governo dei rischi',
+    description: 'Prevenzione rischi',
     items: [
       { path: '/fmea/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       {
@@ -62,7 +62,7 @@ const navSections: NavSection[] = [
     key: 'rca',
     title: 'RCA',
     subtitle: 'Analisi Reattiva',
-    description: 'Eventi, cause e azioni correttive',
+    description: 'Eventi e cause',
     items: [
       { path: '/rca/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       {

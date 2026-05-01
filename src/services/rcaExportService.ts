@@ -64,6 +64,12 @@ export interface RCAExportAction {
   cause_root_cause_status?: string | null
 }
 
+export interface RCAExportMonitoring {
+  reevaluationStatus: string
+  effectivenessStatus: string
+  responsibleSignature: string
+}
+
 export interface RCAExportData {
   assessment: RCAAssessment
   branches: RCAExportBranch[]
@@ -71,6 +77,7 @@ export interface RCAExportData {
   candidateCauses: RCAExportCause[]
   fiveWhyChains: RCAExportFiveWhyChain[]
   actions: RCAExportAction[]
+  monitoring?: RCAExportMonitoring
 }
 
 const methodologyLabels = RCA_METHODOLOGY_LABELS
@@ -101,6 +108,29 @@ const getFiveWhyStatus = (stepsCount: number) => {
   if (stepsCount === 0) return 'Da compilare'
   if (stepsCount >= 5) return 'Completa'
   return 'In corso'
+}
+
+const getRCAMonitoringSummary = (data: Pick<RCAExportData, 'actions' | 'monitoring'>): RCAExportMonitoring => {
+  if (data.monitoring) return data.monitoring
+
+  const totalActions = data.actions.length
+  const completedActions = data.actions.filter((action) => action.status === 'completed').length
+  const allActionsCompleted = totalActions > 0 && completedActions === totalActions
+  const hasSomeCompletedActions = completedActions > 0 && !allActionsCompleted
+
+  return {
+    reevaluationStatus: allActionsCompleted
+      ? 'Rivalutazione raccomandata'
+      : hasSomeCompletedActions
+        ? 'Da rivalutare dopo completamento azioni'
+        : 'Da pianificare',
+    effectivenessStatus: allActionsCompleted
+      ? 'Pronto per verifica di efficacia'
+      : hasSomeCompletedActions
+        ? 'Parzialmente valutabile'
+        : 'Da definire dopo implementazione azioni',
+    responsibleSignature: 'Non assegnato',
+  }
 }
 
 const getRootCauseStatusLabelFromStatus = (status: string | null | undefined) => {
@@ -634,6 +664,7 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   const { assessment, branches, causes, candidateCauses, fiveWhyChains, actions } = data
   const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
   const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
+  const monitoring = getRCAMonitoringSummary(data)
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
   let y = 18
@@ -820,9 +851,9 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
     startY: y,
     theme: 'grid',
     body: [
-      ['Rivalutazione prevista', 'Da pianificare'],
-      ['Effectiveness check', 'Da definire dopo implementazione azioni'],
-      ['Responsabile / Firma', 'Non assegnato'],
+      ['Rivalutazione prevista', monitoring.reevaluationStatus],
+      ['Effectiveness check', monitoring.effectivenessStatus],
+      ['Responsabile / Firma', monitoring.responsibleSignature],
     ],
     styles: { fontSize: 9, cellPadding: 2 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
@@ -835,6 +866,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
   const { assessment, branches, causes, candidateCauses, fiveWhyChains, actions } = data
   const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
   const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
+  const monitoring = getRCAMonitoringSummary(data)
   const wb = XLSX.utils.book_new()
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
@@ -925,9 +957,9 @@ export const exportRCAToExcel = (data: RCAExportData) => {
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     ['Campo', 'Valore'],
-    ['Rivalutazione prevista', 'Da pianificare'],
-    ['Effectiveness check', 'Da definire dopo implementazione azioni'],
-    ['Responsabile / Firma', 'Non assegnato'],
+    ['Rivalutazione prevista', monitoring.reevaluationStatus],
+    ['Effectiveness check', monitoring.effectivenessStatus],
+    ['Responsabile / Firma', monitoring.responsibleSignature],
   ]), 'Monitoraggio')
 
   XLSX.writeFile(wb, createFileName(assessment.title, 'xlsx'))

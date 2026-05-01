@@ -1,17 +1,17 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import {
+  Bar,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Line,
-  ComposedChart,
-  Bar,
-  Cell
 } from 'recharts'
 import { toPng } from 'html-to-image'
-import { Image as ImageIcon } from 'lucide-react'
+import { BarChart3, Image as ImageIcon } from 'lucide-react'
 import type { RiskItem } from '../types'
 
 interface ParetoChartProps {
@@ -22,37 +22,29 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
   const [displayMode, setDisplayMode] = useState<'all' | '10' | '20'>('all')
   const exportRef = useRef<HTMLDivElement | null>(null)
 
-  // ------------ PREPARAZIONE DATI ------------
-
-  // Filtra solo i rischi con RPN calcolato e ordina per RPN decrescente
   const sortedRisks = riskItems
-    .filter(item => item.rpn !== null && item.rpn > 0)
+    .filter((item) => item.rpn !== null && item.rpn > 0)
     .sort((a, b) => (b.rpn || 0) - (a.rpn || 0))
 
-  // Applica il limite in base al displayMode
   const limitedRisks =
     displayMode === 'all'
       ? sortedRisks
       : sortedRisks.slice(0, displayMode === '10' ? 10 : 20)
 
-  // Calcola il totale RPN
   const totalRPN = sortedRisks.reduce((sum, item) => sum + (item.rpn || 0), 0) || 1
 
-  // Prepara i dati con percentuale cumulativa
   let cumulative = 0
-  const data = limitedRisks.map(item => {
+  const data = limitedRisks.map((item, index) => {
     cumulative += item.rpn || 0
-    const fullName =
-      item.risk_catalog_base?.name || item.custom_risk_name || 'Rischio'
-    const shortName =
-      fullName.length > 15 ? fullName.substring(0, 15) + '…' : fullName
+    const fullName = item.risk_catalog_base?.name || item.custom_risk_name || 'Rischio'
 
     return {
-      name: shortName,
+      name: `#${index + 1}`,
       fullName,
       rpn: item.rpn || 0,
       cumulative: Math.round((cumulative / totalRPN) * 100),
-      riskClass: item.risk_class
+      riskClass: item.risk_class,
+      rank: index + 1,
     }
   })
 
@@ -61,15 +53,13 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
       case 'Alta':
         return '#ef4444'
       case 'Media':
-        return '#eab308'
+        return '#f59e0b'
       case 'Bassa':
-        return '#22c55e'
+        return '#10b981'
       default:
         return '#94a3b8'
     }
   }
-
-  // ------------ EXPORT PNG ------------
 
   const handleExportPNG = async () => {
     if (!exportRef.current) return
@@ -78,7 +68,7 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
       const dataUrl = await toPng(exportRef.current, {
         cacheBust: true,
         backgroundColor: '#ffffff',
-        pixelRatio: 2
+        pixelRatio: 2,
       })
 
       const link = document.createElement('a')
@@ -90,118 +80,117 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
     }
   }
 
-  // ------------ RENDER ------------
-
   if (sortedRisks.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Analisi di Pareto</h3>
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="rounded-xl bg-sky-50 p-2 text-sky-700">
+            <BarChart3 className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Analisi di Pareto</h3>
+            <p className="text-sm text-slate-500">Prioritizzazione dei rischi per RPN.</p>
+          </div>
         </div>
-        <div className="h-64 flex items-center justify-center text-gray-500">
-          Aggiungi rischi con punteggi per visualizzare il grafico
+        <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 text-center text-sm text-slate-500">
+          Aggiungi rischi con punteggi per visualizzare il grafico.
         </div>
       </div>
     )
   }
 
-  // larghezza minima del contenuto esportato (più barre = più largo)
-  const contentMinWidth = Math.max(600, data.length * 60)
+  const contentMinWidth = Math.max(760, data.length * 72)
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      {/* Header con pulsanti e PNG blu come la matrice */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">Analisi di Pareto</h3>
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">Analisi di Pareto</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Evidenzia i rischi che contribuiscono maggiormente al profilo RPN complessivo.
+          </p>
+        </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex rounded-lg border border-slate-200 bg-slate-100/80 p-1">
             <button
               onClick={() => setDisplayMode('10')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition ${
+              className={`rounded-md px-3 py-1 text-sm font-medium transition ${
                 displayMode === '10'
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Top 10
             </button>
             <button
               onClick={() => setDisplayMode('20')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition ${
+              className={`rounded-md px-3 py-1 text-sm font-medium transition ${
                 displayMode === '20'
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Top 20
             </button>
             <button
               onClick={() => setDisplayMode('all')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition ${
+              className={`rounded-md px-3 py-1 text-sm font-medium transition ${
                 displayMode === 'all'
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Tutti ({sortedRisks.length})
             </button>
           </div>
 
-          {/* Bottone PNG in stile "primario" come la matrice */}
           <button
             onClick={handleExportPNG}
-            className="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition"
+            className="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-800"
           >
-            <ImageIcon className="w-4 h-4" />
+            <ImageIcon className="h-4 w-4" />
             PNG
           </button>
         </div>
       </div>
 
-      {/* Contenitore scrollabile orizzontale */}
-      <div className="h-[500px] overflow-x-auto">
-        {/* Contenuto effettivamente esportato: ha minWidth grande, nessun overflow */}
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/50">
         <div
           ref={exportRef}
-          className="px-4 pt-2 pb-6"
+          className="bg-white px-5 pb-6 pt-4"
           style={{ minWidth: contentMinWidth }}
         >
-          <div style={{ width: '100%', height: 400 }}>
+          <div style={{ width: '100%', height: 360 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={data}
-                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 36 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 10, fill: '#6b7280' }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
+                  tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
+                  height={42}
                   interval={0}
                 />
                 <YAxis
                   yAxisId="left"
-                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  tick={{ fontSize: 12, fill: '#64748b' }}
                   label={{
                     value: 'RPN',
                     angle: -90,
                     position: 'insideLeft',
-                    fill: '#6b7280'
+                    fill: '#64748b',
                   }}
                 />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  tick={{ fontSize: 12, fill: '#64748b' }}
                   domain={[0, 100]}
                   label={{
                     value: '%',
                     angle: 90,
                     position: 'insideRight',
-                    fill: '#6b7280'
+                    fill: '#64748b',
                   }}
                 />
                 <Tooltip
@@ -209,19 +198,17 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
                     if (active && payload && payload.length) {
                       const item = payload[0].payload as any
                       return (
-                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 max-w-xs">
-                          <p className="font-medium text-gray-800 text-sm mb-1">
-                            {item.fullName}
+                        <div className="max-w-xs rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl">
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-sky-700">
+                            Rischio #{item.rank}
                           </p>
-                          <p className="text-sm text-gray-600">
-                            RPN:{' '}
-                            <span className="font-semibold">{item.rpn}</span>
+                          <p className="mb-1 font-medium text-slate-900">{item.fullName}</p>
+                          <p className="text-slate-600">
+                            RPN: <span className="font-semibold text-slate-900">{item.rpn}</span>
                           </p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-slate-600">
                             Cumulativo:{' '}
-                            <span className="font-semibold">
-                              {item.cumulative}%
-                            </span>
+                            <span className="font-semibold text-slate-900">{item.cumulative}%</span>
                           </p>
                         </div>
                       )
@@ -229,12 +216,9 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
                     return null
                   }}
                 />
-                <Bar yAxisId="left" dataKey="rpn" radius={[4, 4, 0, 0]}>
+                <Bar yAxisId="left" dataKey="rpn" radius={[5, 5, 0, 0]}>
                   {data.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={getBarColor(entry.riskClass)}
-                    />
+                    <Cell key={`cell-${index}`} fill={getBarColor(entry.riskClass)} />
                   ))}
                 </Bar>
                 <Line
@@ -242,30 +226,57 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
                   type="monotone"
                   dataKey="cumulative"
                   stroke="#f97316"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   dot={{ fill: '#f97316', strokeWidth: 2, r: 4 }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Legenda dentro all’area esportata */}
-          <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
+          <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-900">Legenda rischi asse X</p>
+              <p className="text-xs text-slate-500">
+                I codici # evitano troncamenti; le descrizioni complete sono riportate qui.
+              </p>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              {data.map((item) => (
+                <div
+                  key={item.rank}
+                  className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3"
+                >
+                  <span className="flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-sky-100 text-xs font-bold text-sky-700">
+                    #{item.rank}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-snug text-slate-900">{item.fullName}</p>
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                      <span>RPN: {item.rpn}</span>
+                      <span>Cumulativo: {item.cumulative}%</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-5 border-t border-slate-100 pt-4">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-red-500"></div>
-              <span className="text-sm text-gray-600">Alto</span>
+              <div className="h-4 w-4 rounded bg-red-500" />
+              <span className="text-sm text-slate-600">Alto</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-yellow-500"></div>
-              <span className="text-sm text-gray-600">Medio</span>
+              <div className="h-4 w-4 rounded bg-amber-500" />
+              <span className="text-sm text-slate-600">Medio</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-500"></div>
-              <span className="text-sm text-gray-600">Basso</span>
+              <div className="h-4 w-4 rounded bg-emerald-500" />
+              <span className="text-sm text-slate-600">Basso</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-[2px] bg-orange-500 rounded"></div>
-              <span className="text-sm text-gray-600">% Cumulativa</span>
+              <div className="h-[2px] w-6 rounded bg-orange-500" />
+              <span className="text-sm text-slate-600">% Cumulativa</span>
             </div>
           </div>
         </div>

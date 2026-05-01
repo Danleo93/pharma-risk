@@ -387,43 +387,43 @@ export default function RCAActions() {
                   </div>
 
                   {editingActionId === action.id && (
-                    <div className="mt-5 rounded-xl border border-orange-100 bg-orange-50/40 p-4">
+                    <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50/50 p-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
                             Descrizione azione *
                           </label>
                           <textarea
                             value={editDescription}
                             onChange={(event) => setEditDescription(event.target.value)}
                             rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                            className="clinical-input px-3 py-2 text-sm"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Responsabile</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Responsabile</label>
                           <input
                             type="text"
                             value={editResponsible}
                             onChange={(event) => setEditResponsible(event.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                            className="clinical-input px-3 py-2 text-sm"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Scadenza</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Scadenza</label>
                           <input
                             type="date"
                             value={editDueDate}
                             onChange={(event) => setEditDueDate(event.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                            className="clinical-input px-3 py-2 text-sm"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Priorita</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Priorita</label>
                           <select
                             value={editPriority}
                             onChange={(event) => setEditPriority(event.target.value as '' | RCAPriority)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                            className="clinical-input px-3 py-2 text-sm"
                           >
                             {priorityOptions.map((option) => (
                               <option key={option.value || 'none'} value={option.value}>
@@ -433,11 +433,11 @@ export default function RCAActions() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Stato</label>
                           <select
                             value={editStatus}
                             onChange={(event) => setEditStatus(event.target.value as EditableRCAActionStatus)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                            className="clinical-input px-3 py-2 text-sm"
                           >
                             {actionStatusOptions.map((option) => (
                               <option key={option.value} value={option.value}>
@@ -453,7 +453,7 @@ export default function RCAActions() {
                           type="button"
                           onClick={() => saveEditedAction(action)}
                           disabled={savingEditActionId === action.id}
-                          className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 transition disabled:opacity-60"
+                          className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-60"
                         >
                           {savingEditActionId === action.id ? 'Salvataggio...' : 'Salva'}
                         </button>
@@ -461,7 +461,7 @@ export default function RCAActions() {
                           type="button"
                           onClick={cancelEditAction}
                           disabled={savingEditActionId === action.id}
-                          className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-white transition disabled:opacity-60"
+                          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                         >
                           Annulla
                         </button>
@@ -470,13 +470,13 @@ export default function RCAActions() {
                   )}
                 </div>
                 <div className="flex flex-col items-start lg:items-end gap-2">
-                  <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
                     Stato azione
                     <select
                       value={normalizeRCAActionStatus(action.status)}
                       disabled={updatingActionId === action.id}
                       onChange={(event) => updateActionStatus(action, event.target.value as EditableRCAActionStatus)}
-                      className="min-w-[170px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                      className="clinical-input min-w-[170px] px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
                     >
                       {actionStatusOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -486,7 +486,7 @@ export default function RCAActions() {
                     </select>
                   </label>
                   {updatingActionId === action.id && (
-                    <p className="text-xs text-gray-400">Aggiornamento...</p>
+                    <p className="text-xs text-slate-400">Aggiornamento...</p>
                   )}
                   <button
                     type="button"

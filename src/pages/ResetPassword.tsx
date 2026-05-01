@@ -1,7 +1,9 @@
-import { useState} from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CheckCircle, Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Card, CardContent } from '../components/ui/Card'
 import { supabase } from '../lib/supabase'
-import { Eye, EyeOff, CheckCircle, KeyRound } from 'lucide-react'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -11,7 +13,6 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,15 +31,14 @@ export default function ResetPassword() {
     setLoading(true)
 
     const { error } = await supabase.auth.updateUser({
-      password: password
+      password,
     })
 
     if (error) {
-        console.error('Supabase updateUser error:', error)   // <<< DEBUG
+      console.error('Supabase updateUser error:', error)
       setError('Errore nel reset della password. Il link potrebbe essere scaduto.')
     } else {
       setSuccess(true)
-      // Redirect al login dopo 3 secondi
       setTimeout(() => {
         navigate('/login')
       }, 3000)
@@ -49,91 +49,90 @@ export default function ResetPassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">
-          <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Password Aggiornata!</h1>
-          <p className="text-gray-500 mb-6">
-            La tua password è stata cambiata con successo.
-          </p>
-          <p className="text-sm text-gray-400">
-            Verrai reindirizzato al login tra pochi secondi...
-          </p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-clinical px-4 py-10">
+        <Card elevated className="w-full max-w-md">
+          <CardContent className="p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+              <CheckCircle className="h-8 w-8" />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-950">Password aggiornata</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              La tua password e stata cambiata con successo.
+            </p>
+            <p className="mt-2 text-sm text-slate-400">
+              Verrai reindirizzato al login tra pochi secondi...
+            </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <div className="bg-sky-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <KeyRound className="w-8 h-8 text-sky-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800">Nuova Password</h1>
-          <p className="text-gray-500 mt-2">
-            Inserisci la tua nuova password
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
+    <div className="flex min-h-screen items-center justify-center bg-clinical px-4 py-10">
+      <Card elevated className="w-full max-w-md">
+        <CardContent className="p-8">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+              <KeyRound className="h-8 w-8" />
             </div>
-          )}
+            <h1 className="text-2xl font-bold text-slate-950">Nuova password</h1>
+            <p className="mt-2 text-sm text-slate-500">Inserisci e conferma la tua nuova password.</p>
+          </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Nuova Password
-            </label>
-            <div className="relative">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700">
+                Nuova password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="clinical-input px-4 py-3 pr-12"
+                  placeholder="Almeno 6 caratteri"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="mb-2 block text-sm font-medium text-slate-700">
+                Conferma password
+              </label>
               <input
-                id="password"
+                id="confirmPassword"
                 type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition pr-12"
-                placeholder="••••••••"
+                className="clinical-input px-4 py-3"
+                placeholder="Ripeti la password"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-              Conferma Password
-            </label>
-            <input
-              id="confirmPassword"
-              type={showPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Salvataggio...' : 'Salva Nuova Password'}
-          </button>
-        </form>
-      </div>
+            <Button type="submit" loading={loading} className="w-full" size="lg">
+              {loading ? 'Salvataggio...' : 'Salva nuova password'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

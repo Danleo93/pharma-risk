@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, ClipboardList } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { AlertTriangle, ArrowLeft, Check, ClipboardList, FileText, ShieldCheck } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
+import { Card, CardContent } from '../../components/ui/Card'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useAuth } from '../../context/AuthContext'
+import { cn } from '../../lib/ui'
+import { supabase } from '../../lib/supabase'
 import type { RCAMethodology, RCAEventType, RCASeverity } from '../../types'
 
 export default function NewRCAAssessment() {
@@ -27,7 +31,7 @@ export default function NewRCAAssessment() {
   const handleSubmit = async () => {
     if (!user) return
     if (!title.trim() || !eventTitle.trim()) {
-      setError("Titolo assessment e titolo evento sono obbligatori")
+      setError('Titolo assessment e titolo evento sono obbligatori')
       return
     }
 
@@ -65,211 +69,275 @@ export default function NewRCAAssessment() {
     navigate(`/rca/assessment/${data.id}`)
   }
 
+  const methodologyCardClass = (active: boolean) =>
+    cn(
+      'flex h-full cursor-pointer items-start gap-3 rounded-xl border p-4 transition',
+      active
+        ? 'border-amber-200 bg-amber-50 text-amber-900 shadow-clinical-soft'
+        : 'border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50/60',
+    )
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-8">
-        <button
-          type="button"
-          onClick={() => navigate('/rca/assessments')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Torna agli Assessment RCA
-        </button>
-        <h1 className="text-3xl font-bold text-gray-800">Nuovo Assessment RCA</h1>
-        <p className="text-gray-500 mt-1">Registra un evento, incidente o near miss da analizzare.</p>
-      </div>
+    <div className="clinical-page max-w-5xl">
+      <PageHeader
+        title="Nuovo Assessment RCA"
+        description="Registra un evento, incidente o near miss da analizzare con metodologia RCA."
+        eyebrow="Analisi Reattiva"
+        backAction={(
+          <button
+            type="button"
+            onClick={() => navigate('/rca/assessments')}
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Torna agli Assessment RCA
+          </button>
+        )}
+      />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-            <ClipboardList className="w-5 h-5 text-orange-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Informazioni iniziali</h2>
-            <p className="text-sm text-gray-500">La parte analitica verra' completata nelle fasi successive.</p>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Titolo assessment *
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-                placeholder="Es: RCA errore dispensazione"
-              />
+      <Card elevated>
+        <CardContent className="p-6">
+          <div className="mb-6 flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+              <ClipboardList className="h-5 w-5" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Titolo evento *
-              </label>
-              <input
-                type="text"
-                value={eventTitle}
-                onChange={(e) => setEventTitle(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-                placeholder="Es: Near miss in preparazione terapia"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Descrizione assessment
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none"
-              placeholder="Contesto o perimetro dell'analisi..."
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo evento</label>
-              <select
-                value={eventType}
-                onChange={(e) => setEventType(e.target.value as RCAEventType | '')}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-              >
-                <option value="">Non specificato</option>
-                <option value="incident">Incidente</option>
-                <option value="near_miss">Near miss</option>
-                <option value="non_conformity">Non conformita'</option>
-                <option value="complaint">Reclamo</option>
-                <option value="other">Altro</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Severita'</label>
-              <select
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value as RCASeverity | '')}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-              >
-                <option value="">Non specificata</option>
-                <option value="low">Bassa</option>
-                <option value="medium">Media</option>
-                <option value="high">Alta</option>
-                <option value="critical">Critica</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Metodologia di analisi</label>
-              <select
-                value={methodology}
-                onChange={(e) => setMethodology(e.target.value as RCAMethodology)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-              >
-                <option value="combined">Ishikawa + 5 Whys</option>
-                <option value="fishbone">Ishikawa</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Il percorso consigliato usa Ishikawa per identificare cause candidate e 5 Whys per approfondirle.
+              <h2 className="text-lg font-semibold text-slate-900">Informazioni iniziali</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                La raccolta evento apre il workflow; Ishikawa, 5 Whys e azioni saranno gestiti nel dettaglio assessment.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Data evento</label>
-              <input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-              />
+          <div className="space-y-8">
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-slate-400" />
+                <h3 className="font-semibold text-slate-900">Assessment</h3>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Titolo assessment *
+                  </label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="clinical-input px-4 py-3"
+                    placeholder="Es: RCA errore dispensazione"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Titolo evento *
+                  </label>
+                  <input
+                    type="text"
+                    value={eventTitle}
+                    onChange={(e) => setEventTitle(e.target.value)}
+                    className="clinical-input px-4 py-3"
+                    placeholder="Es: Near miss in preparazione terapia"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Descrizione assessment
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="clinical-input resize-none px-4 py-3"
+                  placeholder="Contesto o perimetro dell'analisi..."
+                />
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-slate-400" />
+                <h3 className="font-semibold text-slate-900">Metodologia prevista</h3>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className={methodologyCardClass(methodology === 'combined')}>
+                  <input
+                    type="radio"
+                    name="methodology"
+                    value="combined"
+                    checked={methodology === 'combined'}
+                    onChange={() => setMethodology('combined')}
+                    className="sr-only"
+                  />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-700 ring-1 ring-amber-100">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">Ishikawa + 5 Whys</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Percorso consigliato: mappa le cause candidate e approfondiscile con 5 Whys.
+                    </p>
+                  </div>
+                  {methodology === 'combined' && <Check className="h-5 w-5 text-amber-700" />}
+                </label>
+
+                <label className={methodologyCardClass(methodology === 'fishbone')}>
+                  <input
+                    type="radio"
+                    name="methodology"
+                    value="fishbone"
+                    checked={methodology === 'fishbone'}
+                    onChange={() => setMethodology('fishbone')}
+                    className="sr-only"
+                  />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-700 ring-1 ring-amber-100">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">Ishikawa</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Analisi causa-effetto con eventuale approfondimento successivo.
+                    </p>
+                  </div>
+                  {methodology === 'fishbone' && <Check className="h-5 w-5 text-amber-700" />}
+                </label>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-slate-400" />
+                <h3 className="font-semibold text-slate-900">Evento e contesto</h3>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Tipo evento</label>
+                  <select
+                    value={eventType}
+                    onChange={(e) => setEventType(e.target.value as RCAEventType | '')}
+                    className="clinical-input px-4 py-3"
+                  >
+                    <option value="">Non specificato</option>
+                    <option value="incident">Incidente</option>
+                    <option value="near_miss">Near miss</option>
+                    <option value="non_conformity">Non conformita'</option>
+                    <option value="complaint">Reclamo</option>
+                    <option value="other">Altro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Severita'</label>
+                  <select
+                    value={severity}
+                    onChange={(e) => setSeverity(e.target.value as RCASeverity | '')}
+                    className="clinical-input px-4 py-3"
+                  >
+                    <option value="">Non specificata</option>
+                    <option value="low">Bassa</option>
+                    <option value="medium">Media</option>
+                    <option value="high">Alta</option>
+                    <option value="critical">Critica</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Data evento</label>
+                  <input
+                    type="date"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="clinical-input px-4 py-3"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Ora evento</label>
+                  <input
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    className="clinical-input px-4 py-3"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Luogo</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="clinical-input px-4 py-3"
+                    placeholder="Es: Farmacia ospedaliera"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Reparto / Servizio</label>
+                  <input
+                    type="text"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="clinical-input px-4 py-3"
+                    placeholder="Es: UFA, DPC, Magazzino"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Descrizione evento</label>
+                <textarea
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
+                  rows={4}
+                  className="clinical-input resize-none px-4 py-3"
+                  placeholder="Descrivi cosa e' accaduto..."
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Contenimento immediato</label>
+                <textarea
+                  value={immediateContainment}
+                  onChange={(e) => setImmediateContainment(e.target.value)}
+                  rows={3}
+                  className="clinical-input resize-none px-4 py-3"
+                  placeholder="Azioni immediate gia' adottate..."
+                />
+              </div>
+            </section>
+          </div>
+
+          {error && (
+            <div className="mt-6 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Ora evento</label>
-              <input
-                type="time"
-                value={eventTime}
-                onChange={(e) => setEventTime(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Luogo</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-                placeholder="Es: Farmacia ospedaliera"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reparto / Servizio</label>
-              <input
-                type="text"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-                placeholder="Es: UFA, DPC, Magazzino"
-              />
-            </div>
+          <div className="mt-8 flex justify-end gap-3 border-t border-slate-100 pt-6">
+            <Button
+              type="button"
+              variant="ghost"
+              tone="neutral"
+              onClick={() => navigate('/rca/assessments')}
+            >
+              Annulla
+            </Button>
+            <Button
+              type="button"
+              tone="rca"
+              onClick={handleSubmit}
+              loading={loading}
+              iconRight={<Check className="h-4 w-4" />}
+            >
+              {loading ? 'Creazione...' : 'Crea Assessment RCA'}
+            </Button>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Descrizione evento</label>
-            <textarea
-              value={eventDescription}
-              onChange={(e) => setEventDescription(e.target.value)}
-              rows={4}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none"
-              placeholder="Descrivi cosa e' accaduto..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Contenimento immediato</label>
-            <textarea
-              value={immediateContainment}
-              onChange={(e) => setImmediateContainment(e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none"
-              placeholder="Azioni immediate gia' adottate..."
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="mt-6 bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
-          <button
-            type="button"
-            onClick={() => navigate('/rca/assessments')}
-            className="px-5 py-2.5 text-gray-600 hover:text-gray-900"
-          >
-            Annulla
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-lg font-medium transition disabled:opacity-50"
-          >
-            {loading ? 'Creazione...' : 'Crea Assessment RCA'}
-            <Check className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

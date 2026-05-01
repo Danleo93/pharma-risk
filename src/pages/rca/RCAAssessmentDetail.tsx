@@ -1,6 +1,26 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Pencil, Plus, Target, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Building2,
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  Download,
+  GitBranch,
+  MapPin,
+  Package,
+  Pencil,
+  Pill,
+  Plus,
+  Target,
+  Users,
+  Wrench,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -61,6 +81,20 @@ const ISHIKAWA_STANDARD_CATEGORIES = [
 ] as const
 
 type IshikawaStandardCategoryKey = typeof ISHIKAWA_STANDARD_CATEGORIES[number]['key']
+
+const ISHIKAWA_CATEGORY_ICONS: Record<IshikawaStandardCategoryKey, LucideIcon> = {
+  people: Users,
+  processes_procedures: GitBranch,
+  technology_equipment: Wrench,
+  drugs_materials: Pill,
+  environment: MapPin,
+  organization: Building2,
+  controls_monitoring: ClipboardCheck,
+}
+
+const getIshikawaCategoryIcon = (standardKey: IshikawaStandardCategoryKey | null) => {
+  return standardKey ? ISHIKAWA_CATEGORY_ICONS[standardKey] : Package
+}
 
 interface RCAFishboneDiagram {
   id: string
@@ -217,6 +251,7 @@ export default function RCAAssessmentDetail() {
   const [activeFiveWhyFormChainId, setActiveFiveWhyFormChainId] = useState<string | null>(null)
   const [newFiveWhyAnswer, setNewFiveWhyAnswer] = useState('')
   const [causeFilter, setCauseFilter] = useState<CauseFilter>('all')
+  const [monitoringResponsibleSignature, setMonitoringResponsibleSignature] = useState('')
   const tabParam = searchParams.get('tab')
 
   useEffect(() => {
@@ -1266,8 +1301,31 @@ export default function RCAAssessmentDetail() {
     return date ? new Date(date).toLocaleDateString('it-IT') : 'N/D'
   }
 
+  const getRCAMonitoringSummary = () => {
+    const totalActions = rcaActions.length
+    const completedActions = rcaActions.filter((action) => normalizeRCAActionStatus(action.status) === 'completed').length
+    const allActionsCompleted = totalActions > 0 && completedActions === totalActions
+    const hasSomeCompletedActions = completedActions > 0 && !allActionsCompleted
+
+    return {
+      reevaluationStatus: allActionsCompleted
+        ? 'Rivalutazione raccomandata'
+        : hasSomeCompletedActions
+          ? 'Da rivalutare dopo completamento azioni'
+          : 'Da pianificare',
+      effectivenessStatus: allActionsCompleted
+        ? 'Pronto per verifica di efficacia'
+        : hasSomeCompletedActions
+          ? 'Parzialmente valutabile'
+          : 'Da definire dopo implementazione azioni',
+      responsibleSignature: monitoringResponsibleSignature.trim() || user?.email || 'Non assegnato',
+    }
+  }
+
   const buildRCAExportData = (): RCAExportData | null => {
     if (!assessment) return null
+
+    const monitoring = getRCAMonitoringSummary()
 
     const causes = getAllAssessmentCauses().map((cause) => ({
       id: cause.id,
@@ -1336,6 +1394,7 @@ export default function RCAAssessmentDetail() {
         status: action.status,
         cause_root_cause_status: action.cause ? getEffectiveRootCauseStatus(action.cause) : null,
       })),
+      monitoring,
     }
   }
 
@@ -1562,6 +1621,7 @@ export default function RCAAssessmentDetail() {
               const activeBranch = getActiveStandardBranch(category.key)
               const active = Boolean(activeBranch)
               const disabled = (!active && !canAddFishboneBranch) || fishboneSaving
+              const CategoryIcon = ISHIKAWA_CATEGORY_ICONS[category.key]
 
               return (
                 <button
@@ -1577,7 +1637,12 @@ export default function RCAAssessmentDetail() {
                     ${disabled ? 'disabled:cursor-not-allowed disabled:opacity-50' : ''}
                   `}
                 >
-                  <p className="font-medium">{category.label}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 text-slate-500 ring-1 ring-slate-100">
+                      <CategoryIcon className="h-4 w-4" />
+                    </span>
+                    <p className="font-medium">{category.label}</p>
+                  </div>
                   <p className="text-xs mt-1 opacity-70">
                     {active ? 'Attiva nel diagramma' : 'Aggiungi categoria standard'}
                   </p>
@@ -1601,14 +1666,22 @@ export default function RCAAssessmentDetail() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {fishboneBranches.map((branch, index) => (
+              {fishboneBranches.map((branch, index) => {
+                const BranchIcon = getIshikawaCategoryIcon(branch.standard_key)
+
+                return (
                 <div key={branch.id} className="p-4 rounded-lg border border-gray-200">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <BranchIcon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
                       <p className="font-medium text-gray-800">{branch.name}</p>
                       <p className="text-xs text-gray-500 mt-1">
                         {branch.source_type === 'standard' ? 'Categoria standard' : 'Categoria custom'}
                       </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
@@ -1865,7 +1938,8 @@ export default function RCAAssessmentDetail() {
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>
@@ -2570,6 +2644,7 @@ export default function RCAAssessmentDetail() {
     const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
     const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
     const linkedFiveWhyChains = fiveWhyChains.filter((chain) => chain.cause_id)
+    const monitoring = getRCAMonitoringSummary()
     const kpis = [
       { label: 'Categorie attive', value: fishboneBranches.length },
       { label: 'Cause totali', value: allCauses.length },
@@ -3076,18 +3151,27 @@ export default function RCAAssessmentDetail() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
               <p className="text-sm text-gray-500">Rivalutazione prevista</p>
-              <p className="font-medium text-gray-800 mt-1">Da pianificare</p>
+              <p className="font-medium text-gray-800 mt-1">{monitoring.reevaluationStatus}</p>
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
               <p className="text-sm text-gray-500">Effectiveness check</p>
-              <p className="font-medium text-gray-800 mt-1">Da definire dopo implementazione azioni</p>
+              <p className="font-medium text-gray-800 mt-1">{monitoring.effectivenessStatus}</p>
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
               <p className="text-sm text-gray-500">Responsabile / Firma</p>
-              <p className="font-medium text-gray-800 mt-1">Non assegnato</p>
+              <input
+                type="text"
+                value={monitoringResponsibleSignature}
+                onChange={(event) => setMonitoringResponsibleSignature(event.target.value)}
+                className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                placeholder={user?.email || 'Nome responsabile'}
+              />
+              <p className="mt-2 text-xs text-gray-400">
+                Usato nel report web e negli export PDF/Excel.
+              </p>
             </div>
             <p className="md:col-span-3 text-sm text-gray-500 mt-1">
-              Questa sezione sara completata nelle fasi successive del workflow RCA.
+              Lo stato di monitoraggio e calcolato in base all'avanzamento delle azioni correttive RCA.
             </p>
           </div>,
         )}

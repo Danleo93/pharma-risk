@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   Target,
 } from 'lucide-react'
+import { Card, CardContent } from '../components/ui/Card'
+import { PageHeader } from '../components/ui/PageHeader'
 
 type GuideModuleId = 'general' | 'fmea' | 'rca'
 type BoxVariant = 'info' | 'tip' | 'warning'
@@ -842,21 +844,16 @@ export default function Docs() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <BookOpen className="w-8 h-8 text-sky-600" />
-            <h1 className="text-3xl font-bold text-gray-800">Guida Utente</h1>
-          </div>
-          <p className="text-gray-600">
-            Manuale operativo modulare per FMEA, RCA e futuri moduli di gestione del rischio sanitario.
-          </p>
-        </div>
+    <div className="clinical-page">
+        <PageHeader
+          title="Guida Utente"
+          description="Manuale operativo modulare per FMEA, RCA e futuri moduli di gestione del rischio sanitario."
+          icon={<BookOpen className="h-5 w-5" />}
+        />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[300px_1fr]">
           <aside>
-            <nav className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 lg:sticky lg:top-8">
+            <nav className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-8">
               {modules.map((module) => (
                 <div key={module.id} className="mb-2 last:mb-0">
                   <button
@@ -902,25 +899,26 @@ export default function Docs() {
           </aside>
 
           <main>
-            <article className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
-              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                <span className="text-sky-600">{active.icon}</span>
+            <Card elevated>
+              <CardContent className="p-6 md:p-8">
+              <div className="mb-6 flex items-center gap-3 border-b border-slate-100 pb-4">
+                <span className="text-sky-700">{active.icon}</span>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-800">{active.title}</h2>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <h2 className="text-2xl font-bold text-slate-900">{active.title}</h2>
+                  <p className="mt-1 text-sm text-slate-500">
                     {modules.find((module) => module.id === active.moduleId)?.title}
                   </p>
                 </div>
               </div>
               {active.content}
-            </article>
+              </CardContent>
+            </Card>
           </main>
         </div>
 
-        <div className="mt-8 text-center text-sm text-gray-500">
+        <div className="mt-8 text-center text-sm text-slate-500">
           <p>PhaRMA T v1.0 - © 2026 Dott. Daniele Leonardi Vinci, PharmD</p>
         </div>
       </div>
-    </div>
   )
 }

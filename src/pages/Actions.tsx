@@ -392,74 +392,77 @@ export default function Actions() {
 
       {/* Modal Nuova Azione - Multi Step */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
             {/* Header */}
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800">Nuova Azione Correttiva</h3>
+            <div className="flex items-center justify-between border-b border-slate-100 p-5">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Nuova Azione Correttiva</h3>
+                <p className="mt-1 text-sm text-slate-500">Collega l'intervento a un rischio FMEA gia valutato.</p>
+              </div>
               <button
                 onClick={() => { setShowAddModal(false); resetForm(); }}
-                className="text-gray-500 hover:text-gray-700"
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Progress Steps */}
-            <div className="px-4 pt-4">
+            <div className="px-5 pt-5">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    step >= 1 ? 'bg-sky-600 text-white' : 'bg-gray-200 text-gray-600'
+                    step >= 1 ? 'bg-sky-700 text-white' : 'bg-slate-100 text-slate-500'
                   }`}>1</div>
-                  <span className={`text-sm ${step >= 1 ? 'text-sky-600 font-medium' : 'text-gray-500'}`}>Assessment</span>
+                  <span className={`text-sm ${step >= 1 ? 'font-medium text-sky-700' : 'text-slate-500'}`}>Assessment</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <ChevronRight className="w-4 h-4 text-slate-300" />
                 <div className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    step >= 2 ? 'bg-sky-600 text-white' : 'bg-gray-200 text-gray-600'
+                    step >= 2 ? 'bg-sky-700 text-white' : 'bg-slate-100 text-slate-500'
                   }`}>2</div>
-                  <span className={`text-sm ${step >= 2 ? 'text-sky-600 font-medium' : 'text-gray-500'}`}>Rischio</span>
+                  <span className={`text-sm ${step >= 2 ? 'font-medium text-sky-700' : 'text-slate-500'}`}>Rischio</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <ChevronRight className="w-4 h-4 text-slate-300" />
                 <div className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    step >= 3 ? 'bg-sky-600 text-white' : 'bg-gray-200 text-gray-600'
+                    step >= 3 ? 'bg-sky-700 text-white' : 'bg-slate-100 text-slate-500'
                   }`}>3</div>
-                  <span className={`text-sm ${step >= 3 ? 'text-sky-600 font-medium' : 'text-gray-500'}`}>Dettagli</span>
+                  <span className={`text-sm ${step >= 3 ? 'font-medium text-sky-700' : 'text-slate-500'}`}>Dettagli</span>
                 </div>
               </div>
             </div>
 
             {/* Step Content */}
-            <div className="p-4">
+            <div className="px-5 pb-5">
               {/* Step 1: Seleziona Assessment */}
               {step === 1 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
                     Seleziona l'Assessment
                   </label>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                     {assessments.length === 0 ? (
-                      <p className="text-gray-500 text-center py-4">Nessun assessment trovato</p>
+                      <p className="py-4 text-center text-sm text-slate-500">Nessun assessment trovato</p>
                     ) : (
                       assessments.map(assessment => (
                         <button
                           key={assessment.id}
                           onClick={() => setSelectedAssessment(assessment.id)}
-                          className={`w-full text-left p-3 rounded-lg border transition ${
+                          className={`w-full rounded-xl border p-3 text-left transition ${
                             selectedAssessment === assessment.id
-                              ? 'border-sky-500 bg-sky-50'
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                              ? 'border-sky-200 bg-sky-50 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                           }`}
                         >
                           <div className="flex items-center gap-3">
                             <FileText className={`w-5 h-5 ${
-                              selectedAssessment === assessment.id ? 'text-sky-600' : 'text-gray-400'
+                              selectedAssessment === assessment.id ? 'text-sky-700' : 'text-slate-400'
                             }`} />
                             <div>
-                              <p className="font-medium text-gray-800">{assessment.title}</p>
-                              <p className="text-sm text-gray-500">
+                              <p className="font-medium text-slate-900">{assessment.title}</p>
+                              <p className="text-sm text-slate-500">
                                 {new Date(assessment.created_at).toLocaleDateString('it-IT')} • {
                                   assessment.status === 'completed' ? 'Completato' : 
                                   assessment.status === 'in_progress' ? 'In corso' : 'Bozza'
@@ -477,34 +480,34 @@ export default function Actions() {
               {/* Step 2: Seleziona Rischio */}
               {step === 2 && (
                 <div>
-                  <div className="mb-4 p-3 bg-sky-50 rounded-lg">
+                  <div className="mb-4 rounded-xl border border-sky-100 bg-sky-50 p-3">
                     <p className="text-sm text-sky-800">
                       <span className="font-medium">Assessment:</span> {getSelectedAssessmentTitle()}
                     </p>
                   </div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
                     Seleziona il Rischio
                   </label>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                     {filteredRiskItems.length === 0 ? (
-                      <p className="text-gray-500 text-center py-4">Nessun rischio in questo assessment</p>
+                      <p className="py-4 text-center text-sm text-slate-500">Nessun rischio in questo assessment</p>
                     ) : (
                       filteredRiskItems.map(risk => (
                         <button
                           key={risk.id}
                           onClick={() => setSelectedRiskItem(risk.id)}
-                          className={`w-full text-left p-3 rounded-lg border transition ${
+                          className={`w-full rounded-xl border p-3 text-left transition ${
                             selectedRiskItem === risk.id
-                              ? 'border-sky-500 bg-sky-50'
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                              ? 'border-sky-200 bg-sky-50 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-800">
+                              <p className="font-medium text-slate-900">
                                 {risk.risk_catalog_base?.name || risk.custom_risk_name}
                               </p>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-slate-500">
                                 {risk.risk_catalog_base?.category || 'Personalizzato'} • RPN: {risk.rpn || 'N/D'}
                               </p>
                             </div>
@@ -522,7 +525,7 @@ export default function Actions() {
               {/* Step 3: Dettagli Azione */}
               {step === 3 && (
                 <div className="space-y-4">
-                  <div className="p-3 bg-sky-50 rounded-lg">
+                  <div className="rounded-xl border border-sky-100 bg-sky-50 p-3">
                     <p className="text-sm text-sky-800">
                       <span className="font-medium">Assessment:</span> {getSelectedAssessmentTitle()}
                     </p>
@@ -532,40 +535,40 @@ export default function Actions() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
                       Descrizione Azione *
                     </label>
                     <textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none"
+                      className="clinical-input resize-none px-4 py-2"
                       placeholder="Descrivi l'azione correttiva..."
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="mb-2 block text-sm font-medium text-slate-700">
                         Responsabile
                       </label>
                       <input
                         type="text"
                         value={responsible}
                         onChange={(e) => setResponsible(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        className="clinical-input px-4 py-2"
                         placeholder="Nome responsabile"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="mb-2 block text-sm font-medium text-slate-700">
                         Data Scadenza
                       </label>
                       <input
                         type="date"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                        className="clinical-input px-4 py-2"
                       />
                     </div>
                   </div>
@@ -574,10 +577,10 @@ export default function Actions() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-100 flex justify-between">
+            <div className="flex justify-between border-t border-slate-100 p-5">
               <button
                 onClick={step === 1 ? () => { setShowAddModal(false); resetForm(); } : handlePrevStep}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
               >
                 {step === 1 ? 'Annulla' : 'Indietro'}
               </button>
@@ -586,7 +589,7 @@ export default function Actions() {
                 <button
                   onClick={handleNextStep}
                   disabled={(step === 1 && !selectedAssessment) || (step === 2 && !selectedRiskItem)}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg bg-sky-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Avanti
                 </button>
@@ -594,7 +597,7 @@ export default function Actions() {
                 <button
                   onClick={addAction}
                   disabled={!description.trim() || saving}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg bg-sky-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? 'Salvataggio...' : 'Aggiungi Azione'}
                 </button>
