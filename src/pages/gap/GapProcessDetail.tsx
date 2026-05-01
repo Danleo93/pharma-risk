@@ -1,21 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, ClipboardList, Edit3, Info, Layers3, Map, Plus, Trash2, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BookMarked, ClipboardList, Edit3, Info, Layers3, Map, Plus, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   createGapArea,
   createGapActivity,
   deleteGapArea,
   deleteGapActivity,
+  getGapActivityStandardsByActivity,
   getGapActivitiesByArea,
   getGapAreasByProcess,
   getGapProcessById,
+  getGapStandards,
+  replaceGapActivityStandards,
   updateGapArea,
   updateGapActivity,
+  type GapActivityStandardLinkInput,
   type GapActivityInput,
   type GapAreaInput,
 } from '../../services/gapService'
-import type { GapActivity, GapArea, GapProcess } from '../../types/gap'
+import type { GapActivity, GapActivityStandard, GapArea, GapProcess, GapStandard } from '../../types/gap'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
@@ -44,6 +48,11 @@ interface ActivityFormState {
   description: string
   operator: string
   target_state: string
+}
+
+interface StandardDraftLink {
+  standard_id: string
+  specific_reference: string
 }
 
 const emptyActivityForm: ActivityFormState = {
@@ -126,14 +135,21 @@ const sortActivities = (activities: GapActivity[]) => {
   })
 }
 
+const escapeRegExp = (value: string) => {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export default function GapProcessDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const [process, setProcess] = useState<GapProcess | null>(null)
   const [areas, setAreas] = useState<GapArea[]>([])
   const [activitiesByArea, setActivitiesByArea] = useState<Record<string, GapActivity[]>>({})
+  const [standards, setStandards] = useState<GapStandard[]>([])
+  const [activityStandardsByActivity, setActivityStandardsByActivity] = useState<Record<string, GapActivityStandard[]>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingStandards, setSavingStandards] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAreaForm, setShowAreaForm] = useState(false)
   const [editingArea, setEditingArea] = useState<GapArea | null>(null)
@@ -141,6 +157,8 @@ export default function GapProcessDetail() {
   const [showActivityFormForArea, setShowActivityFormForArea] = useState<string | null>(null)
   const [editingActivity, setEditingActivity] = useState<GapActivity | null>(null)
   const [activityForm, setActivityForm] = useState<ActivityFormState>(emptyActivityForm)
+  const [editingStandardsForActivity, setEditingStandardsForActivity] = useState<string | null>(null)
+  const [standardDraftLinks, setStandardDraftLinks] = useState<StandardDraftLink[]>([])
 
   useEffect(() => {
     if (!user?.id || !id) return
@@ -150,9 +168,10 @@ export default function GapProcessDetail() {
       setError(null)
 
       try {
-        const [processData, areasData] = await Promise.all([
+        const [processData, areasData, standardsData] = await Promise.all([
           getGapProcessById(id, user.id),
           getGapAreasByProcess(id, user.id),
+          getGapStandards(user.id),
         ])
         const activityEntries = await Promise.all(
           areasData.map(async (area) => {
@@ -160,10 +179,19 @@ export default function GapProcessDetail() {
             return [area.id, sortActivities(activities)] as const
           }),
         )
+        const activities = activityEntries.flatMap(([, areaActivities]) => areaActivities)
+        const activityStandardEntries = await Promise.all(
+          activities.map(async (activity) => {
+            const links = await getGapActivityStandardsByActivity(activity.id, user.id)
+            return [activity.id, links] as const
+          }),
+        )
 
         setProcess(processData)
         setAreas(areasData)
+        setStandards(standardsData)
         setActivitiesByArea(Object.fromEntries(activityEntries))
+        setActivityStandardsByActivity(Object.fromEntries(activityStandardEntries))
       } catch (fetchError) {
         console.error('Errore caricamento dettaglio processo Gap:', fetchError)
         setError('Impossibile caricare il dettaglio del processo.')
@@ -196,6 +224,12 @@ export default function GapProcessDetail() {
     setError(null)
   }
 
+  const resetStandardEditor = () => {
+    setEditingStandardsForActivity(null)
+    setStandardDraftLinks([])
+    setError(null)
+  }
+
   const startEdit = (area: GapArea) => {
     const parsedDescription = parseAreaDescription(area.description)
 
@@ -219,6 +253,7 @@ export default function GapProcessDetail() {
   }
 
   const startEditActivity = (activity: GapActivity) => {
+    resetStandardEditor()
     setActivityForm({
       code: activity.code,
       name: activity.name,
@@ -228,6 +263,46 @@ export default function GapProcessDetail() {
     })
     setEditingActivity(activity)
     setShowActivityFormForArea(activity.area_id)
+    setError(null)
+  }
+
+  const getActivityMaxSuffix = (areaId: string) => {
+    const area = areas.find((item) => item.id === areaId)
+    const areaCode = area?.code.trim()
+
+    if (!areaCode) return 0
+
+    const activities = activitiesByArea[areaId] || []
+    const codePattern = new RegExp(`^${escapeRegExp(areaCode)}-(\\d+)$`)
+    return activities.reduce((max, activity) => {
+      const match = activity.code.match(codePattern)
+      if (!match) return max
+
+      const suffix = Number(match[1])
+      return Number.isFinite(suffix) ? Math.max(max, suffix) : max
+    }, 0)
+  }
+
+  const getNextActivityCode = (areaId: string) => {
+    const area = areas.find((item) => item.id === areaId)
+    const areaCode = area?.code.trim()
+    const maxSuffix = getActivityMaxSuffix(areaId)
+
+    if (!areaCode || maxSuffix >= 99) return ''
+
+    return `${areaCode}-${String(maxSuffix + 1).padStart(2, '0')}`
+  }
+
+  const startEditStandards = (activity: GapActivity) => {
+    const existingLinks = activityStandardsByActivity[activity.id] || []
+
+    setEditingStandardsForActivity(activity.id)
+    setStandardDraftLinks(
+      existingLinks.map((link) => ({
+        standard_id: link.standard_id,
+        specific_reference: link.specific_reference || '',
+      })),
+    )
     setError(null)
   }
 
@@ -292,7 +367,15 @@ export default function GapProcessDetail() {
     event.preventDefault()
     if (!user?.id) return
 
-    if (!activityForm.code.trim() || !activityForm.name.trim()) {
+    const maxSuffix = getActivityMaxSuffix(areaId)
+    const activityCode = editingActivity ? editingActivity.code : getNextActivityCode(areaId)
+
+    if (!editingActivity && maxSuffix >= 99) {
+      setError('Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
+      return
+    }
+
+    if (!activityCode || !activityForm.name.trim()) {
       setError('Codice e nome Attivita/Requisito sono obbligatori.')
       return
     }
@@ -307,7 +390,10 @@ export default function GapProcessDetail() {
         -1,
       ) + 1
       const payload = buildActivityPayload(
-        activityForm,
+        {
+          ...activityForm,
+          code: activityCode,
+        },
         editingActivity ? editingActivity.order_index : nextOrderIndex,
       )
 
@@ -326,6 +412,10 @@ export default function GapProcessDetail() {
         setActivitiesByArea((current) => ({
           ...current,
           [areaId]: sortActivities([...(current[areaId] || []), createdActivity]),
+        }))
+        setActivityStandardsByActivity((current) => ({
+          ...current,
+          [createdActivity.id]: [],
         }))
       }
 
@@ -350,9 +440,67 @@ export default function GapProcessDetail() {
         ...current,
         [activity.area_id]: (current[activity.area_id] || []).filter((item) => item.id !== activity.id),
       }))
+      setActivityStandardsByActivity((current) => {
+        const next = { ...current }
+        delete next[activity.id]
+        return next
+      })
+      if (editingStandardsForActivity === activity.id) {
+        resetStandardEditor()
+      }
     } catch (deleteError) {
       console.error('Errore eliminazione attivita Gap:', deleteError)
       setError('Impossibile eliminare l Attivita/Requisito. Potrebbe essere gia collegata ad assessment o dati operativi.')
+    }
+  }
+
+  const isStandardSelected = (standardId: string) => {
+    return standardDraftLinks.some((link) => link.standard_id === standardId)
+  }
+
+  const toggleStandardDraftLink = (standardId: string) => {
+    setStandardDraftLinks((current) => {
+      if (current.some((link) => link.standard_id === standardId)) {
+        return current.filter((link) => link.standard_id !== standardId)
+      }
+
+      return [...current, { standard_id: standardId, specific_reference: '' }]
+    })
+  }
+
+  const updateStandardDraftReference = (standardId: string, specificReference: string) => {
+    setStandardDraftLinks((current) =>
+      current.map((link) =>
+        link.standard_id === standardId
+          ? { ...link, specific_reference: specificReference }
+          : link,
+      ),
+    )
+  }
+
+  const saveActivityStandards = async (activityId: string) => {
+    if (!user?.id) return
+
+    setSavingStandards(true)
+    setError(null)
+
+    try {
+      const payload: GapActivityStandardLinkInput[] = standardDraftLinks.map((link) => ({
+        standard_id: link.standard_id,
+        specific_reference: toNullable(link.specific_reference),
+      }))
+      const updatedLinks = await replaceGapActivityStandards(activityId, user.id, payload)
+
+      setActivityStandardsByActivity((current) => ({
+        ...current,
+        [activityId]: updatedLinks,
+      }))
+      resetStandardEditor()
+    } catch (saveError) {
+      console.error('Errore salvataggio norme Attivita/Requisito:', saveError)
+      setError('Impossibile salvare le norme collegate all Attivita/Requisito.')
+    } finally {
+      setSavingStandards(false)
     }
   }
 
@@ -662,15 +810,26 @@ export default function GapProcessDetail() {
                       <form onSubmit={(event) => saveActivity(area.id, event)} className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-3">
                           <label className="block">
-                            <span className="mb-1 block text-sm font-medium text-slate-700">Codice *</span>
+                            <span className="mb-1 block text-sm font-medium text-slate-700">Codice</span>
                             <input
                               type="text"
-                              value={activityForm.code}
-                              onChange={(event) => setActivityForm((current) => ({ ...current, code: event.target.value }))}
-                              className="clinical-input"
-                              placeholder="Es. ATT-01"
-                              required
+                              value={editingActivity ? activityForm.code : getNextActivityCode(area.id) || 'Limite raggiunto'}
+                              className="clinical-input bg-slate-50 text-slate-600"
+                              readOnly
                             />
+                            {editingActivity ? (
+                              <span className="mt-1 block text-xs leading-5 text-slate-500">
+                                Codice esistente mantenuto invariato in modifica.
+                              </span>
+                            ) : getActivityMaxSuffix(area.id) >= 99 ? (
+                              <span className="mt-1 block text-xs leading-5 text-red-600">
+                                Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Crea un nuovo Dominio/Sezione.
+                              </span>
+                            ) : (
+                              <span className="mt-1 block text-xs leading-5 text-slate-500">
+                                Preview generata automaticamente dal codice del Dominio/Sezione con progressivo a due cifre.
+                              </span>
+                            )}
                           </label>
 
                           <label className="block md:col-span-2">
@@ -722,7 +881,12 @@ export default function GapProcessDetail() {
                           <Button type="button" variant="outline" tone="neutral" onClick={resetActivityForm}>
                             Annulla
                           </Button>
-                          <Button type="submit" tone="success" loading={saving}>
+                          <Button
+                            type="submit"
+                            tone="success"
+                            loading={saving}
+                            disabled={!editingActivity && getActivityMaxSuffix(area.id) >= 99}
+                          >
                             {editingActivity ? 'Salva modifiche' : 'Crea Attivita/Requisito'}
                           </Button>
                         </div>
@@ -740,19 +904,47 @@ export default function GapProcessDetail() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {(activitiesByArea[area.id] || []).map((activity) => (
+                      {(activitiesByArea[area.id] || []).map((activity) => {
+                        const linkedStandards = activityStandardsByActivity[activity.id] || []
+                        const editingStandards = editingStandardsForActivity === activity.id
+
+                        return (
                         <div
                           key={activity.id}
                           className="rounded-xl border border-slate-200 bg-slate-50 p-4"
                         >
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="success">{activity.code}</Badge>
                                 <Badge variant="info">Ordine {activity.order_index}</Badge>
                                 {activity.operator && <Badge variant="neutral">{activity.operator}</Badge>}
                               </div>
-                              <h4 className="mt-2 text-sm font-semibold text-slate-900">{activity.name}</h4>
+                              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <h4 className="text-sm font-semibold text-slate-900">{activity.name}</h4>
+                                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    tone="neutral"
+                                    size="sm"
+                                    icon={<Edit3 className="h-4 w-4" />}
+                                    onClick={() => startEditActivity(activity)}
+                                  >
+                                    Modifica
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="risk"
+                                    size="sm"
+                                    icon={<Trash2 className="h-4 w-4" />}
+                                    onClick={() => removeActivity(activity)}
+                                  >
+                                    Elimina
+                                  </Button>
+                                </div>
+                              </div>
                               {activity.description && (
                                 <p className="mt-1 text-sm leading-6 text-slate-500">{activity.description}</p>
                               )}
@@ -761,33 +953,145 @@ export default function GapProcessDetail() {
                                   <span className="font-semibold text-slate-700">Target:</span> {activity.target_state}
                                 </p>
                               )}
-                            </div>
+                              <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Norme collegate
+                                    </h5>
+                                    {linkedStandards.length === 0 ? (
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        Nessuna norma collegata a questa Attivita/Requisito.
+                                      </p>
+                                    ) : (
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {linkedStandards.map((link) => (
+                                          <span
+                                            key={link.id}
+                                            className="inline-flex max-w-full flex-col rounded-lg border border-teal-100 bg-teal-50 px-3 py-2 text-xs text-teal-900"
+                                          >
+                                            <span className="font-semibold">
+                                              {link.standard?.code || 'Norma'} - {link.standard?.name || link.standard_id}
+                                            </span>
+                                            {link.specific_reference && (
+                                              <span className="mt-0.5 text-teal-700">
+                                                Rif.: {link.specific_reference}
+                                              </span>
+                                            )}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
 
-                            <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                tone="neutral"
-                                size="sm"
-                                icon={<Edit3 className="h-4 w-4" />}
-                                onClick={() => startEditActivity(activity)}
-                              >
-                                Modifica
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                tone="risk"
-                                size="sm"
-                                icon={<Trash2 className="h-4 w-4" />}
-                                onClick={() => removeActivity(activity)}
-                              >
-                                Elimina
-                              </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    tone="neutral"
+                                    size="sm"
+                                    icon={<BookMarked className="h-4 w-4" />}
+                                    onClick={() => startEditStandards(activity)}
+                                  >
+                                    Gestisci norme
+                                  </Button>
+                                </div>
+
+                                {editingStandards && (
+                                  <div className="mt-4 rounded-lg border border-teal-100 bg-teal-50/60 p-4">
+                                    {standards.length === 0 ? (
+                                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <p className="text-sm text-slate-600">
+                                          Crea prima una norma nel Catalogo Norme.
+                                        </p>
+                                        <Link
+                                          to="/gap/standards"
+                                          className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-teal-800 ring-1 ring-teal-100 transition hover:bg-teal-50"
+                                        >
+                                          Vai al Catalogo Norme
+                                        </Link>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        <p className="text-sm font-semibold text-slate-900">
+                                          Seleziona le norme applicabili
+                                        </p>
+                                        {standards.map((standard) => {
+                                          const selected = isStandardSelected(standard.id)
+                                          const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
+
+                                          return (
+                                            <div
+                                              key={standard.id}
+                                              className="rounded-lg border border-slate-200 bg-white p-3"
+                                            >
+                                              <label className="flex items-start gap-3">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={selected}
+                                                  onChange={() => toggleStandardDraftLink(standard.id)}
+                                                  className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                                                />
+                                                <span className="min-w-0 flex-1">
+                                                  <span className="block text-sm font-semibold text-slate-900">
+                                                    {standard.code} - {standard.name}
+                                                  </span>
+                                                  <span className="mt-1 block text-xs text-slate-500">
+                                                    {standard.issuing_body || 'Ente non specificato'}
+                                                    {standard.version ? ` - Versione ${standard.version}` : ''}
+                                                  </span>
+                                                </span>
+                                              </label>
+
+                                              {selected && (
+                                                <label className="mt-3 block">
+                                                  <span className="mb-1 block text-xs font-medium text-slate-600">
+                                                    Riferimento specifico
+                                                  </span>
+                                                  <input
+                                                    type="text"
+                                                    value={draftLink?.specific_reference || ''}
+                                                    onChange={(event) =>
+                                                      updateStandardDraftReference(standard.id, event.target.value)
+                                                    }
+                                                    className="clinical-input py-2 text-sm"
+                                                    placeholder="Es. paragrafo, requisito, procedura interna"
+                                                  />
+                                                </label>
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+
+                                        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            tone="neutral"
+                                            size="sm"
+                                            onClick={resetStandardEditor}
+                                          >
+                                            Annulla
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            tone="success"
+                                            size="sm"
+                                            loading={savingStandards}
+                                            onClick={() => saveActivityStandards(activity.id)}
+                                          >
+                                            Salva norme
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>

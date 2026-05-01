@@ -3,6 +3,7 @@ import type {
   GapAction,
   GapActivity,
   GapActivityEvaluation,
+  GapActivityStandard,
   GapArea,
   GapAssessment,
   GapAssessmentProcess,
@@ -24,6 +25,34 @@ export interface GapStandardInput {
   issuing_body?: string | null
   description?: string | null
   url?: string | null
+}
+
+export interface GapProcessInput {
+  code: string
+  name: string
+  description?: string | null
+  order_index: number
+}
+
+export interface GapAreaInput {
+  code: string
+  name: string
+  description?: string | null
+  order_index: number
+}
+
+export interface GapActivityInput {
+  code: string
+  name: string
+  description?: string | null
+  operator?: string | null
+  target_state?: string | null
+  order_index: number
+}
+
+export interface GapActivityStandardLinkInput {
+  standard_id: string
+  specific_reference?: string | null
 }
 
 const throwIfError = (error: unknown) => {
@@ -66,6 +95,69 @@ export const getGapProcesses = async (userId: string): Promise<GapProcess[]> => 
 
   throwIfError(error)
   return (data || []) as GapProcess[]
+}
+
+export const getGapProcessById = async (
+  id: string,
+  userId: string,
+): Promise<GapProcess | null> => {
+  const { data, error } = await supabase
+    .from('gap_processes')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  throwIfError(error)
+  return data as GapProcess | null
+}
+
+export const createGapProcess = async (
+  userId: string,
+  payload: GapProcessInput,
+): Promise<GapProcess> => {
+  const { data, error } = await supabase
+    .from('gap_processes')
+    .insert({
+      ...payload,
+      user_id: userId,
+      is_template: false,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapProcess
+}
+
+export const updateGapProcess = async (
+  id: string,
+  userId: string,
+  payload: GapProcessInput,
+): Promise<GapProcess> => {
+  const { data, error } = await supabase
+    .from('gap_processes')
+    .update({
+      ...payload,
+      is_template: false,
+    })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapProcess
+}
+
+export const deleteGapProcess = async (id: string, userId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('gap_processes')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  throwIfError(error)
 }
 
 export const getGapStandards = async (userId: string): Promise<GapStandard[]> => {
@@ -144,6 +236,52 @@ export const getGapAreasByProcess = async (
   return (data || []) as GapArea[]
 }
 
+export const createGapArea = async (
+  userId: string,
+  processId: string,
+  payload: GapAreaInput,
+): Promise<GapArea> => {
+  const { data, error } = await supabase
+    .from('gap_areas')
+    .insert({
+      ...payload,
+      user_id: userId,
+      process_id: processId,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapArea
+}
+
+export const updateGapArea = async (
+  id: string,
+  userId: string,
+  payload: GapAreaInput,
+): Promise<GapArea> => {
+  const { data, error } = await supabase
+    .from('gap_areas')
+    .update(payload)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapArea
+}
+
+export const deleteGapArea = async (id: string, userId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('gap_areas')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  throwIfError(error)
+}
+
 export const getGapActivitiesByArea = async (
   areaId: string,
   userId: string,
@@ -158,6 +296,98 @@ export const getGapActivitiesByArea = async (
 
   throwIfError(error)
   return (data || []) as GapActivity[]
+}
+
+export const createGapActivity = async (
+  userId: string,
+  areaId: string,
+  payload: GapActivityInput,
+): Promise<GapActivity> => {
+  const { data, error } = await supabase
+    .from('gap_activities')
+    .insert({
+      ...payload,
+      user_id: userId,
+      area_id: areaId,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapActivity
+}
+
+export const updateGapActivity = async (
+  id: string,
+  userId: string,
+  payload: GapActivityInput,
+): Promise<GapActivity> => {
+  const { data, error } = await supabase
+    .from('gap_activities')
+    .update(payload)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapActivity
+}
+
+export const deleteGapActivity = async (id: string, userId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('gap_activities')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  throwIfError(error)
+}
+
+export const getGapActivityStandardsByActivity = async (
+  activityId: string,
+  userId: string,
+): Promise<GapActivityStandard[]> => {
+  const { data, error } = await supabase
+    .from('gap_activity_standards')
+    .select('*, standard:gap_standards(*)')
+    .eq('activity_id', activityId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+
+  throwIfError(error)
+  return (data || []) as GapActivityStandard[]
+}
+
+export const replaceGapActivityStandards = async (
+  activityId: string,
+  userId: string,
+  links: GapActivityStandardLinkInput[],
+): Promise<GapActivityStandard[]> => {
+  const { error: deleteError } = await supabase
+    .from('gap_activity_standards')
+    .delete()
+    .eq('activity_id', activityId)
+    .eq('user_id', userId)
+
+  throwIfError(deleteError)
+
+  if (links.length > 0) {
+    const { error: insertError } = await supabase
+      .from('gap_activity_standards')
+      .insert(
+        links.map((link) => ({
+          user_id: userId,
+          activity_id: activityId,
+          standard_id: link.standard_id,
+          specific_reference: link.specific_reference || null,
+        })),
+      )
+
+    throwIfError(insertError)
+  }
+
+  return getGapActivityStandardsByActivity(activityId, userId)
 }
 
 export const getGapEvaluationsByAssessment = async (
