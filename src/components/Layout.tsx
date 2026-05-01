@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -30,7 +31,7 @@ interface NavItem {
   activeMatch?: string[]
 }
 
-type SectionKey = 'fmea' | 'rca'
+type SectionKey = 'fmea' | 'rca' | 'gap'
 
 interface NavSection {
   key: SectionKey
@@ -74,6 +75,21 @@ const navSections: NavSection[] = [
       { path: '/rca/actions', label: 'Azioni Correttive', icon: CheckSquare },
     ],
   },
+  {
+    key: 'gap',
+    title: 'GAP',
+    subtitle: 'Gap Analysis',
+    description: 'Conformita e scostamenti',
+    items: [
+      { path: '/gap/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      {
+        path: '/gap/assessments',
+        label: 'Assessment',
+        icon: FileText,
+        activeMatch: ['/gap/assessments', '/gap/assessment'],
+      },
+    ],
+  },
 ]
 
 const generalItems: NavItem[] = [
@@ -88,6 +104,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [openSection, setOpenSection] = useState<SectionKey | null>(() => {
+    if (location.pathname.startsWith('/gap')) return 'gap'
     if (location.pathname.startsWith('/rca')) return 'rca'
     if (location.pathname.startsWith('/fmea')) return 'fmea'
     return null
@@ -99,7 +116,9 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   useEffect(() => {
-    if (location.pathname.startsWith('/rca')) {
+    if (location.pathname.startsWith('/gap')) {
+      setOpenSection('gap')
+    } else if (location.pathname.startsWith('/rca')) {
       setOpenSection('rca')
     } else if (location.pathname.startsWith('/fmea')) {
       setOpenSection('fmea')
@@ -115,8 +134,8 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   const getSectionTone = (section: NavSection) => {
-    return section.key === 'rca'
-      ? {
+    if (section.key === 'rca') {
+      return {
           icon: 'bg-amber-50 text-amber-700 ring-amber-100',
           expanded: 'border-amber-200 bg-amber-50 text-amber-900 shadow-clinical-soft',
           collapsed:
@@ -124,14 +143,39 @@ export default function Layout({ children }: LayoutProps) {
           itemActive: 'border-amber-200 bg-amber-50 text-amber-700 shadow-clinical-soft',
           itemInactive: 'border-transparent text-slate-600 hover:bg-amber-50 hover:text-amber-900',
         }
-      : {
-          icon: 'bg-sky-50 text-sky-700 ring-sky-100',
-          expanded: 'border-sky-200 bg-sky-50/80 text-sky-900 shadow-clinical-soft',
-          collapsed:
-            'border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50/70 hover:text-sky-900',
-          itemActive: 'border-sky-200 bg-sky-50 text-sky-700 shadow-clinical-soft',
-          itemInactive: 'border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-900',
-        }
+    }
+
+    if (section.key === 'gap') {
+      return {
+        icon: 'bg-teal-50 text-teal-700 ring-teal-100',
+        expanded: 'border-teal-200 bg-teal-50/80 text-teal-900 shadow-clinical-soft',
+        collapsed:
+          'border-slate-200 bg-white text-slate-700 hover:border-teal-200 hover:bg-teal-50/70 hover:text-teal-900',
+        itemActive: 'border-teal-200 bg-teal-50 text-teal-700 shadow-clinical-soft',
+        itemInactive: 'border-transparent text-slate-600 hover:bg-teal-50 hover:text-teal-900',
+      }
+    }
+
+    return {
+      icon: 'bg-sky-50 text-sky-700 ring-sky-100',
+      expanded: 'border-sky-200 bg-sky-50/80 text-sky-900 shadow-clinical-soft',
+      collapsed:
+        'border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50/70 hover:text-sky-900',
+      itemActive: 'border-sky-200 bg-sky-50 text-sky-700 shadow-clinical-soft',
+      itemInactive: 'border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-900',
+    }
+  }
+
+  const getSectionIcon = (section: NavSection) => {
+    if (section.key === 'rca') return AlertTriangle
+    if (section.key === 'gap') return ClipboardList
+    return LayoutDashboard
+  }
+
+  const getSectionBadge = (section: NavSection) => {
+    if (section.key === 'rca') return 'Reactive'
+    if (section.key === 'gap') return 'Compliance'
+    return 'Proactive'
   }
 
   return (
@@ -191,7 +235,7 @@ export default function Layout({ children }: LayoutProps) {
 
               {navSections.map((section) => {
                 const expanded = openSection === section.key
-                const SectionIcon = section.key === 'rca' ? AlertTriangle : LayoutDashboard
+                const SectionIcon = getSectionIcon(section)
                 const tone = getSectionTone(section)
 
                 return (
@@ -214,7 +258,7 @@ export default function Layout({ children }: LayoutProps) {
                             <span className="flex items-center gap-2">
                               <span className="text-sm font-bold uppercase tracking-wide">{section.title}</span>
                               <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                {section.key === 'rca' ? 'Reactive' : 'Proactive'}
+                                {getSectionBadge(section)}
                               </span>
                             </span>
                             <span className="block truncate text-xs font-semibold opacity-90">

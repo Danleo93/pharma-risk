@@ -22,6 +22,8 @@ import RCAAssessments from './pages/rca/RCAAssessments'
 import NewRCAAssessment from './pages/rca/NewRCAAssessment'
 import RCAAssessmentDetail from './pages/rca/RCAAssessmentDetail'
 import RCAActions from './pages/rca/RCAActions'
+import GapDashboard from './pages/gap/GapDashboard'
+import GapAssessments from './pages/gap/GapAssessments'
 // Componente per proteggere le route
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -104,6 +106,10 @@ function AppRoutes() {
       <Route path="/rca/assessment/new" element={<ProtectedRoute><NewRCAAssessment /></ProtectedRoute>} />
       <Route path="/rca/assessment/:id" element={<ProtectedRoute><RCAAssessmentDetail /></ProtectedRoute>} />
       <Route path="/rca/actions" element={<ProtectedRoute><RCAActions /></ProtectedRoute>} />
+
+      {/* Gap Analysis */}
+      <Route path="/gap/dashboard" element={<ProtectedRoute><GapDashboard /></ProtectedRoute>} />
+      <Route path="/gap/assessments" element={<ProtectedRoute><GapAssessments /></ProtectedRoute>} />
       
       {/* Redirect legacy FMEA */}
       <Route path="/dashboard" element={<Navigate to="/fmea/dashboard" replace />} />
