@@ -745,6 +745,18 @@ export const getGapActionsByAssessment = async (
   return (data || []) as GapAction[]
 }
 
+export const getGapActions = async (userId: string): Promise<GapAction[]> => {
+  const { data, error } = await supabase
+    .from('gap_actions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('planned_end_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+
+  throwIfError(error)
+  return (data || []) as GapAction[]
+}
+
 export const createGapAction = async (
   userId: string,
   assessmentId: string,
@@ -847,6 +859,22 @@ export const getGapActionEventsByAction = async (
     .from('gap_action_events')
     .select('*')
     .eq('action_id', actionId)
+    .eq('user_id', userId)
+    .order('event_date', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  throwIfError(error)
+  return (data || []) as GapActionEvent[]
+}
+
+export const getGapActionEventsByAssessment = async (
+  assessmentId: string,
+  userId: string,
+): Promise<GapActionEvent[]> => {
+  const { data, error } = await supabase
+    .from('gap_action_events')
+    .select('*')
+    .eq('assessment_id', assessmentId)
     .eq('user_id', userId)
     .order('event_date', { ascending: false })
     .order('created_at', { ascending: false })
