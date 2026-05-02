@@ -1,14 +1,17 @@
 import { supabase } from '../lib/supabase'
 import type {
+  ComplianceStatus,
   GapAction,
   GapActivity,
   GapActivityEvaluation,
   GapActivityStandard,
   GapArea,
   GapAssessment,
+  GapAssessmentStats,
   GapAssessmentProcess,
   GapProcess,
   GapStandard,
+  RiskPriority,
 } from '../types/gap'
 
 interface GapAssessmentFullData {
@@ -55,6 +58,44 @@ export interface GapActivityStandardLinkInput {
   specific_reference?: string | null
 }
 
+export interface GapAssessmentInput {
+  title: string
+  description?: string | null
+  facility_name?: string | null
+  department?: string | null
+  assessor?: string | null
+  assessment_date?: string | null
+  total_activities: number
+}
+
+export interface GapActivityEvaluationInput {
+  activity_id: string
+  process_name_snapshot?: string | null
+  area_name_snapshot?: string | null
+  activity_name_snapshot?: string | null
+  activity_code_snapshot?: string | null
+}
+
+export interface GapActivityEvaluationUpdateInput {
+  current_state: string | null
+  target_state_override: string | null
+  gap_description: string | null
+  compliance_status: ComplianceStatus
+  risk_priority: RiskPriority
+  notes: string | null
+  evaluated_by?: string | null
+  evaluated_at?: string | null
+}
+
+export interface GapAreaWithActivities extends GapArea {
+  activities: GapActivity[]
+}
+
+export interface GapProcessWithStructure extends GapProcess {
+  areas: GapAreaWithActivities[]
+  total_activities: number
+}
+
 const throwIfError = (error: unknown) => {
   if (error) throw error
 }
@@ -85,6 +126,133 @@ export const getGapAssessmentById = async (
   return data as GapAssessment | null
 }
 
+export const createGapAssessment = async (
+  userId: string,
+  payload: GapAssessmentInput,
+): Promise<GapAssessment> => {
+  const { data, error } = await supabase
+    .from('gap_assessments')
+    .insert({
+      user_id: userId,
+      title: payload.title,
+      description: payload.description || null,
+      facility_name: payload.facility_name || null,
+      department: payload.department || null,
+      assessor: payload.assessor || null,
+      assessment_date: payload.assessment_date || null,
+      status: 'draft',
+      total_activities: payload.total_activities,
+      compliant_count: 0,
+      partial_count: 0,
+      non_compliant_count: 0,
+      not_evaluated_count: payload.total_activities,
+      na_count: 0,
+      compliance_percentage: 0,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapAssessment
+}
+
+export const updateGapAssessmentEvaluationCounts = async (
+  id: string,
+  userId: string,
+  totalActivities: number,
+): Promise<GapAssessment> => {
+  const { data, error } = await supabase
+    .from('gap_assessments')
+    .update({
+      total_activities: totalActivities,
+      compliant_count: 0,
+      partial_count: 0,
+      non_compliant_count: 0,
+      not_evaluated_count: totalActivities,
+      na_count: 0,
+      compliance_percentage: 0,
+    })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapAssessment
+}
+
+export const updateGapAssessmentStats = async (
+  id: string,
+  userId: string,
+  stats: GapAssessmentStats,
+): Promise<GapAssessment> => {
+  const { data, error } = await supabase
+    .from('gap_assessments')
+    .update({
+      total_activities: stats.total_activities,
+      compliant_count: stats.compliant_count,
+      partial_count: stats.partial_count,
+      non_compliant_count: stats.non_compliant_count,
+      not_evaluated_count: stats.not_evaluated_count,
+      na_count: stats.na_count,
+      compliance_percentage: stats.compliance_percentage,
+    })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapAssessment
+}
+
+export const createGapAssessmentProcess = async (
+  userId: string,
+  assessmentId: string,
+  processId: string,
+): Promise<GapAssessmentProcess> => {
+  const { data, error } = await supabase
+    .from('gap_assessment_processes')
+    .insert({
+      user_id: userId,
+      assessment_id: assessmentId,
+      process_id: processId,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapAssessmentProcess
+}
+
+export const createGapActivityEvaluationsForAssessment = async (
+  userId: string,
+  assessmentId: string,
+  evaluations: GapActivityEvaluationInput[],
+): Promise<GapActivityEvaluation[]> => {
+  if (evaluations.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('gap_activity_evaluations')
+    .insert(
+      evaluations.map((evaluation) => ({
+        user_id: userId,
+        assessment_id: assessmentId,
+        activity_id: evaluation.activity_id,
+        compliance_status: 'not_evaluated',
+        risk_priority: 'medium',
+        process_name_snapshot: evaluation.process_name_snapshot || null,
+        area_name_snapshot: evaluation.area_name_snapshot || null,
+        activity_name_snapshot: evaluation.activity_name_snapshot || null,
+        activity_code_snapshot: evaluation.activity_code_snapshot || null,
+      })),
+    )
+    .select('*')
+
+  throwIfError(error)
+  return (data || []) as GapActivityEvaluation[]
+}
+
 export const getGapProcesses = async (userId: string): Promise<GapProcess[]> => {
   const { data, error } = await supabase
     .from('gap_processes')
@@ -95,6 +263,36 @@ export const getGapProcesses = async (userId: string): Promise<GapProcess[]> => 
 
   throwIfError(error)
   return (data || []) as GapProcess[]
+}
+
+export const getGapProcessesWithStructure = async (
+  userId: string,
+): Promise<GapProcessWithStructure[]> => {
+  const processes = await getGapProcesses(userId)
+
+  return Promise.all(
+    processes.map(async (process) => {
+      const areas = await getGapAreasByProcess(process.id, userId)
+      const areasWithActivities = await Promise.all(
+        areas.map(async (area) => {
+          const activities = await getGapActivitiesByArea(area.id, userId)
+          return {
+            ...area,
+            activities,
+          }
+        }),
+      )
+
+      return {
+        ...process,
+        areas: areasWithActivities,
+        total_activities: areasWithActivities.reduce(
+          (sum, area) => sum + area.activities.length,
+          0,
+        ),
+      }
+    }),
+  )
 }
 
 export const getGapProcessById = async (
@@ -404,6 +602,23 @@ export const getGapEvaluationsByAssessment = async (
 
   throwIfError(error)
   return (data || []) as GapActivityEvaluation[]
+}
+
+export const updateGapActivityEvaluation = async (
+  id: string,
+  userId: string,
+  payload: GapActivityEvaluationUpdateInput,
+): Promise<GapActivityEvaluation> => {
+  const { data, error } = await supabase
+    .from('gap_activity_evaluations')
+    .update(payload)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapActivityEvaluation
 }
 
 export const getGapActionsByAssessment = async (
