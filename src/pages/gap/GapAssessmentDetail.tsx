@@ -35,7 +35,7 @@ import {
   type GapAreaWithActivities,
   type GapProcessWithStructure,
 } from '../../services/gapService'
-import { exportGapAssessmentToExcel } from '../../services/gapExportService'
+import { exportGapAssessmentToExcel, exportGapAssessmentToPDF } from '../../services/gapExportService'
 import type {
   ComplianceStatus,
   GapAction,
@@ -210,6 +210,7 @@ export default function GapAssessmentDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savingEvaluationId, setSavingEvaluationId] = useState<string | null>(null)
+  const [exportingPDF, setExportingPDF] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [activeTab, setActiveTab] = useState<DetailTab>('evaluation')
   const [actionCreateRequest, setActionCreateRequest] = useState<ActionCreateRequest | null>(null)
@@ -752,6 +753,28 @@ export default function GapAssessmentDetail() {
     }
   }
 
+  const handleExportPDF = () => {
+    if (!assessment) return
+
+    setExportingPDF(true)
+    setError(null)
+
+    try {
+      exportGapAssessmentToPDF({
+        assessment,
+        evaluations,
+        actions: gapActions,
+        standardsByActivityId,
+        targetStateByActivityId,
+      })
+    } catch (exportError) {
+      console.error('Errore export PDF Gap:', exportError)
+      setError('Impossibile esportare il file PDF Gap. Riprova tra qualche istante.')
+    } finally {
+      setExportingPDF(false)
+    }
+  }
+
   const openActionFormForEvaluation = (evaluation: GapActivityEvaluation) => {
     if (!findingStatuses.includes(evaluation.compliance_status)) {
       setError('Le azioni correttive possono essere create solo da valutazioni non conformi o parzialmente conformi.')
@@ -1012,6 +1035,19 @@ export default function GapAssessmentDetail() {
         )}
         actions={(
           <>
+            <button
+              type="button"
+              disabled={exportingPDF}
+              onClick={handleExportPDF}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exportingPDF ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Esporta PDF
+            </button>
             <button
               type="button"
               disabled={exportingExcel}
