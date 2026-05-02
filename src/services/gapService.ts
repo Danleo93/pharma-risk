@@ -2,6 +2,12 @@ import { supabase } from '../lib/supabase'
 import type {
   ComplianceStatus,
   GapAction,
+  GapActionEvent,
+  GapActionEventType,
+  GapActionPhase,
+  GapActionPriority,
+  GapActionStatus,
+  GapVerificationResult,
   GapActivity,
   GapActivityEvaluation,
   GapActivityStandard,
@@ -87,6 +93,27 @@ export interface GapActivityEvaluationUpdateInput {
   evaluated_at?: string | null
 }
 
+export interface GapActionInput {
+  description: string
+  responsible?: string | null
+  priority: GapActionPriority
+  status: GapActionStatus
+  progress: number
+  phase?: GapActionPhase | null
+  planned_start_date?: string | null
+  planned_end_date?: string | null
+  notes?: string | null
+}
+
+export interface GapActionUpdateInput extends GapActionInput {}
+
+export interface GapActionVerificationInput {
+  verification_method?: string | null
+  verification_result: Exclude<GapVerificationResult, 'pending'>
+  verification_notes?: string | null
+  verified_by?: string | null
+}
+
 export interface GapAreaWithActivities extends GapArea {
   activities: GapActivity[]
 }
@@ -98,6 +125,14 @@ export interface GapProcessWithStructure extends GapProcess {
 
 const throwIfError = (error: unknown) => {
   if (error) throw error
+}
+
+const toDateKey = (value: Date) => value.toISOString().slice(0, 10)
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
 }
 
 export const getGapAssessments = async (userId: string): Promise<GapAssessment[]> => {
@@ -263,6 +298,31 @@ export const createGapActivityEvaluationsForAssessment = async (
   return (data || []) as GapActivityEvaluation[]
 }
 
+export const createGapActivityEvaluationForAssessment = async (
+  userId: string,
+  assessmentId: string,
+  evaluation: GapActivityEvaluationInput,
+): Promise<GapActivityEvaluation> => {
+  const { data, error } = await supabase
+    .from('gap_activity_evaluations')
+    .insert({
+      user_id: userId,
+      assessment_id: assessmentId,
+      activity_id: evaluation.activity_id,
+      compliance_status: 'not_evaluated',
+      risk_priority: 'medium',
+      process_name_snapshot: evaluation.process_name_snapshot || null,
+      area_name_snapshot: evaluation.area_name_snapshot || null,
+      activity_name_snapshot: evaluation.activity_name_snapshot || null,
+      activity_code_snapshot: evaluation.activity_code_snapshot || null,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapActivityEvaluation
+}
+
 export const getGapProcesses = async (userId: string): Promise<GapProcess[]> => {
   const { data, error } = await supabase
     .from('gap_processes')
@@ -303,6 +363,26 @@ export const getGapProcessesWithStructure = async (
       }
     }),
   )
+}
+
+export const getGapAssessmentProcessesWithStructure = async (
+  assessmentId: string,
+  userId: string,
+): Promise<GapProcessWithStructure[]> => {
+  const { data, error } = await supabase
+    .from('gap_assessment_processes')
+    .select('*')
+    .eq('assessment_id', assessmentId)
+    .eq('user_id', userId)
+
+  throwIfError(error)
+
+  const assessmentProcesses = (data || []) as GapAssessmentProcess[]
+  const processIds = new Set(assessmentProcesses.map((item) => item.process_id))
+  if (processIds.size === 0) return []
+
+  const processes = await getGapProcessesWithStructure(userId)
+  return processes.filter((process) => processIds.has(process.id))
 }
 
 export const getGapProcessById = async (
@@ -663,6 +743,189 @@ export const getGapActionsByAssessment = async (
 
   throwIfError(error)
   return (data || []) as GapAction[]
+}
+
+export const createGapAction = async (
+  userId: string,
+  assessmentId: string,
+  evaluation: Pick<GapActivityEvaluation, 'id' | 'activity_id'>,
+  payload: GapActionInput,
+): Promise<GapAction> => {
+  const { data, error } = await supabase
+    .from('gap_actions')
+    .insert({
+      user_id: userId,
+      assessment_id: assessmentId,
+      activity_id: evaluation.activity_id,
+      evaluation_id: evaluation.id,
+      description: payload.description,
+      responsible: payload.responsible || null,
+      priority: payload.priority,
+      status: payload.status,
+      progress: payload.progress,
+      phase: payload.phase || null,
+      milestone: false,
+      planned_start_date: payload.planned_start_date || null,
+      planned_end_date: payload.planned_end_date || null,
+      verification_result: 'pending',
+      notes: payload.notes || null,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapAction
+}
+
+export const updateGapAction = async (
+  id: string,
+  userId: string,
+  payload: GapActionUpdateInput,
+): Promise<GapAction> => {
+  const { data, error } = await supabase
+    .from('gap_actions')
+    .update({
+      description: payload.description,
+      responsible: payload.responsible || null,
+      priority: payload.priority,
+      status: payload.status,
+      progress: payload.progress,
+      phase: payload.phase || null,
+      planned_start_date: payload.planned_start_date || null,
+      planned_end_date: payload.planned_end_date || null,
+      notes: payload.notes || null,
+    })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapAction
+}
+
+export const deleteGapAction = async (id: string, userId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('gap_actions')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  throwIfError(error)
+}
+
+export const createGapActionEvent = async (
+  userId: string,
+  action: Pick<GapAction, 'id' | 'assessment_id' | 'activity_id' | 'evaluation_id'>,
+  eventType: GapActionEventType,
+  description?: string | null,
+): Promise<GapActionEvent> => {
+  const { data, error } = await supabase
+    .from('gap_action_events')
+    .insert({
+      user_id: userId,
+      assessment_id: action.assessment_id,
+      activity_id: action.activity_id,
+      evaluation_id: action.evaluation_id,
+      action_id: action.id,
+      event_type: eventType,
+      description: description || null,
+      created_by: userId,
+    })
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapActionEvent
+}
+
+export const getGapActionEventsByAction = async (
+  actionId: string,
+  userId: string,
+): Promise<GapActionEvent[]> => {
+  const { data, error } = await supabase
+    .from('gap_action_events')
+    .select('*')
+    .eq('action_id', actionId)
+    .eq('user_id', userId)
+    .order('event_date', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  throwIfError(error)
+  return (data || []) as GapActionEvent[]
+}
+
+export const completeGapAction = async (
+  userId: string,
+  action: GapAction,
+  payload: GapActionUpdateInput,
+): Promise<GapAction> => {
+  const today = new Date()
+  const { data, error } = await supabase
+    .from('gap_actions')
+    .update({
+      description: payload.description,
+      responsible: payload.responsible || null,
+      priority: payload.priority,
+      status: 'completed',
+      progress: payload.progress,
+      phase: payload.phase || null,
+      planned_start_date: payload.planned_start_date || null,
+      planned_end_date: payload.planned_end_date || null,
+      actual_end_date: action.actual_end_date || toDateKey(today),
+      verification_due_date: action.verification_due_date || toDateKey(addDays(today, 30)),
+      verification_result: 'pending',
+      notes: payload.notes || null,
+    })
+    .eq('id', action.id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  const updatedAction = data as GapAction
+  await createGapActionEvent(userId, updatedAction, 'completed', 'Azione completata. Verifica efficacia in attesa.')
+  return updatedAction
+}
+
+export const verifyGapAction = async (
+  userId: string,
+  action: GapAction,
+  payload: GapActionVerificationInput,
+): Promise<GapAction> => {
+  const status: GapActionStatus = payload.verification_result === 'ineffective'
+    ? 'in_progress'
+    : 'verified'
+  const eventType: GapActionEventType = payload.verification_result === 'effective'
+    ? 'verified_effective'
+    : payload.verification_result === 'partially_effective'
+      ? 'verified_partially'
+      : 'verified_ineffective'
+
+  const { data, error } = await supabase
+    .from('gap_actions')
+    .update({
+      status,
+      verified_at: new Date().toISOString(),
+      verification_method: payload.verification_method || null,
+      verification_result: payload.verification_result,
+      verification_notes: payload.verification_notes || null,
+      verified_by: payload.verified_by || null,
+    })
+    .eq('id', action.id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  const updatedAction = data as GapAction
+  await createGapActionEvent(
+    userId,
+    updatedAction,
+    eventType,
+    payload.verification_notes || `Verifica efficacia: ${payload.verification_result}.`,
+  )
+  return updatedAction
 }
 
 export const getGapAssessmentFullData = async (

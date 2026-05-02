@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { AlertTriangle, CheckSquare, Edit3, Plus, Save, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckSquare, Edit3, Plus, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import { isGapActionOverdue } from '../../lib/gapScoring'
 import {
   GAP_ACTION_PHASE_OPTIONS,
@@ -9,12 +9,17 @@ import {
   getGapActionPriorityLabel,
   getGapActionStatusColor,
   getGapActionStatusLabel,
+  getGapVerificationResultColor,
+  getGapVerificationResultLabel,
 } from '../../lib/labels'
 import {
+  completeGapAction,
   createGapAction,
   deleteGapAction,
   updateGapAction,
+  verifyGapAction,
   type GapActionInput,
+  type GapActionVerificationInput,
 } from '../../services/gapService'
 import type {
   GapAction,
@@ -24,6 +29,7 @@ import type {
   GapActivityEvaluation,
   GapAssessment,
 } from '../../types/gap'
+import { GapActionVerificationModal } from './GapActionVerificationModal'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
 import { EmptyState } from '../ui/EmptyState'
@@ -52,7 +58,7 @@ interface ActionFormState {
   notes: string
 }
 
-const actionStatuses = GAP_ACTION_STATUS_OPTIONS.filter((option) =>
+const editableActionStatuses = GAP_ACTION_STATUS_OPTIONS.filter((option) =>
   !['verified', 'ineffective'].includes(option.value),
 )
 
@@ -105,6 +111,14 @@ const formatDate = (value: string | null) => {
   return value ? new Date(value).toLocaleDateString('it-IT') : 'N/D'
 }
 
+const toDateKey = (value: Date) => value.toISOString().slice(0, 10)
+
+const isVerificationOverdue = (action: GapAction) => {
+  if (action.verified_at || action.verification_result !== 'pending') return false
+  if (!action.verification_due_date) return false
+  return action.verification_due_date < toDateKey(new Date())
+}
+
 function ActionForm({
   form,
   evaluations,
@@ -122,6 +136,13 @@ function ActionForm({
   onCancel: () => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
+  const statusOptions = editableActionStatuses.some((option) => option.value === form.status)
+    ? editableActionStatuses
+    : [
+        ...editableActionStatuses,
+        { value: form.status, label: getGapActionStatusLabel(form.status) },
+      ]
+
   return (
     <form onSubmit={onSubmit} className="rounded-xl border border-teal-100 bg-teal-50/50 p-4">
       <div className="grid gap-4 lg:grid-cols-2">
@@ -203,7 +224,7 @@ function ActionForm({
             onChange={(event) => onChange({ status: event.target.value as GapActionStatus })}
             className="clinical-input bg-white"
           >
-            {actionStatuses.map((option) => (
+            {statusOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -286,6 +307,8 @@ export function GapActionPlanTab({
   const [responsibleFilter, setResponsibleFilter] = useState('all')
   const [saving, setSaving] = useState(false)
   const [deletingActionId, setDeletingActionId] = useState<string | null>(null)
+  const [verifyingAction, setVerifyingAction] = useState<GapAction | null>(null)
+  const [savingVerification, setSavingVerification] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -356,13 +379,18 @@ export function GapActionPlanTab({
     setError(null)
 
     try {
+      const actionInput = toActionInput(createForm)
       const created = await createGapAction(
         userId,
         assessment.id,
         evaluation,
-        toActionInput(createForm),
+        actionInput,
       )
-      onActionsChange(sortActions([created, ...actions]))
+      const nextAction = created.status === 'completed'
+        ? await completeGapAction(userId, created, actionInput)
+        : created
+
+      onActionsChange(sortActions([nextAction, ...actions]))
       resetCreateForm()
     } catch (createError) {
       console.error('Errore creazione azione Gap:', createError)
@@ -391,7 +419,12 @@ export function GapActionPlanTab({
     setError(null)
 
     try {
-      const updated = await updateGapAction(editingActionId, userId, toActionInput(editForm))
+      const currentAction = actions.find((action) => action.id === editingActionId)
+      const actionInput = toActionInput(editForm)
+      const updated = currentAction && actionInput.status === 'completed' && currentAction.status !== 'completed'
+        ? await completeGapAction(userId, currentAction, actionInput)
+        : await updateGapAction(editingActionId, userId, actionInput)
+
       onActionsChange(sortActions(actions.map((action) => (
         action.id === updated.id ? updated : action
       ))))
@@ -423,6 +456,26 @@ export function GapActionPlanTab({
     }
   }
 
+  const saveVerification = async (payload: GapActionVerificationInput) => {
+    if (!verifyingAction) return
+
+    setSavingVerification(true)
+    setError(null)
+
+    try {
+      const updated = await verifyGapAction(userId, verifyingAction, payload)
+      onActionsChange(sortActions(actions.map((action) => (
+        action.id === updated.id ? updated : action
+      ))))
+      setVerifyingAction(null)
+    } catch (verificationError) {
+      console.error('Errore verifica efficacia azione Gap:', verificationError)
+      setError('Impossibile salvare la verifica di efficacia.')
+    } finally {
+      setSavingVerification(false)
+    }
+  }
+
   if (evaluations.length === 0) {
     return (
       <EmptyState
@@ -439,6 +492,16 @@ export function GapActionPlanTab({
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
+      )}
+
+      {verifyingAction && (
+        <GapActionVerificationModal
+          action={verifyingAction}
+          defaultVerifiedBy={userId}
+          loading={savingVerification}
+          onClose={() => setVerifyingAction(null)}
+          onSubmit={saveVerification}
+        />
       )}
 
       <Card>
@@ -485,7 +548,7 @@ export function GapActionPlanTab({
                 className="clinical-input"
               >
                 <option value="all">Tutti</option>
-                {actionStatuses.map((option) => (
+                {GAP_ACTION_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -553,6 +616,8 @@ export function GapActionPlanTab({
             {filteredActions.map((action) => {
               const evaluation = evaluationById[action.evaluation_id]
               const overdue = isGapActionOverdue(action)
+              const verificationPending = action.status === 'completed' && action.verification_result === 'pending'
+              const verificationOverdue = isVerificationOverdue(action)
               const editing = editingActionId === action.id && editForm
 
               return (
@@ -580,6 +645,23 @@ export function GapActionPlanTab({
                         {action.phase && (
                           <p className="mt-2 text-xs text-slate-400">
                             Fase: {GAP_ACTION_PHASE_OPTIONS.find((option) => option.value === action.phase)?.label || action.phase}
+                          </p>
+                        )}
+                        {action.verification_result && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getGapVerificationResultColor(action.verification_result)}`}>
+                              Verifica: {getGapVerificationResultLabel(action.verification_result)}
+                            </span>
+                            {verificationOverdue && (
+                              <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+                                Verifica scaduta
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {action.verification_result === 'ineffective' && (
+                          <p className="mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            Valuta una nuova azione o modifica quella esistente.
                           </p>
                         )}
                       </div>
@@ -614,8 +696,28 @@ export function GapActionPlanTab({
                             Scaduta
                           </span>
                         )}
+                        {(action.verification_due_date || action.verified_at) && (
+                          <div className="mt-2 space-y-1 text-xs text-slate-500">
+                            {action.verification_due_date && (
+                              <p>Verifica entro: {formatDate(action.verification_due_date)}</p>
+                            )}
+                            {action.verified_at && (
+                              <p>Verificata il: {new Date(action.verified_at).toLocaleDateString('it-IT')}</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-start gap-2 xl:justify-end">
+                        {verificationPending && (
+                          <button
+                            type="button"
+                            onClick={() => setVerifyingAction(action)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-100 bg-white text-emerald-700 transition hover:bg-emerald-50"
+                            aria-label="Verifica efficacia"
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => startEdit(action)}
