@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, BookMarked, ClipboardList, Edit3, Info, Layers3, Map, Plus, Trash2, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BookMarked, ChevronDown, ChevronRight, ClipboardList, Edit3, Info, Layers3, Map, Plus, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   createGapArea,
@@ -159,6 +159,7 @@ export default function GapProcessDetail() {
   const [activityForm, setActivityForm] = useState<ActivityFormState>(emptyActivityForm)
   const [editingStandardsForActivity, setEditingStandardsForActivity] = useState<string | null>(null)
   const [standardDraftLinks, setStandardDraftLinks] = useState<StandardDraftLink[]>([])
+  const [expandedAreaId, setExpandedAreaId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user?.id || !id) return
@@ -246,6 +247,7 @@ export default function GapProcessDetail() {
   }
 
   const startCreateActivity = (areaId: string) => {
+    setExpandedAreaId(areaId)
     setActivityForm(emptyActivityForm)
     setEditingActivity(null)
     setShowActivityFormForArea(areaId)
@@ -262,6 +264,7 @@ export default function GapProcessDetail() {
       target_state: activity.target_state || '',
     })
     setEditingActivity(activity)
+    setExpandedAreaId(activity.area_id)
     setShowActivityFormForArea(activity.area_id)
     setError(null)
   }
@@ -296,6 +299,7 @@ export default function GapProcessDetail() {
   const startEditStandards = (activity: GapActivity) => {
     const existingLinks = activityStandardsByActivity[activity.id] || []
 
+    setExpandedAreaId(activity.area_id)
     setEditingStandardsForActivity(activity.id)
     setStandardDraftLinks(
       existingLinks.map((link) => ({
@@ -332,6 +336,7 @@ export default function GapProcessDetail() {
           if (a.order_index !== b.order_index) return a.order_index - b.order_index
           return a.name.localeCompare(b.name, 'it')
         }))
+        setExpandedAreaId(createdArea.id)
       }
 
       resetForm()
@@ -357,6 +362,7 @@ export default function GapProcessDetail() {
         delete next[area.id]
         return next
       })
+      setExpandedAreaId((current) => current === area.id ? null : current)
     } catch (deleteError) {
       console.error('Errore eliminazione area Gap:', deleteError)
       setError('Impossibile eliminare il Dominio/Sezione. Potrebbe contenere Attivita/Requisiti gia collegati ad assessment o dati operativi.')
@@ -573,13 +579,36 @@ export default function GapProcessDetail() {
       )}
 
       <Card className="mb-6">
-        <CardContent className="p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="success">{process.code}</Badge>
-            <Badge variant="neutral">Locale</Badge>
-            <Badge variant="info">Ordine {process.order_index}</Badge>
-            <Badge variant="neutral">{areas.length} Domini/Sezioni</Badge>
-            <Badge variant="neutral">{totalActivities} Attivita/Requisiti</Badge>
+        <CardHeader>
+          <CardTitle>Contesto processo</CardTitle>
+          <CardDescription>
+            Macro-processo read-only della libreria Gap. Domini/Sezioni e Attivita/Requisiti sono gestiti sotto questo contesto.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-5 pt-0">
+          <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-start">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="success">{process.code}</Badge>
+                <Badge variant="neutral">Locale</Badge>
+                <Badge variant="info">Ordine {process.order_index}</Badge>
+              </div>
+              <h2 className="mt-3 text-lg font-semibold text-slate-950">{process.name}</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+                {process.description || 'Nessuna descrizione del processo disponibile.'}
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-64">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Domini/Sezioni</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-950">{areas.length}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Attivita/Requisiti</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-950">{totalActivities}</p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -718,14 +747,28 @@ export default function GapProcessDetail() {
         <div className="grid gap-4">
           {areas.map((area) => {
             const parsedDescription = parseAreaDescription(area.description)
+            const areaActivities = activitiesByArea[area.id] || []
+            const isExpanded = expandedAreaId === area.id
 
             return (
-            <Card key={area.id} className="transition hover:shadow-clinical">
+            <Card key={area.id} className={`transition ${isExpanded ? 'ring-1 ring-teal-100' : 'hover:shadow-clinical'}`}>
               <CardContent className="p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
+                <div
+                  className="flex cursor-pointer flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setExpandedAreaId((current) => current === area.id ? null : area.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setExpandedAreaId((current) => current === area.id ? null : area.id)
+                    }
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="success">{area.code}</Badge>
+                      <Badge variant="neutral">{areaActivities.length} Attivita/Requisiti</Badge>
                       <Badge variant="info">Ordine {area.order_index}</Badge>
                     </div>
                     <h2 className="mt-3 text-base font-semibold text-slate-900">{area.name}</h2>
@@ -733,9 +776,6 @@ export default function GapProcessDetail() {
                       <p className="mt-2 inline-flex rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800">
                         Contesto operativo: {parsedDescription.operational_context}
                       </p>
-                    )}
-                    {parsedDescription.description && (
-                      <p className="mt-2 text-sm leading-6 text-slate-500">{parsedDescription.description}</p>
                     )}
                   </div>
 
@@ -746,7 +786,10 @@ export default function GapProcessDetail() {
                       tone="neutral"
                       size="sm"
                       icon={<Edit3 className="h-4 w-4" />}
-                      onClick={() => startEdit(area)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        startEdit(area)
+                      }}
                     >
                       Modifica
                     </Button>
@@ -756,14 +799,38 @@ export default function GapProcessDetail() {
                       tone="risk"
                       size="sm"
                       icon={<Trash2 className="h-4 w-4" />}
-                      onClick={() => removeArea(area)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        removeArea(area)
+                      }}
                     >
                       Elimina
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={isExpanded ? 'secondary' : 'outline'}
+                      tone="success"
+                      size="sm"
+                      icon={isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setExpandedAreaId((current) => current === area.id ? null : area.id)
+                      }}
+                    >
+                      {isExpanded ? 'Chiudi' : 'Apri'}
                     </Button>
                   </div>
                 </div>
 
+                {isExpanded && (
                 <div className="mt-5 border-t border-slate-100 pt-5">
+                  {parsedDescription.description && (
+                    <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Descrizione</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">{parsedDescription.description}</p>
+                    </div>
+                  )}
+
                   <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-slate-900">Attivita/Requisiti</h3>
@@ -894,7 +961,7 @@ export default function GapProcessDetail() {
                     </div>
                   )}
 
-                  {(activitiesByArea[area.id] || []).length === 0 ? (
+                  {areaActivities.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
                       <ClipboardList className="mx-auto mb-2 h-5 w-5 text-slate-400" />
                       <p className="text-sm font-medium text-slate-700">Nessuna Attivita/Requisito in questo Dominio/Sezione</p>
@@ -904,7 +971,7 @@ export default function GapProcessDetail() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {(activitiesByArea[area.id] || []).map((activity) => {
+                      {areaActivities.map((activity) => {
                         const linkedStandards = activityStandardsByActivity[activity.id] || []
                         const editingStandards = editingStandardsForActivity === activity.id
 
@@ -1095,6 +1162,7 @@ export default function GapProcessDetail() {
                     </div>
                   )}
                 </div>
+                )}
               </CardContent>
             </Card>
             )
