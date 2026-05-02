@@ -10,7 +10,6 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
-  FilePlus2,
   LayoutDashboard,
   Layers3,
   LogOut,
@@ -91,7 +90,6 @@ const navSections: NavSection[] = [
         icon: FileText,
         activeMatch: ['/gap/assessments', '/gap/assessment'],
       },
-      { path: '/gap/assessment/new', label: 'Nuovo assessment', icon: FilePlus2 },
       {
         path: '/gap/processes',
         label: 'Processi',

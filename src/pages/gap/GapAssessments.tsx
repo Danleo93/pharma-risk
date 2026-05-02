@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, CalendarDays, ClipboardList, FileText, Percent } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AlertCircle, CalendarDays, ClipboardList, FileText, Percent, Plus } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getGapAssessments } from '../../services/gapService'
 import type { GapAssessment } from '../../types/gap'
 import { getGapAssessmentStatusColor, getGapAssessmentStatusLabel } from '../../lib/labels'
+import { GapAssessmentCreatePanel } from '../../components/gap/GapAssessmentCreatePanel'
 import { Card, CardContent } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -19,9 +21,11 @@ const formatCompliance = (value: number | null | undefined) => {
 
 export default function GapAssessments() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [assessments, setAssessments] = useState<GapAssessment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showCreatePanel, setShowCreatePanel] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
@@ -56,11 +60,30 @@ export default function GapAssessments() {
         description="Elenco read-only degli assessment Gap e del relativo livello di conformita."
         eyebrow="Gap Analysis"
         icon={<ClipboardList className="h-6 w-6" />}
+        actions={(
+          <button
+            type="button"
+            onClick={() => setShowCreatePanel((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-5 py-3 font-medium text-white transition hover:bg-teal-700"
+          >
+            <Plus className="h-5 w-5" />
+            {showCreatePanel ? 'Chiudi form' : 'Nuovo assessment'}
+          </button>
+        )}
       />
 
       {error && (
         <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {showCreatePanel && (
+        <div className="mb-8">
+          <GapAssessmentCreatePanel
+            onCancel={() => setShowCreatePanel(false)}
+            onCreated={(assessment) => navigate(`/gap/assessment/${assessment.id}`)}
+          />
         </div>
       )}
 
@@ -97,6 +120,16 @@ export default function GapAssessments() {
           icon={<AlertCircle className="h-6 w-6" />}
           title="Nessun assessment Gap disponibile"
           description="La lista sara popolata quando verranno creati assessment Gap Analysis."
+          action={(
+            <button
+              type="button"
+              onClick={() => setShowCreatePanel(true)}
+              className="inline-flex items-center gap-2 font-medium text-teal-700 hover:text-teal-800"
+            >
+              <Plus className="h-4 w-4" />
+              Crea assessment Gap
+            </button>
+          )}
         />
       ) : (
         <div className="grid gap-4">
@@ -105,7 +138,12 @@ export default function GapAssessments() {
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-slate-900">{assessment.title}</h2>
+                    <Link
+                      to={`/gap/assessment/${assessment.id}`}
+                      className="text-base font-semibold text-slate-900 transition hover:text-teal-700"
+                    >
+                      {assessment.title}
+                    </Link>
                     {assessment.description && (
                       <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
                         {assessment.description}
@@ -129,8 +167,14 @@ export default function GapAssessments() {
                       {formatCompliance(assessment.compliance_percentage)}
                     </span>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-                      {assessment.total_activities} attivita
+                      {assessment.total_activities} Attivita/Requisiti
                     </span>
+                    <Link
+                      to={`/gap/assessment/${assessment.id}`}
+                      className="inline-flex items-center rounded-lg bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700 transition hover:bg-teal-100"
+                    >
+                      Apri
+                    </Link>
                   </div>
                 </div>
               </CardContent>
