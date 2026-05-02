@@ -567,6 +567,24 @@ export const getGapActivityStandardsByActivity = async (
   return (data || []) as GapActivityStandard[]
 }
 
+export const getGapActivityStandardsForActivities = async (
+  activityIds: string[],
+  userId: string,
+): Promise<GapActivityStandard[]> => {
+  const uniqueActivityIds = [...new Set(activityIds)].filter(Boolean)
+  if (uniqueActivityIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('gap_activity_standards')
+    .select('*, standard:gap_standards(*)')
+    .eq('user_id', userId)
+    .in('activity_id', uniqueActivityIds)
+    .order('created_at', { ascending: true })
+
+  throwIfError(error)
+  return (data || []) as GapActivityStandard[]
+}
+
 export const replaceGapActivityStandards = async (
   activityId: string,
   userId: string,

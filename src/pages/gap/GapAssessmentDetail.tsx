@@ -3,22 +3,27 @@ import { Link, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowLeft,
+  BookMarked,
   CheckCircle2,
   CircleDashed,
   ClipboardList,
+  ExternalLink,
   FileText,
   Percent,
   Save,
+  Search,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getGapAssessmentById,
+  getGapActivityStandardsForActivities,
   getGapEvaluationsByAssessment,
   updateGapActivityEvaluation,
   updateGapAssessmentStats,
 } from '../../services/gapService'
 import type {
   ComplianceStatus,
+  GapActivityStandard,
   GapActivityEvaluation,
   GapAssessment,
   RiskPriority,
@@ -57,6 +62,25 @@ interface AreaGroup {
 interface ProcessGroup {
   processName: string
   areas: AreaGroup[]
+}
+
+type StandardsByActivityId = Record<string, GapActivityStandard[]>
+
+type DetailTab = 'evaluation' | 'findings'
+type FindingComplianceFilter = 'all' | 'non_compliant' | 'partially_compliant'
+type FindingPriorityFilter = 'all' | RiskPriority
+
+const findingStatuses: ComplianceStatus[] = ['non_compliant', 'partially_compliant']
+
+const priorityOrder: Record<RiskPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+}
+
+const complianceOrder: Partial<Record<ComplianceStatus, number>> = {
+  non_compliant: 0,
+  partially_compliant: 1,
 }
 
 const toNullable = (value: string) => {
@@ -112,15 +136,28 @@ const groupEvaluations = (evaluations: GapActivityEvaluation[]): ProcessGroup[] 
   }))
 }
 
+const groupStandardsByActivity = (links: GapActivityStandard[]): StandardsByActivityId => {
+  return links.reduce<StandardsByActivityId>((acc, link) => ({
+    ...acc,
+    [link.activity_id]: [...(acc[link.activity_id] || []), link],
+  }), {})
+}
+
 export default function GapAssessmentDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const [assessment, setAssessment] = useState<GapAssessment | null>(null)
   const [evaluations, setEvaluations] = useState<GapActivityEvaluation[]>([])
+  const [standardsByActivityId, setStandardsByActivityId] = useState<StandardsByActivityId>({})
   const [drafts, setDrafts] = useState<Record<string, EvaluationDraft>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savingEvaluationId, setSavingEvaluationId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<DetailTab>('evaluation')
+  const [findingComplianceFilter, setFindingComplianceFilter] = useState<FindingComplianceFilter>('all')
+  const [findingPriorityFilter, setFindingPriorityFilter] = useState<FindingPriorityFilter>('all')
+  const [findingProcessFilter, setFindingProcessFilter] = useState('all')
+  const [findingSearch, setFindingSearch] = useState('')
 
   useEffect(() => {
     if (!id || !user?.id) return
@@ -141,12 +178,24 @@ export default function GapAssessmentDetail() {
 
         setAssessment(assessmentData)
         setEvaluations(evaluationData)
+        setStandardsByActivityId({})
         setDrafts(
           evaluationData.reduce<Record<string, EvaluationDraft>>((acc, evaluation) => ({
             ...acc,
             [evaluation.id]: toEvaluationDraft(evaluation),
           }), {}),
         )
+
+        try {
+          const activityIds = evaluationData.map((evaluation) => evaluation.activity_id)
+          const standardLinks = await getGapActivityStandardsForActivities(activityIds, user.id)
+          if (active) setStandardsByActivityId(groupStandardsByActivity(standardLinks))
+        } catch (standardsError) {
+          console.error('Errore caricamento riferimenti normativi Gap:', standardsError)
+          if (active) {
+            setError('Assessment caricato, ma non e stato possibile caricare alcuni riferimenti normativi.')
+          }
+        }
       } catch (fetchError) {
         console.error('Errore caricamento assessment Gap:', fetchError)
         if (active) setError('Impossibile caricare il dettaglio assessment Gap.')
@@ -164,6 +213,55 @@ export default function GapAssessmentDetail() {
 
   const groupedEvaluations = useMemo(() => groupEvaluations(evaluations), [evaluations])
   const stats = useMemo(() => aggregateAssessmentStats(evaluations), [evaluations])
+  const gapFindings = useMemo(() => {
+    return evaluations
+      .filter((evaluation) => findingStatuses.includes(evaluation.compliance_status))
+      .sort((a, b) => {
+        const priorityDiff = priorityOrder[a.risk_priority] - priorityOrder[b.risk_priority]
+        if (priorityDiff !== 0) return priorityDiff
+
+        const complianceDiff = (complianceOrder[a.compliance_status] ?? 99) - (complianceOrder[b.compliance_status] ?? 99)
+        if (complianceDiff !== 0) return complianceDiff
+
+        return (a.activity_code_snapshot || '').localeCompare(b.activity_code_snapshot || '')
+      })
+  }, [evaluations])
+  const findingProcesses = useMemo(() => {
+    return Array.from(new Set(
+      gapFindings.map((evaluation) => evaluation.process_name_snapshot || 'Processo non specificato'),
+    )).sort((a, b) => a.localeCompare(b))
+  }, [gapFindings])
+  const filteredGapFindings = useMemo(() => {
+    const normalizedSearch = findingSearch.trim().toLowerCase()
+
+    return gapFindings.filter((evaluation) => {
+      const processName = evaluation.process_name_snapshot || 'Processo non specificato'
+      const matchesCompliance = findingComplianceFilter === 'all' || evaluation.compliance_status === findingComplianceFilter
+      const matchesPriority = findingPriorityFilter === 'all' || evaluation.risk_priority === findingPriorityFilter
+      const matchesProcess = findingProcessFilter === 'all' || processName === findingProcessFilter
+      const searchableText = [
+        evaluation.activity_code_snapshot,
+        evaluation.activity_name_snapshot,
+        evaluation.gap_description,
+        evaluation.current_state,
+        evaluation.target_state_override,
+        evaluation.notes,
+      ].filter(Boolean).join(' ').toLowerCase()
+
+      return (
+        matchesCompliance &&
+        matchesPriority &&
+        matchesProcess &&
+        (normalizedSearch.length === 0 || searchableText.includes(normalizedSearch))
+      )
+    })
+  }, [
+    findingComplianceFilter,
+    findingPriorityFilter,
+    findingProcessFilter,
+    findingSearch,
+    gapFindings,
+  ])
 
   const updateDraft = (
     evaluationId: string,
@@ -236,6 +334,75 @@ export default function GapAssessmentDetail() {
     } finally {
       setSavingEvaluationId(null)
     }
+  }
+
+  const renderNormativeReferences = (evaluation: GapActivityEvaluation) => {
+    const links = standardsByActivityId[evaluation.activity_id] || []
+
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <BookMarked className="h-4 w-4 text-teal-700" />
+          <h4 className="text-sm font-semibold text-slate-900">Riferimenti normativi</h4>
+        </div>
+
+        {links.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Nessun riferimento normativo collegato all'Attivita/Requisito.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {links.map((link) => {
+              const standard = link.standard
+
+              return (
+                <div key={link.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 ring-1 ring-teal-100">
+                          {standard?.code || 'Norma'}
+                        </span>
+                        {standard?.version && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                            Versione {standard.version}
+                          </span>
+                        )}
+                        {standard?.issuing_body && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                            {standard.issuing_body}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {standard?.name || 'Norma non disponibile'}
+                      </p>
+                      {link.specific_reference && (
+                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                          Riferimento specifico: {link.specific_reference}
+                        </p>
+                      )}
+                    </div>
+
+                    {standard?.url && (
+                      <a
+                        href={standard.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-teal-700 transition hover:text-teal-800"
+                      >
+                        Apri link
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
   }
 
   if (loading) {
@@ -363,7 +530,35 @@ export default function GapAssessmentDetail() {
         />
       </div>
 
-      {evaluations.length === 0 ? (
+      <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab('evaluation')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'evaluation'
+              ? 'bg-teal-50 text-teal-700 ring-1 ring-teal-200'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          Valutazione
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('findings')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'findings'
+              ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          Gap Findings
+          <span className="ml-2 rounded-full bg-white/80 px-2 py-0.5 text-xs">
+            {gapFindings.length}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'evaluation' && (evaluations.length === 0 ? (
         <EmptyState
           icon={<ClipboardList className="h-6 w-6" />}
           title="Nessuna valutazione disponibile"
@@ -431,6 +626,10 @@ export default function GapAssessmentDetail() {
                                   </p>
                                 </div>
                               )}
+                            </div>
+
+                            <div className="mb-4">
+                              {renderNormativeReferences(evaluation)}
                             </div>
 
                             {draft && (
@@ -556,7 +755,263 @@ export default function GapAssessmentDetail() {
             </Card>
           ))}
         </div>
+      ))}
+
+      {activeTab === 'findings' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gap Findings</CardTitle>
+              <CardDescription>
+                Vista filtrata delle valutazioni non conformi o parzialmente conformi, ordinate per priorita e severita del gap.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 lg:grid-cols-4">
+                <label className="block lg:col-span-1">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Cerca</span>
+                  <span className="relative block">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="search"
+                      value={findingSearch}
+                      onChange={(event) => setFindingSearch(event.target.value)}
+                      className="clinical-input pl-9"
+                      placeholder="Attivita, gap, note..."
+                    />
+                  </span>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Conformita</span>
+                  <select
+                    value={findingComplianceFilter}
+                    onChange={(event) => setFindingComplianceFilter(event.target.value as FindingComplianceFilter)}
+                    className="clinical-input"
+                  >
+                    <option value="all">Tutte</option>
+                    <option value="non_compliant">Non conforme</option>
+                    <option value="partially_compliant">Parzialmente conforme</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Priorita</span>
+                  <select
+                    value={findingPriorityFilter}
+                    onChange={(event) => setFindingPriorityFilter(event.target.value as FindingPriorityFilter)}
+                    className="clinical-input"
+                  >
+                    <option value="all">Tutte</option>
+                    {RISK_PRIORITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Processo</span>
+                  <select
+                    value={findingProcessFilter}
+                    onChange={(event) => setFindingProcessFilter(event.target.value)}
+                    className="clinical-input"
+                  >
+                    <option value="all">Tutti</option>
+                    {findingProcesses.map((processName) => (
+                      <option key={processName} value={processName}>
+                        {processName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {gapFindings.length === 0 ? (
+            <EmptyState
+              icon={<CheckCircle2 className="h-6 w-6" />}
+              title="Nessun gap rilevato"
+              description="Non sono presenti valutazioni non conformi o parzialmente conformi."
+            />
+          ) : filteredGapFindings.length === 0 ? (
+            <EmptyState
+              icon={<Search className="h-6 w-6" />}
+              title="Nessun finding corrisponde ai filtri"
+              description="Modifica i filtri o la ricerca per visualizzare altri gap."
+            />
+          ) : (
+            <div className="grid gap-4">
+              {filteredGapFindings.map((evaluation) => {
+                const draft = drafts[evaluation.id]
+                const changed = hasDraftChanges(evaluation, draft)
+                const saving = savingEvaluationId === evaluation.id
+
+                return (
+                  <Card key={evaluation.id} className="border-red-100">
+                    <CardContent className="p-5">
+                      <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                              {evaluation.activity_code_snapshot || 'Senza codice'}
+                            </span>
+                            <span className={`rounded-full px-3 py-1 text-xs font-medium ${getComplianceStatusColor(evaluation.compliance_status)}`}>
+                              {getComplianceStatusLabel(evaluation.compliance_status)}
+                            </span>
+                            <span className={`rounded-full px-3 py-1 text-xs font-medium ${getGapRiskPriorityColor(evaluation.risk_priority)}`}>
+                              Priorita {getGapRiskPriorityLabel(evaluation.risk_priority)}
+                            </span>
+                          </div>
+                          <h3 className="mt-3 text-base font-semibold text-slate-950">
+                            {evaluation.activity_name_snapshot || 'Attivita/Requisito senza nome'}
+                          </h3>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                            <span>Processo: {evaluation.process_name_snapshot || 'N/D'}</span>
+                            <span>Dominio/Sezione: {evaluation.area_name_snapshot || 'N/D'}</span>
+                          </div>
+                        </div>
+
+                        {evaluation.evaluated_at && (
+                          <div className="text-xs text-slate-400 xl:text-right">
+                            <p>Ultima valutazione</p>
+                            <p className="font-medium text-slate-600">
+                              {new Date(evaluation.evaluated_at).toLocaleString('it-IT')}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mb-4">
+                        {renderNormativeReferences(evaluation)}
+                      </div>
+
+                      {draft && (
+                        <div className="grid gap-4">
+                          <div className="grid gap-4 xl:grid-cols-3">
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-medium text-slate-700">
+                                Stato corrente
+                              </span>
+                              <textarea
+                                value={draft.current_state}
+                                onChange={(event) => updateDraft(evaluation.id, { current_state: event.target.value })}
+                                className="clinical-input min-h-24 resize-y"
+                                placeholder="Stato corrente rilevato."
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-medium text-slate-700">
+                                Stato target
+                              </span>
+                              <textarea
+                                value={draft.target_state_override}
+                                onChange={(event) => updateDraft(evaluation.id, { target_state_override: event.target.value })}
+                                className="clinical-input min-h-24 resize-y"
+                                placeholder="Target atteso o requisito da raggiungere."
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-medium text-slate-700">
+                                Gap
+                              </span>
+                              <textarea
+                                value={draft.gap_description}
+                                onChange={(event) => updateDraft(evaluation.id, { gap_description: event.target.value })}
+                                className="clinical-input min-h-24 resize-y"
+                                placeholder="Scostamento rilevato."
+                              />
+                            </label>
+                          </div>
+
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-medium text-slate-700">
+                                Valutazione conformita
+                              </span>
+                              <select
+                                value={draft.compliance_status}
+                                onChange={(event) => updateDraft(evaluation.id, {
+                                  compliance_status: event.target.value as ComplianceStatus,
+                                })}
+                                className="clinical-input"
+                              >
+                                {COMPLIANCE_STATUS_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-medium text-slate-700">
+                                Priorita
+                              </span>
+                              <select
+                                value={draft.risk_priority}
+                                onChange={(event) => updateDraft(evaluation.id, {
+                                  risk_priority: event.target.value as RiskPriority,
+                                })}
+                                className="clinical-input"
+                              >
+                                {RISK_PRIORITY_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-medium text-slate-700">
+                                Note
+                              </span>
+                              <textarea
+                                value={draft.notes}
+                                onChange={(event) => updateDraft(evaluation.id, { notes: event.target.value })}
+                                className="clinical-input min-h-10 resize-y"
+                                placeholder="Note sintetiche."
+                              />
+                            </label>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                            {changed && (
+                              <button
+                                type="button"
+                                onClick={() => resetDraft(evaluation)}
+                                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                              >
+                                Annulla modifiche
+                              </button>
+                            )}
+                            <Button
+                              type="button"
+                              tone="success"
+                              icon={<Save className="h-4 w-4" />}
+                              loading={saving}
+                              disabled={!changed || savingEvaluationId !== null}
+                              onClick={() => saveEvaluation(evaluation)}
+                            >
+                              Salva finding
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
       )}
+
     </div>
   )
 }
