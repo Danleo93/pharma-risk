@@ -3,15 +3,20 @@ import { Link, useNavigate } from 'react-router-dom'
 import { CheckSquare, Layers3, Plus, Workflow } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
+  createGapActivity,
   createGapActivityEvaluationsForAssessment,
+  createGapArea,
   createGapAssessment,
   createGapAssessmentProcess,
   getGapProcessesWithStructure,
   updateGapAssessmentEvaluationCounts,
   type GapActivityEvaluationInput,
+  type GapAreaWithActivities,
   type GapProcessWithStructure,
 } from '../../services/gapService'
 import type { GapAssessment } from '../../types/gap'
+import { GapInlineActivityForm, type GapInlineActivityFormPayload } from './GapInlineActivityForm'
+import { GapInlineDomainForm, type GapInlineDomainFormPayload } from './GapInlineDomainForm'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
@@ -44,6 +49,9 @@ const emptyForm: GapAssessmentFormState = {
 
 const noProcessSelectionMessage =
   'Seleziona almeno un processo da includere nell’assessment. Oppure crea prima un nuovo macro-processo nella libreria.'
+
+const normalizedNoProcessSelectionMessage =
+  noProcessSelectionMessage.replace(/nell\S*assessment/, "nell'assessment")
 
 const toNullable = (value: string) => {
   const trimmed = value.trim()
@@ -87,6 +95,10 @@ export function GapAssessmentCreatePanel({
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectionWarning, setSelectionWarning] = useState<string | null>(null)
+  const [domainFormProcessId, setDomainFormProcessId] = useState<string | null>(null)
+  const [activityFormAreaId, setActivityFormAreaId] = useState<string | null>(null)
+  const [savingDomainProcessId, setSavingDomainProcessId] = useState<string | null>(null)
+  const [savingActivityAreaId, setSavingActivityAreaId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user?.id) return
@@ -123,15 +135,152 @@ export function GapAssessmentCreatePanel({
     (process) => process.total_activities === 0,
   )
 
+  const getNextOrderIndex = (items: Array<{ order_index: number }>) => {
+    return items.length > 0
+      ? Math.max(...items.map((item) => item.order_index || 0)) + 1
+      : 1
+  }
+
+  const getNextActivityCode = (area: GapAreaWithActivities) => {
+    const prefix = `${area.code}-`
+    const maxSuffix = area.activities.reduce((max, activity) => {
+      if (!activity.code.startsWith(prefix)) return max
+
+      const suffix = activity.code.slice(prefix.length)
+      const numericSuffix = /^\d+$/.test(suffix) ? Number(suffix) : 0
+      return Math.max(max, numericSuffix)
+    }, 0)
+
+    if (maxSuffix >= 99) return null
+    return `${prefix}${String(maxSuffix + 1).padStart(2, '0')}`
+  }
+
+  const findAreaContext = (areaId: string) => {
+    for (const process of processes) {
+      const area = process.areas.find((item) => item.id === areaId)
+      if (area) return { process, area }
+    }
+
+    return null
+  }
+
   const toggleProcess = (processId: string) => {
     setSelectedProcessIds((current) => {
       const next = current.includes(processId)
         ? current.filter((id) => id !== processId)
         : [...current, processId]
 
-      setSelectionWarning(next.length === 0 ? noProcessSelectionMessage : null)
+      setSelectionWarning(next.length === 0 ? normalizedNoProcessSelectionMessage : null)
       return next
     })
+  }
+
+  const addDomainToProcess = async (
+    processId: string,
+    payload: GapInlineDomainFormPayload,
+  ) => {
+    if (!user?.id) return
+
+    const process = processes.find((item) => item.id === processId)
+    if (!process) return
+
+    if (!payload.code || !payload.name) {
+      setError('Codice e nome del Dominio/Sezione sono obbligatori.')
+      return
+    }
+
+    setSavingDomainProcessId(processId)
+    setError(null)
+
+    try {
+      const area = await createGapArea(user.id, processId, {
+        code: payload.code,
+        name: payload.name,
+        description: toNullable(payload.description),
+        order_index: getNextOrderIndex(process.areas),
+      })
+      const areaWithActivities: GapAreaWithActivities = {
+        ...area,
+        activities: [],
+      }
+
+      setProcesses((current) => current.map((item) => (
+        item.id === processId
+          ? {
+              ...item,
+              areas: [...item.areas, areaWithActivities].sort((a, b) =>
+                (a.order_index - b.order_index) || a.name.localeCompare(b.name),
+              ),
+            }
+          : item
+      )))
+      setDomainFormProcessId(null)
+    } catch (createError) {
+      console.error('Errore creazione Dominio/Sezione Gap:', createError)
+      setError('Impossibile creare il Dominio/Sezione nella libreria Gap.')
+    } finally {
+      setSavingDomainProcessId(null)
+    }
+  }
+
+  const addActivityToArea = async (
+    areaId: string,
+    payload: GapInlineActivityFormPayload,
+  ) => {
+    if (!user?.id) return
+
+    const context = findAreaContext(areaId)
+    if (!context) return
+
+    if (!payload.name) {
+      setError('Il nome dell Attivita/Requisito e obbligatorio.')
+      return
+    }
+
+    const generatedCode = getNextActivityCode(context.area)
+    if (!generatedCode) {
+      setError('Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
+      return
+    }
+
+    setSavingActivityAreaId(areaId)
+    setError(null)
+
+    try {
+      const activity = await createGapActivity(user.id, areaId, {
+        code: generatedCode,
+        name: payload.name,
+        description: toNullable(payload.description),
+        operator: toNullable(payload.operator),
+        target_state: toNullable(payload.target_state),
+        order_index: getNextOrderIndex(context.area.activities),
+      })
+
+      setProcesses((current) => current.map((process) => {
+        if (process.id !== context.process.id) return process
+
+        return {
+          ...process,
+          areas: process.areas.map((area) => (
+            area.id === areaId
+              ? {
+                  ...area,
+                  activities: [...area.activities, activity].sort((a, b) =>
+                    (a.order_index - b.order_index) || a.name.localeCompare(b.name),
+                  ),
+                }
+              : area
+          )),
+          total_activities: process.total_activities + 1,
+        }
+      }))
+      setActivityFormAreaId(null)
+    } catch (createError) {
+      console.error('Errore creazione Attivita/Requisito Gap:', createError)
+      setError('Impossibile creare l Attivita/Requisito nella libreria Gap.')
+    } finally {
+      setSavingActivityAreaId(null)
+    }
   }
 
   const handleCreated = (assessment: GapAssessment) => {
@@ -154,7 +303,7 @@ export function GapAssessmentCreatePanel({
 
     if (selectedProcesses.length === 0) {
       setError(null)
-      setSelectionWarning(noProcessSelectionMessage)
+      setSelectionWarning(normalizedNoProcessSelectionMessage)
       return
     }
 
@@ -330,7 +479,17 @@ export function GapAssessmentCreatePanel({
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader
+          actions={(
+            <Link
+              to="/gap/processes"
+              className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50"
+            >
+              <Plus className="h-4 w-4" />
+              Crea macro-processo
+            </Link>
+          )}
+        >
           <CardTitle>Processi da includere</CardTitle>
           <CardDescription>
             Ogni processo selezionato includera automaticamente tutti i Domini/Sezioni e le Attivita/Requisiti presenti in libreria.
@@ -367,9 +526,9 @@ export function GapAssessmentCreatePanel({
             </div>
           </div>
 
-          {selectedProcessesWithoutActivities.length > 0 && evaluationSnapshots.length > 0 && (
+          {selectedProcessesWithoutActivities.length > 0 && (
             <div className="mb-5 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
-              Alcuni processi selezionati non contengono Attivita/Requisiti e verranno inclusi solo come riferimento:
+              Alcuni processi selezionati non contengono ancora Attivita/Requisiti. Aggiungili qui sotto oppure verranno inclusi solo come riferimento:
               {' '}
               {selectedProcessesWithoutActivities.map((process) => process.name).join(', ')}.
             </div>
@@ -382,43 +541,142 @@ export function GapAssessmentCreatePanel({
               const activitiesCount = process.total_activities
 
               return (
-                <button
+                <div
                   key={process.id}
-                  type="button"
-                  onClick={() => toggleProcess(process.id)}
-                  className={`rounded-xl border p-4 text-left transition ${
+                  className={`rounded-xl border transition ${
                     selected
                       ? 'border-teal-200 bg-teal-50 shadow-clinical-soft'
                       : 'border-slate-200 bg-white hover:border-teal-200 hover:bg-teal-50/50'
                   }`}
                 >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={selected ? 'success' : 'neutral'}>{process.code}</Badge>
-                        {selected && <Badge variant="success">Selezionato</Badge>}
-                        {activitiesCount === 0 && <Badge variant="warning">Nessuna Attivita/Requisito</Badge>}
+                  <button
+                    type="button"
+                    onClick={() => toggleProcess(process.id)}
+                    className="w-full p-4 text-left"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={selected ? 'success' : 'neutral'}>{process.code}</Badge>
+                          {selected && <Badge variant="success">Selezionato</Badge>}
+                          {activitiesCount === 0 && <Badge variant="warning">Nessuna Attivita/Requisito</Badge>}
+                        </div>
+                        <h3 className="mt-3 font-semibold text-slate-900">{process.name}</h3>
+                        {process.description && (
+                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
+                            {process.description}
+                          </p>
+                        )}
                       </div>
-                      <h3 className="mt-3 font-semibold text-slate-900">{process.name}</h3>
-                      {process.description && (
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
-                          {process.description}
-                        </p>
+
+                      <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                          <Workflow className="h-3.5 w-3.5" />
+                          {domainsCount} Domini/Sezioni
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                          <CheckSquare className="h-3.5 w-3.5" />
+                          {activitiesCount} Attivita/Requisiti
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {selected && (
+                    <div className="space-y-4 border-t border-teal-100 bg-white/80 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Arricchisci libreria</p>
+                          <p className="text-sm text-slate-500">
+                            Aggiungi Domini/Sezioni e Attivita/Requisiti prima di creare l assessment.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDomainFormProcessId(process.id)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Aggiungi Dominio/Sezione
+                        </button>
+                      </div>
+
+                      {domainFormProcessId === process.id && (
+                        <GapInlineDomainForm
+                          loading={savingDomainProcessId === process.id}
+                          onCancel={() => setDomainFormProcessId(null)}
+                          onSubmit={(payload) => addDomainToProcess(process.id, payload)}
+                        />
+                      )}
+
+                      {process.areas.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                          Nessun Dominio/Sezione presente. Aggiungine uno per poter inserire Attivita/Requisiti valutabili.
+                        </div>
+                      ) : (
+                        <div className="grid gap-3">
+                          {process.areas.map((area) => {
+                            const nextCode = getNextActivityCode(area)
+                            const limitReached = nextCode === null
+
+                            return (
+                              <div key={area.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge variant="neutral">{area.code}</Badge>
+                                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                                        {area.activities.length} Attivita/Requisiti
+                                      </span>
+                                    </div>
+                                    <h4 className="mt-2 font-semibold text-slate-900">{area.name}</h4>
+                                    {area.description && (
+                                      <p className="mt-1 line-clamp-2 text-sm text-slate-500">{area.description}</p>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setActivityFormAreaId(area.id)}
+                                    className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                    Aggiungi Attivita/Requisito
+                                  </button>
+                                </div>
+
+                                {area.activities.length > 0 && (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {area.activities.map((activity) => (
+                                      <span
+                                        key={activity.id}
+                                        className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+                                      >
+                                        {activity.code} - {activity.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {activityFormAreaId === area.id && (
+                                  <div className="mt-4">
+                                    <GapInlineActivityForm
+                                      generatedCode={nextCode}
+                                      limitReached={limitReached}
+                                      loading={savingActivityAreaId === area.id}
+                                      onCancel={() => setActivityFormAreaId(null)}
+                                      onSubmit={(payload) => addActivityToArea(area.id, payload)}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
                     </div>
-
-                    <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                        <Workflow className="h-3.5 w-3.5" />
-                        {domainsCount} Domini/Sezioni
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                        <CheckSquare className="h-3.5 w-3.5" />
-                        {activitiesCount} Attivita/Requisiti
-                      </span>
-                    </div>
-                  </div>
-                </button>
+                  )}
+                </div>
               )
             })}
           </div>

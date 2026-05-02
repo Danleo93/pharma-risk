@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, CalendarDays, ClipboardList, FileText, Percent, Plus } from 'lucide-react'
+import { AlertCircle, CalendarDays, ClipboardList, FileText, Percent, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getGapAssessments } from '../../services/gapService'
+import { deleteGapAssessment, getGapAssessments } from '../../services/gapService'
 import type { GapAssessment } from '../../types/gap'
 import { getGapAssessmentStatusColor, getGapAssessmentStatusLabel } from '../../lib/labels'
 import { GapAssessmentCreatePanel } from '../../components/gap/GapAssessmentCreatePanel'
@@ -26,6 +26,7 @@ export default function GapAssessments() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showCreatePanel, setShowCreatePanel] = useState(false)
+  const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user?.id) return
@@ -52,6 +53,26 @@ export default function GapAssessments() {
   const averageCompliance = assessments.length > 0
     ? assessments.reduce((sum, assessment) => sum + (assessment.compliance_percentage || 0), 0) / assessments.length
     : 0
+
+  const removeAssessment = async (assessment: GapAssessment) => {
+    if (!user?.id) return
+
+    const confirmed = confirm(`Eliminare l assessment Gap "${assessment.title}"? L operazione non puo essere annullata.`)
+    if (!confirmed) return
+
+    setDeletingAssessmentId(assessment.id)
+    setError(null)
+
+    try {
+      await deleteGapAssessment(assessment.id, user.id)
+      setAssessments((current) => current.filter((item) => item.id !== assessment.id))
+    } catch (deleteError) {
+      console.error('Errore eliminazione assessment Gap:', deleteError)
+      setError('Impossibile eliminare l assessment Gap. Verifica eventuali dati collegati e riprova.')
+    } finally {
+      setDeletingAssessmentId(null)
+    }
+  }
 
   return (
     <div className="clinical-page">
@@ -175,6 +196,19 @@ export default function GapAssessments() {
                     >
                       Apri
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => removeAssessment(assessment)}
+                      disabled={deletingAssessmentId === assessment.id}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-100 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingAssessmentId === assessment.id ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Elimina
+                    </button>
                   </div>
                 </div>
               </CardContent>
