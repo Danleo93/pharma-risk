@@ -3,6 +3,7 @@ import type {
   ComplianceStatus,
   GapActivityEvaluation,
   GapActivityStandard,
+  GapStandard,
   RiskPriority,
 } from '../../types/gap'
 import {
@@ -25,6 +26,20 @@ export interface GapEvaluationDraft {
   notes: string
 }
 
+interface StandardDraftLink {
+  standard_id: string
+  specific_reference: string
+}
+
+interface StandardFormState {
+  code: string
+  name: string
+  version: string
+  issuing_body: string
+  description: string
+  url: string
+}
+
 interface GapEvaluationRowProps {
   evaluation: GapActivityEvaluation
   draft: GapEvaluationDraft | undefined
@@ -33,10 +48,26 @@ interface GapEvaluationRowProps {
   saving: boolean
   actionCount: number
   standards: GapActivityStandard[]
+  targetState: string | null
+  standardsCatalog: GapStandard[]
+  standardsEditorOpen: boolean
+  standardDraftLinks: StandardDraftLink[]
+  savingStandards: boolean
+  showCreateStandardForm: boolean
+  newStandardForm: StandardFormState
+  savingNewStandard: boolean
   savingDisabled: boolean
   onToggle: () => void
+  onManageStandards: () => void
+  onCancelStandards: () => void
+  onToggleStandard: (standardId: string) => void
+  onUpdateStandardReference: (standardId: string, specificReference: string) => void
+  onToggleCreateStandard: () => void
+  onNewStandardFormChange: (patch: Partial<StandardFormState>) => void
   onDraftChange: (patch: Partial<GapEvaluationDraft>) => void
   onReset: () => void
+  onSaveStandards: () => void
+  onCreateStandard: () => void
   onSave: () => void
 }
 
@@ -119,10 +150,26 @@ export function GapEvaluationRow({
   saving,
   actionCount,
   standards,
+  targetState,
+  standardsCatalog,
+  standardsEditorOpen,
+  standardDraftLinks,
+  savingStandards,
+  showCreateStandardForm,
+  newStandardForm,
+  savingNewStandard,
   savingDisabled,
   onToggle,
+  onManageStandards,
+  onCancelStandards,
+  onToggleStandard,
+  onUpdateStandardReference,
+  onToggleCreateStandard,
+  onNewStandardFormChange,
   onDraftChange,
   onReset,
+  onSaveStandards,
+  onCreateStandard,
   onSave,
 }: GapEvaluationRowProps) {
   const hasGap = Boolean(evaluation.gap_description?.trim())
@@ -226,6 +273,224 @@ export function GapEvaluationRow({
 
           <NormativeReferences standards={standards} />
 
+          <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BookMarked className="h-4 w-4 text-teal-700" />
+                  <h4 className="text-sm font-semibold text-slate-900">Norme dell'Attivita/Requisito</h4>
+                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  Le norme sono collegate all'Attivita/Requisito di libreria e saranno riutilizzabili nei futuri assessment.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                tone="neutral"
+                size="sm"
+                icon={<BookMarked className="h-4 w-4" />}
+                onClick={onManageStandards}
+              >
+                Gestisci norme
+              </Button>
+            </div>
+
+            {standardsEditorOpen && (
+              <div className="mt-4 rounded-lg border border-teal-100 bg-white p-4">
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-3 text-sm text-sky-800">
+                    Le norme create qui saranno salvate nel Catalogo Norme personale e riutilizzabili nei futuri assessment.
+                    Le norme sono collegate all'Attivita/Requisito di libreria, non solo alla valutazione corrente.
+                  </div>
+
+                  {standardsCatalog.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-semibold text-slate-900">
+                          Seleziona le norme applicabili
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          tone="neutral"
+                          size="sm"
+                          onClick={onToggleCreateStandard}
+                        >
+                          {showCreateStandardForm ? 'Chiudi nuova norma' : 'Crea nuova norma'}
+                        </Button>
+                      </div>
+
+                    {standardsCatalog.map((standard) => {
+                      const selected = standardDraftLinks.some((link) => link.standard_id === standard.id)
+                      const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
+
+                      return (
+                        <div key={standard.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <label className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => onToggleStandard(standard.id)}
+                              className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-slate-900">
+                                {standard.code} - {standard.name}
+                              </span>
+                              <span className="mt-1 block text-xs text-slate-500">
+                                {standard.issuing_body || 'Ente non specificato'}
+                                {standard.version ? ` - Versione ${standard.version}` : ''}
+                              </span>
+                            </span>
+                          </label>
+
+                          {selected && (
+                            <label className="mt-3 block">
+                              <span className="mb-1 block text-xs font-medium text-slate-600">
+                                Riferimento specifico
+                              </span>
+                              <input
+                                type="text"
+                                value={draftLink?.specific_reference || ''}
+                                onChange={(event) => onUpdateStandardReference(standard.id, event.target.value)}
+                                className="clinical-input py-2 text-sm"
+                                placeholder="Es. paragrafo, requisito, procedura interna"
+                              />
+                            </label>
+                          )}
+                        </div>
+                      )
+                    })}
+                    </div>
+                  )}
+
+                  {(standardsCatalog.length === 0 || showCreateStandardForm) && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-slate-900">Crea nuova norma</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          La norma verra salvata nel Catalogo Norme personale e collegata subito a questa Attivita/Requisito.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-600">Codice *</span>
+                          <input
+                            type="text"
+                            value={newStandardForm.code}
+                            onChange={(event) => onNewStandardFormChange({ code: event.target.value })}
+                            className="clinical-input py-2 text-sm"
+                            placeholder="Es. ISO-9001, LG-001"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-600">Nome *</span>
+                          <input
+                            type="text"
+                            value={newStandardForm.name}
+                            onChange={(event) => onNewStandardFormChange({ name: event.target.value })}
+                            className="clinical-input py-2 text-sm"
+                            placeholder="Nome norma o riferimento"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-600">Versione</span>
+                          <input
+                            type="text"
+                            value={newStandardForm.version}
+                            onChange={(event) => onNewStandardFormChange({ version: event.target.value })}
+                            className="clinical-input py-2 text-sm"
+                            placeholder="Es. 2026"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-600">Ente emittente</span>
+                          <input
+                            type="text"
+                            value={newStandardForm.issuing_body}
+                            onChange={(event) => onNewStandardFormChange({ issuing_body: event.target.value })}
+                            className="clinical-input py-2 text-sm"
+                            placeholder="Es. Ministero, ISO, Regione"
+                          />
+                        </label>
+
+                        <label className="block md:col-span-2">
+                          <span className="mb-1 block text-xs font-medium text-slate-600">Descrizione</span>
+                          <textarea
+                            value={newStandardForm.description}
+                            onChange={(event) => onNewStandardFormChange({ description: event.target.value })}
+                            className="clinical-input min-h-20 resize-y py-2 text-sm"
+                            placeholder="Descrizione sintetica della norma."
+                          />
+                        </label>
+
+                        <label className="block md:col-span-2">
+                          <span className="mb-1 block text-xs font-medium text-slate-600">URL</span>
+                          <input
+                            type="url"
+                            value={newStandardForm.url}
+                            onChange={(event) => onNewStandardFormChange({ url: event.target.value })}
+                            className="clinical-input py-2 text-sm"
+                            placeholder="https://..."
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap justify-end gap-2">
+                        {standardsCatalog.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            tone="neutral"
+                            size="sm"
+                            onClick={onToggleCreateStandard}
+                          >
+                            Annulla nuova norma
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          tone="success"
+                          size="sm"
+                          loading={savingNewStandard}
+                          onClick={onCreateStandard}
+                        >
+                          Crea e collega norma
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      tone="neutral"
+                      size="sm"
+                      onClick={onCancelStandards}
+                    >
+                      Annulla
+                    </Button>
+                    <Button
+                      type="button"
+                      tone="success"
+                      size="sm"
+                      loading={savingStandards}
+                      onClick={onSaveStandards}
+                    >
+                      Salva norme
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-slate-700">Stato attuale</span>
@@ -237,27 +502,30 @@ export function GapEvaluationRow({
               />
             </label>
 
-            <label className="block">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
               <span className="mb-1 block text-sm font-medium text-slate-700">
-                Target specifico assessment
+                Target atteso di riferimento
               </span>
-              <textarea
-                value={draft.target_state_override}
-                onChange={(event) => onDraftChange({ target_state_override: event.target.value })}
-                className="clinical-input min-h-24 resize-y"
-                placeholder="Eventuale target adattato al contesto dell assessment."
-              />
-            </label>
+              <p className="min-h-16 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                {targetState || 'Target atteso non definito nella libreria.'}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Il target appartiene all'Attivita/Requisito di libreria ed e mostrato in sola lettura.
+              </p>
+            </div>
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Gap rilevato</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">Gap rilevato rispetto al target</span>
             <textarea
               value={draft.gap_description}
               onChange={(event) => onDraftChange({ gap_description: event.target.value })}
               className="clinical-input min-h-24 resize-y"
-              placeholder="Descrivi lo scostamento tra stato attuale e target."
+              placeholder="Descrivi lo scostamento tra stato attuale e target atteso di riferimento."
             />
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              Descrivi lo scostamento tra stato attuale e target atteso di riferimento.
+            </span>
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">

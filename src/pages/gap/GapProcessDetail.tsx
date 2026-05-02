@@ -923,14 +923,17 @@ export default function GapProcessDetail() {
                           </label>
 
                           <label className="block md:col-span-2">
-                            <span className="mb-1 block text-sm font-medium text-slate-700">Target state</span>
+                            <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso di riferimento</span>
                             <input
                               type="text"
                               value={activityForm.target_state}
                               onChange={(event) => setActivityForm((current) => ({ ...current, target_state: event.target.value }))}
                               className="clinical-input"
-                              placeholder="Stato atteso dell'Attivita/Requisito"
+                              placeholder="Stato atteso standard dell'Attivita/Requisito"
                             />
+                            <span className="mt-1 block text-xs leading-5 text-slate-500">
+                              Definisce lo stato atteso standard dell'Attivita/Requisito nella libreria.
+                            </span>
                           </label>
 
                           <label className="block md:col-span-3">
@@ -1017,7 +1020,7 @@ export default function GapProcessDetail() {
                               )}
                               {activity.target_state && (
                                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                                  <span className="font-semibold text-slate-700">Target:</span> {activity.target_state}
+                                  <span className="font-semibold text-slate-700">Target atteso di riferimento:</span> {activity.target_state}
                                 </p>
                               )}
                               <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">

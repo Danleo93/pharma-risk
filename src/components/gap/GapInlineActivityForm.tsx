@@ -90,7 +90,7 @@ export function GapInlineActivityForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso di riferimento</span>
           <input
             type="text"
             value={form.target_state}
@@ -99,6 +99,9 @@ export function GapInlineActivityForm({
             placeholder="Requisito o stato atteso"
             disabled={limitReached}
           />
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            Definisce lo stato atteso standard dell'Attivita/Requisito nella libreria.
+          </span>
         </label>
 
         <label className="block md:col-span-2">
