@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleDashed,
   ClipboardList,
+  Download,
   ExternalLink,
   FileText,
   Percent,
@@ -34,6 +35,7 @@ import {
   type GapAreaWithActivities,
   type GapProcessWithStructure,
 } from '../../services/gapService'
+import { exportGapAssessmentToExcel } from '../../services/gapExportService'
 import type {
   ComplianceStatus,
   GapAction,
@@ -100,6 +102,7 @@ interface StandardFormState {
 type StandardsByActivityId = Record<string, GapActivityStandard[]>
 
 type DetailTab = 'evaluation' | 'findings' | 'actions'
+type ActionCreateRequest = { evaluationId: string; requestId: number }
 type EvaluationQuickFilter = 'all' | 'not_evaluated' | 'with_gap' | 'high_priority' | 'non_compliant'
 type FindingComplianceFilter = 'all' | 'non_compliant' | 'partially_compliant'
 type FindingPriorityFilter = 'all' | RiskPriority
@@ -207,7 +210,9 @@ export default function GapAssessmentDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savingEvaluationId, setSavingEvaluationId] = useState<string | null>(null)
+  const [exportingExcel, setExportingExcel] = useState(false)
   const [activeTab, setActiveTab] = useState<DetailTab>('evaluation')
+  const [actionCreateRequest, setActionCreateRequest] = useState<ActionCreateRequest | null>(null)
   const [evaluationQuickFilter, setEvaluationQuickFilter] = useState<EvaluationQuickFilter>('all')
   const [findingComplianceFilter, setFindingComplianceFilter] = useState<FindingComplianceFilter>('all')
   const [findingPriorityFilter, setFindingPriorityFilter] = useState<FindingPriorityFilter>('all')
@@ -725,6 +730,43 @@ export default function GapAssessmentDetail() {
     }
   }
 
+  const handleExportExcel = () => {
+    if (!assessment) return
+
+    setExportingExcel(true)
+    setError(null)
+
+    try {
+      exportGapAssessmentToExcel({
+        assessment,
+        evaluations,
+        actions: gapActions,
+        standardsByActivityId,
+        targetStateByActivityId,
+      })
+    } catch (exportError) {
+      console.error('Errore export Excel Gap:', exportError)
+      setError('Impossibile esportare il file Excel Gap. Riprova tra qualche istante.')
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
+  const openActionFormForEvaluation = (evaluation: GapActivityEvaluation) => {
+    if (!findingStatuses.includes(evaluation.compliance_status)) {
+      setError('Le azioni correttive possono essere create solo da valutazioni non conformi o parzialmente conformi.')
+      return
+    }
+
+    setError(null)
+    setActiveTab('actions')
+    setExpandedEvaluationId(null)
+    setActionCreateRequest((current) => ({
+      evaluationId: evaluation.id,
+      requestId: (current?.requestId || 0) + 1,
+    }))
+  }
+
   const renderAssessmentEnrichment = () => (
     <div className="sticky top-0 z-30 -mx-1 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/85">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -969,9 +1011,24 @@ export default function GapAssessmentDetail() {
           </Link>
         )}
         actions={(
-          <span className={`rounded-full px-3 py-1 text-sm font-medium ${getGapAssessmentStatusColor(assessment.status)}`}>
-            {getGapAssessmentStatusLabel(assessment.status)}
-          </span>
+          <>
+            <button
+              type="button"
+              disabled={exportingExcel}
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exportingExcel ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Esporta Excel
+            </button>
+            <span className={`rounded-full px-3 py-1 text-sm font-medium ${getGapAssessmentStatusColor(assessment.status)}`}>
+              {getGapAssessmentStatusLabel(assessment.status)}
+            </span>
+          </>
         )}
       />
 
@@ -1219,6 +1276,7 @@ export default function GapAssessmentDetail() {
                             onReset={() => resetDraft(evaluation)}
                             onSaveStandards={() => saveEvaluationActivityStandards(evaluation)}
                             onCreateStandard={() => createStandardAndLinkToActivity(evaluation)}
+                            onCreateAction={() => openActionFormForEvaluation(evaluation)}
                             onSave={() => saveEvaluation(evaluation)}
                           />
                         )
@@ -1496,6 +1554,7 @@ export default function GapAssessmentDetail() {
           evaluations={gapFindings}
           actions={gapActions}
           userId={user.id}
+          createRequest={actionCreateRequest}
           onActionsChange={setGapActions}
         />
       )}
