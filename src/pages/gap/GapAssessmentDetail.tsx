@@ -46,6 +46,7 @@ import type {
   RiskPriority,
 } from '../../types/gap'
 import { GapActionPlanTab } from '../../components/gap/GapActionPlanTab'
+import { GapAssessmentStatsReport } from '../../components/gap/GapAssessmentStatsReport'
 import { GapEvaluationRow } from '../../components/gap/GapEvaluationRow'
 import { GapInlineActivityForm, type GapInlineActivityFormPayload } from '../../components/gap/GapInlineActivityForm'
 import { GapInlineDomainForm, type GapInlineDomainFormPayload } from '../../components/gap/GapInlineDomainForm'
@@ -101,7 +102,7 @@ interface StandardFormState {
 
 type StandardsByActivityId = Record<string, GapActivityStandard[]>
 
-type DetailTab = 'evaluation' | 'findings' | 'actions'
+type DetailTab = 'evaluation' | 'findings' | 'actions' | 'report'
 type ActionCreateRequest = { evaluationId: string; requestId: number }
 type EvaluationQuickFilter = 'all' | 'not_evaluated' | 'with_gap' | 'high_priority' | 'non_compliant'
 type FindingComplianceFilter = 'all' | 'non_compliant' | 'partially_compliant'
@@ -1182,6 +1183,17 @@ export default function GapAssessmentDetail() {
             {gapActions.length}
           </span>
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('report')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'report'
+              ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          Statistiche e report
+        </button>
       </div>
 
       {activeTab === 'evaluation' && (evaluations.length === 0 ? (
@@ -1592,6 +1604,16 @@ export default function GapAssessmentDetail() {
           userId={user.id}
           createRequest={actionCreateRequest}
           onActionsChange={setGapActions}
+        />
+      )}
+
+      {activeTab === 'report' && (
+        <GapAssessmentStatsReport
+          assessment={assessment}
+          evaluations={evaluations}
+          actions={gapActions}
+          standardsByActivityId={standardsByActivityId}
+          targetStateByActivityId={targetStateByActivityId}
         />
       )}
 
