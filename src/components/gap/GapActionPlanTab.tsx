@@ -15,14 +15,17 @@ import {
 import {
   completeGapAction,
   createGapAction,
+  createGapActionEvent,
   deleteGapAction,
   updateGapAction,
   verifyGapAction,
   type GapActionInput,
+  type GapActionUpdateInput,
   type GapActionVerificationInput,
 } from '../../services/gapService'
 import type {
   GapAction,
+  GapActionEventType,
   GapActionPhase,
   GapActionPriority,
   GapActionStatus,
@@ -39,6 +42,7 @@ interface GapActionPlanTabProps {
   evaluations: GapActivityEvaluation[]
   actions: GapAction[]
   userId: string
+  createRequest?: { evaluationId: string; requestId: number } | null
   onActionsChange: (actions: GapAction[]) => void
 }
 
@@ -71,7 +75,7 @@ const emptyForm = (evaluationId = ''): ActionFormState => ({
   priority: 'medium',
   status: 'planned',
   progress: '0',
-  phase: '',
+  phase: 'planning',
   planned_start_date: '',
   planned_end_date: '',
   notes: '',
@@ -82,9 +86,9 @@ const formFromAction = (action: GapAction): ActionFormState => ({
   description: action.description,
   responsible: action.responsible || '',
   priority: action.priority,
-  status: action.status,
+  status: action.status === 'closed' ? 'verified' : action.status,
   progress: String(action.progress ?? 0),
-  phase: action.phase || '',
+  phase: action.phase || 'planning',
   planned_start_date: action.planned_start_date || '',
   planned_end_date: action.planned_end_date || '',
   notes: action.notes || '',
@@ -101,10 +105,20 @@ const toActionInput = (form: ActionFormState): GapActionInput => ({
   priority: form.priority,
   status: form.status,
   progress: Math.min(100, Math.max(0, Number(form.progress) || 0)),
-  phase: form.phase || null,
+  phase: form.phase || 'planning',
   planned_start_date: toNullable(form.planned_start_date),
   planned_end_date: toNullable(form.planned_end_date),
   notes: toNullable(form.notes),
+})
+
+const toActionUpdateInput = (
+  form: ActionFormState,
+  evaluation: Pick<GapActivityEvaluation, 'id' | 'activity_id' | 'assessment_id'>,
+): GapActionUpdateInput => ({
+  ...toActionInput(form),
+  assessment_id: evaluation.assessment_id,
+  activity_id: evaluation.activity_id,
+  evaluation_id: evaluation.id,
 })
 
 const formatDate = (value: string | null) => {
@@ -117,6 +131,57 @@ const isVerificationOverdue = (action: GapAction) => {
   if (action.verified_at || action.verification_result !== 'pending') return false
   if (!action.verification_due_date) return false
   return action.verification_due_date < toDateKey(new Date())
+}
+
+const buildActionUpdateEvents = (
+  previous: GapAction,
+  next: GapAction,
+): Array<{ type: GapActionEventType; description: string }> => {
+  const events: Array<{ type: GapActionEventType; description: string }> = []
+
+  if (previous.status !== next.status) {
+    if (next.status === 'in_progress') {
+      events.push({
+        type: previous.status === 'blocked' ? 'unblocked' : 'started',
+        description: previous.status === 'blocked'
+          ? 'Azione sbloccata e riportata in corso.'
+          : 'Azione avviata.',
+      })
+    } else if (next.status === 'blocked') {
+      events.push({ type: 'blocked', description: 'Azione bloccata.' })
+    } else if (next.status === 'closed') {
+      events.push({ type: 'closed', description: 'Azione chiusa.' })
+    } else if (previous.status === 'completed' && next.status !== 'completed') {
+      events.push({ type: 'reopened', description: 'Azione riaperta dopo completamento.' })
+    }
+  }
+
+  if (previous.planned_end_date !== next.planned_end_date) {
+    events.push({
+      type: 'due_date_changed',
+      description: `Scadenza aggiornata: ${next.planned_end_date ? formatDate(next.planned_end_date) : 'N/D'}.`,
+    })
+  }
+
+  if ((previous.progress ?? 0) !== (next.progress ?? 0)) {
+    events.push({
+      type: 'progress_updated',
+      description: `Avanzamento aggiornato al ${next.progress ?? 0}%.`,
+    })
+  }
+
+  if ((previous.responsible || '') !== (next.responsible || '') && next.responsible) {
+    events.push({
+      type: 'assigned',
+      description: `Responsabile/i aggiornato: ${next.responsible}.`,
+    })
+  }
+
+  if ((previous.notes || '') !== (next.notes || '') && next.notes) {
+    events.push({ type: 'note_added', description: 'Nota operativa aggiornata.' })
+  }
+
+  return events
 }
 
 function ActionForm({
@@ -148,7 +213,7 @@ function ActionForm({
       <div className="grid gap-4 lg:grid-cols-2">
         <label className="block lg:col-span-2">
           <span className="mb-1 block text-sm font-medium text-slate-700">
-            Gap / Attivita collegata *
+            Gap / Attività-Requisito collegata *
           </span>
           <select
             value={form.evaluation_id}
@@ -158,7 +223,7 @@ function ActionForm({
           >
             {evaluations.map((evaluation) => (
               <option key={evaluation.id} value={evaluation.id}>
-                {evaluation.activity_code_snapshot || 'Senza codice'} - {evaluation.activity_name_snapshot || 'Attivita/Requisito'}
+                {evaluation.activity_code_snapshot || 'Senza codice'} - {evaluation.activity_name_snapshot || 'Attività/Requisito'}
               </option>
             ))}
           </select>
@@ -193,7 +258,6 @@ function ActionForm({
             onChange={(event) => onChange({ phase: event.target.value as '' | GapActionPhase })}
             className="clinical-input bg-white"
           >
-            <option value="">N/D</option>
             {GAP_ACTION_PHASE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -203,7 +267,7 @@ function ActionForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Priorita</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Priorità</span>
           <select
             value={form.priority}
             onChange={(event) => onChange({ priority: event.target.value as GapActionPriority })}
@@ -296,6 +360,7 @@ export function GapActionPlanTab({
   evaluations,
   actions,
   userId,
+  createRequest,
   onActionsChange,
 }: GapActionPlanTabProps) {
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -326,6 +391,18 @@ export function GapActionPlanTab({
     })
   }, [evaluations])
 
+  useEffect(() => {
+    if (!createRequest) return
+    const evaluation = evaluations.find((item) => item.id === createRequest.evaluationId)
+    if (!evaluation) return
+
+    setShowCreateForm(true)
+    setEditingActionId(null)
+    setEditForm(null)
+    setError(null)
+    setCreateForm(emptyForm(evaluation.id))
+  }, [createRequest, evaluations])
+
   const evaluationById = useMemo(() => {
     return evaluations.reduce<Record<string, GapActivityEvaluation>>((acc, evaluation) => ({
       ...acc,
@@ -352,16 +429,17 @@ export function GapActionPlanTab({
     return [...nextActions].sort((a, b) => b.created_at.localeCompare(a.created_at))
   }
 
-  const resetCreateForm = () => {
-    setCreateForm(emptyForm(evaluations[0]?.id || ''))
+  const resetCreateForm = (evaluationId = createForm.evaluation_id) => {
+    setCreateForm(emptyForm(evaluationId || evaluations[0]?.id || ''))
     setShowCreateForm(false)
   }
 
   const createAction = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const evaluation = evaluationById[createForm.evaluation_id]
+    const selectedEvaluationId = createForm.evaluation_id
+    const evaluation = evaluationById[selectedEvaluationId]
     if (!evaluation) {
-      setError('Seleziona un gap valido prima di creare l azione.')
+      setError("Seleziona un gap valido prima di creare l'azione.")
       return
     }
 
@@ -371,7 +449,7 @@ export function GapActionPlanTab({
     }
 
     if (!createForm.description.trim()) {
-      setError('La descrizione dell azione e obbligatoria.')
+      setError("La descrizione dell'azione è obbligatoria.")
       return
     }
 
@@ -386,15 +464,16 @@ export function GapActionPlanTab({
         evaluation,
         actionInput,
       )
+      await createGapActionEvent(userId, created, 'created', 'Azione correttiva creata.')
       const nextAction = created.status === 'completed'
         ? await completeGapAction(userId, created, actionInput)
         : created
 
       onActionsChange(sortActions([nextAction, ...actions]))
-      resetCreateForm()
+      resetCreateForm(selectedEvaluationId)
     } catch (createError) {
       console.error('Errore creazione azione Gap:', createError)
-      setError('Impossibile creare l azione correttiva Gap.')
+      setError("Impossibile creare l'azione correttiva Gap.")
     } finally {
       setSaving(false)
     }
@@ -411,7 +490,7 @@ export function GapActionPlanTab({
     if (!editingActionId || !editForm) return
 
     if (!editForm.description.trim()) {
-      setError('La descrizione dell azione e obbligatoria.')
+      setError("La descrizione dell'azione è obbligatoria.")
       return
     }
 
@@ -420,10 +499,24 @@ export function GapActionPlanTab({
 
     try {
       const currentAction = actions.find((action) => action.id === editingActionId)
-      const actionInput = toActionInput(editForm)
+      const selectedEvaluation = evaluationById[editForm.evaluation_id]
+      if (!selectedEvaluation) {
+        setError("Seleziona un gap valido prima di salvare l'azione.")
+        return
+      }
+
+      const actionInput = toActionUpdateInput(editForm, selectedEvaluation)
       const updated = currentAction && actionInput.status === 'completed' && currentAction.status !== 'completed'
         ? await completeGapAction(userId, currentAction, actionInput)
         : await updateGapAction(editingActionId, userId, actionInput)
+      if (currentAction) {
+        const events = actionInput.status === 'completed' && currentAction.status !== 'completed'
+          ? []
+          : buildActionUpdateEvents(currentAction, updated)
+        for (const event of events) {
+          await createGapActionEvent(userId, updated, event.type, event.description)
+        }
+      }
 
       onActionsChange(sortActions(actions.map((action) => (
         action.id === updated.id ? updated : action
@@ -432,14 +525,14 @@ export function GapActionPlanTab({
       setEditForm(null)
     } catch (updateError) {
       console.error('Errore aggiornamento azione Gap:', updateError)
-      setError('Impossibile aggiornare l azione correttiva Gap.')
+      setError("Impossibile aggiornare l'azione correttiva Gap.")
     } finally {
       setSaving(false)
     }
   }
 
   const removeAction = async (action: GapAction) => {
-    const confirmed = confirm(`Eliminare l azione "${action.description}"?`)
+    const confirmed = confirm(`Eliminare l'azione "${action.description}"?`)
     if (!confirmed) return
 
     setDeletingActionId(action.id)
@@ -450,7 +543,7 @@ export function GapActionPlanTab({
       onActionsChange(actions.filter((item) => item.id !== action.id))
     } catch (deleteError) {
       console.error('Errore eliminazione azione Gap:', deleteError)
-      setError('Impossibile eliminare l azione correttiva Gap.')
+      setError("Impossibile eliminare l'azione correttiva Gap.")
     } finally {
       setDeletingActionId(null)
     }
@@ -557,7 +650,7 @@ export function GapActionPlanTab({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Priorita</span>
+              <span className="mb-1 block text-sm font-medium text-slate-700">Priorità</span>
               <select
                 value={priorityFilter}
                 onChange={(event) => setPriorityFilter(event.target.value as ActionPriorityFilter)}
@@ -605,7 +698,7 @@ export function GapActionPlanTab({
             <span>Descrizione</span>
             <span>Gap collegato</span>
             <span>Responsabile/i</span>
-            <span>Priorita</span>
+            <span>Priorità</span>
             <span>Stato</span>
             <span>Progress</span>
             <span>Scadenza</span>
@@ -670,7 +763,7 @@ export function GapActionPlanTab({
                           {evaluation?.activity_code_snapshot || 'N/D'}
                         </p>
                         <p className="mt-1 leading-5">
-                          {evaluation?.activity_name_snapshot || 'Attivita/Requisito non disponibile'}
+                          {evaluation?.activity_name_snapshot || 'Attività/Requisito non disponibile'}
                         </p>
                       </div>
                       <div className="text-sm text-slate-600">

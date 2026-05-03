@@ -57,14 +57,14 @@ export function GapInlineActivityForm({
 
       {limitReached && (
         <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
-          Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.
+          Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.
         </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block md:col-span-2">
           <span className="mb-1 block text-sm font-medium text-slate-700">
-            Nome Attivita/Requisito *
+            Nome Attività/Requisito *
           </span>
           <input
             type="text"
@@ -78,13 +78,13 @@ export function GapInlineActivityForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Responsabile/i</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Operatore/Funzione coinvolta</span>
           <input
             type="text"
             value={form.operator}
             onChange={(event) => setForm((current) => ({ ...current, operator: event.target.value }))}
             className="clinical-input"
-            placeholder="Figura o team responsabile"
+            placeholder="Figura, team o funzione coinvolta"
             disabled={limitReached}
           />
         </label>
@@ -100,7 +100,7 @@ export function GapInlineActivityForm({
             disabled={limitReached}
           />
           <span className="mt-1 block text-xs leading-5 text-slate-500">
-            Definisce lo stato atteso standard dell'Attivita/Requisito nella libreria.
+            Definisce lo stato atteso standard dell'Attività/Requisito nella libreria.
           </span>
         </label>
 
@@ -110,7 +110,7 @@ export function GapInlineActivityForm({
             value={form.description}
             onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
             className="clinical-input min-h-20 resize-y"
-            placeholder="Descrizione del controllo, requisito o attivita valutabile."
+            placeholder="Descrizione del controllo, requisito o attività valutabile."
             disabled={limitReached}
           />
         </label>
@@ -125,7 +125,7 @@ export function GapInlineActivityForm({
           Annulla
         </button>
         <Button type="submit" tone="success" loading={loading} disabled={limitReached || !generatedCode}>
-          Salva Attivita/Requisito
+          Salva Attività/Requisito
         </Button>
       </div>
     </form>

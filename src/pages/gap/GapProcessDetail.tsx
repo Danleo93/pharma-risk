@@ -350,7 +350,7 @@ export default function GapProcessDetail() {
 
   const removeArea = async (area: GapArea) => {
     if (!user?.id) return
-    if (!confirm(`Eliminare il Dominio/Sezione "${area.code} - ${area.name}"? Verranno eliminati anche eventuali Attivita/Requisiti collegati se non vincolati da assessment.`)) return
+    if (!confirm(`Eliminare il Dominio/Sezione "${area.code} - ${area.name}"? Verranno eliminati anche eventuali Attività/Requisiti collegati se non vincolati da assessment.`)) return
 
     setError(null)
 
@@ -365,7 +365,7 @@ export default function GapProcessDetail() {
       setExpandedAreaId((current) => current === area.id ? null : current)
     } catch (deleteError) {
       console.error('Errore eliminazione area Gap:', deleteError)
-      setError('Impossibile eliminare il Dominio/Sezione. Potrebbe contenere Attivita/Requisiti gia collegati ad assessment o dati operativi.')
+      setError('Impossibile eliminare il Dominio/Sezione. Potrebbe contenere Attività/Requisiti già collegati ad assessment o dati operativi.')
     }
   }
 
@@ -377,12 +377,12 @@ export default function GapProcessDetail() {
     const activityCode = editingActivity ? editingActivity.code : getNextActivityCode(areaId)
 
     if (!editingActivity && maxSuffix >= 99) {
-      setError('Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
+      setError('Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
       return
     }
 
     if (!activityCode || !activityForm.name.trim()) {
-      setError('Codice e nome Attivita/Requisito sono obbligatori.')
+      setError('Codice e nome Attività/Requisito sono obbligatori.')
       return
     }
 
@@ -427,8 +427,8 @@ export default function GapProcessDetail() {
 
       resetActivityForm()
     } catch (saveError) {
-      console.error('Errore salvataggio attivita Gap:', saveError)
-      setError('Impossibile salvare l Attivita/Requisito. Verifica codice e dati inseriti.')
+      console.error('Errore salvataggio attività Gap:', saveError)
+      setError("Impossibile salvare l'Attività/Requisito. Verifica codice e dati inseriti.")
     } finally {
       setSaving(false)
     }
@@ -436,7 +436,7 @@ export default function GapProcessDetail() {
 
   const removeActivity = async (activity: GapActivity) => {
     if (!user?.id) return
-    if (!confirm(`Eliminare l'Attivita/Requisito "${activity.code} - ${activity.name}"?`)) return
+    if (!confirm(`Eliminare l'Attività/Requisito "${activity.code} - ${activity.name}"?`)) return
 
     setError(null)
 
@@ -455,8 +455,8 @@ export default function GapProcessDetail() {
         resetStandardEditor()
       }
     } catch (deleteError) {
-      console.error('Errore eliminazione attivita Gap:', deleteError)
-      setError('Impossibile eliminare l Attivita/Requisito. Potrebbe essere gia collegata ad assessment o dati operativi.')
+      console.error('Errore eliminazione attività Gap:', deleteError)
+      setError("Impossibile eliminare l'Attività/Requisito. Potrebbe essere già collegata ad assessment o dati operativi.")
     }
   }
 
@@ -503,8 +503,8 @@ export default function GapProcessDetail() {
       }))
       resetStandardEditor()
     } catch (saveError) {
-      console.error('Errore salvataggio norme Attivita/Requisito:', saveError)
-      setError('Impossibile salvare le norme collegate all Attivita/Requisito.')
+      console.error('Errore salvataggio norme Attività/Requisito:', saveError)
+      setError("Impossibile salvare le norme collegate all'Attività/Requisito.")
     } finally {
       setSavingStandards(false)
     }
@@ -533,7 +533,7 @@ export default function GapProcessDetail() {
       <div className="clinical-page">
         <PageHeader
           title="Processo non trovato"
-          description="Il processo richiesto non esiste o non e accessibile con l'utente corrente."
+          description="Il processo richiesto non esiste o non è accessibile con l'utente corrente."
           eyebrow="Gap Analysis"
           icon={<Layers3 className="h-6 w-6" />}
           backAction={(
@@ -556,7 +556,7 @@ export default function GapProcessDetail() {
     <div className="clinical-page">
       <PageHeader
         title={process.name}
-        description={process.description || 'Gestione di Domini/Sezioni e Attivita/Requisiti collegati al processo Gap.'}
+        description={process.description || 'Gestione di Domini/Sezioni e Attività/Requisiti collegati al processo Gap.'}
         eyebrow="Gap Analysis"
         icon={<Layers3 className="h-6 w-6" />}
         backAction={(
@@ -582,7 +582,7 @@ export default function GapProcessDetail() {
         <CardHeader>
           <CardTitle>Contesto processo</CardTitle>
           <CardDescription>
-            Macro-processo read-only della libreria Gap. Domini/Sezioni e Attivita/Requisiti sono gestiti sotto questo contesto.
+            Macro-processo read-only della libreria Gap. Domini/Sezioni e Attività/Requisiti sono gestiti sotto questo contesto.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-5 pt-0">
@@ -605,7 +605,7 @@ export default function GapProcessDetail() {
                 <p className="mt-1 text-2xl font-semibold text-slate-950">{areas.length}</p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Attivita/Requisiti</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Attività/Requisiti</p>
                 <p className="mt-1 text-2xl font-semibold text-slate-950">{totalActivities}</p>
               </div>
             </div>
@@ -631,7 +631,7 @@ export default function GapProcessDetail() {
             <CardTitle>{editingArea ? 'Modifica Dominio/Sezione' : 'Nuovo Dominio/Sezione'}</CardTitle>
             <CardDescription>
               Definisci un Dominio/Sezione del processo. Il Contesto operativo resta salvato nella
-              descrizione; le Attivita/Requisiti sono gestite sotto ciascun Dominio/Sezione.
+              descrizione; le Attività/Requisiti sono gestite sotto ciascun Dominio/Sezione.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -736,7 +736,7 @@ export default function GapProcessDetail() {
         <EmptyState
           icon={<Map className="h-6 w-6" />}
           title="Nessun Dominio/Sezione disponibile"
-          description="Crea il primo Dominio/Sezione del processo. Le Attivita/Requisiti saranno aggiunti sotto il relativo Contesto operativo."
+          description="Crea il primo Dominio/Sezione del processo. Le Attività/Requisiti saranno aggiunti sotto il relativo Contesto operativo."
           action={(
             <Button type="button" tone="success" icon={<Plus className="h-4 w-4" />} onClick={startCreate}>
               Crea Dominio/Sezione
@@ -768,7 +768,7 @@ export default function GapProcessDetail() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="success">{area.code}</Badge>
-                      <Badge variant="neutral">{areaActivities.length} Attivita/Requisiti</Badge>
+                      <Badge variant="neutral">{areaActivities.length} Attività/Requisiti</Badge>
                       <Badge variant="info">Ordine {area.order_index}</Badge>
                     </div>
                     <h2 className="mt-3 text-base font-semibold text-slate-900">{area.name}</h2>
@@ -833,7 +833,7 @@ export default function GapProcessDetail() {
 
                   <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-900">Attivita/Requisiti</h3>
+                      <h3 className="text-sm font-semibold text-slate-900">Attività/Requisiti</h3>
                       <p className="text-xs text-slate-500">
                         Azioni o controlli valutabili, separati dalle future valutazioni assessment.
                       </p>
@@ -846,7 +846,7 @@ export default function GapProcessDetail() {
                       icon={<Plus className="h-4 w-4" />}
                       onClick={() => startCreateActivity(area.id)}
                     >
-                      Nuova Attivita/Requisito
+                      Nuova Attività/Requisito
                     </Button>
                   </div>
 
@@ -855,7 +855,7 @@ export default function GapProcessDetail() {
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div>
                           <h4 className="text-sm font-semibold text-slate-900">
-                            {editingActivity ? 'Modifica Attivita/Requisito' : 'Nuova Attivita/Requisito'}
+                            {editingActivity ? 'Modifica Attività/Requisito' : 'Nuova Attività/Requisito'}
                           </h4>
                           <p className="text-xs text-slate-500">
                             Lo stato corrente e i gap saranno gestiti nelle evaluation dell'assessment.
@@ -890,7 +890,7 @@ export default function GapProcessDetail() {
                               </span>
                             ) : getActivityMaxSuffix(area.id) >= 99 ? (
                               <span className="mt-1 block text-xs leading-5 text-red-600">
-                                Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Crea un nuovo Dominio/Sezione.
+                                Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Crea un nuovo Dominio/Sezione.
                               </span>
                             ) : (
                               <span className="mt-1 block text-xs leading-5 text-slate-500">
@@ -912,7 +912,7 @@ export default function GapProcessDetail() {
                           </label>
 
                           <label className="block">
-                            <span className="mb-1 block text-sm font-medium text-slate-700">Operatore</span>
+                            <span className="mb-1 block text-sm font-medium text-slate-700">Operatore/Funzione coinvolta</span>
                             <input
                               type="text"
                               value={activityForm.operator}
@@ -929,10 +929,10 @@ export default function GapProcessDetail() {
                               value={activityForm.target_state}
                               onChange={(event) => setActivityForm((current) => ({ ...current, target_state: event.target.value }))}
                               className="clinical-input"
-                              placeholder="Stato atteso standard dell'Attivita/Requisito"
+                              placeholder="Stato atteso standard dell'Attività/Requisito"
                             />
                             <span className="mt-1 block text-xs leading-5 text-slate-500">
-                              Definisce lo stato atteso standard dell'Attivita/Requisito nella libreria.
+                              Definisce lo stato atteso standard dell'Attività/Requisito nella libreria.
                             </span>
                           </label>
 
@@ -942,7 +942,7 @@ export default function GapProcessDetail() {
                               value={activityForm.description}
                               onChange={(event) => setActivityForm((current) => ({ ...current, description: event.target.value }))}
                               className="clinical-input min-h-24 resize-y"
-                              placeholder="Descrizione stabile dell'Attivita/Requisito."
+                              placeholder="Descrizione stabile dell'Attività/Requisito."
                             />
                           </label>
                         </div>
@@ -957,7 +957,7 @@ export default function GapProcessDetail() {
                             loading={saving}
                             disabled={!editingActivity && getActivityMaxSuffix(area.id) >= 99}
                           >
-                            {editingActivity ? 'Salva modifiche' : 'Crea Attivita/Requisito'}
+                            {editingActivity ? 'Salva modifiche' : 'Crea Attività/Requisito'}
                           </Button>
                         </div>
                       </form>
@@ -967,9 +967,9 @@ export default function GapProcessDetail() {
                   {areaActivities.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
                       <ClipboardList className="mx-auto mb-2 h-5 w-5 text-slate-400" />
-                      <p className="text-sm font-medium text-slate-700">Nessuna Attivita/Requisito in questo Dominio/Sezione</p>
+                      <p className="text-sm font-medium text-slate-700">Nessuna Attività/Requisito in questo Dominio/Sezione</p>
                       <p className="mt-1 text-xs text-slate-500">
-                        Aggiungi Attivita/Requisiti di libreria per usarli nei futuri assessment Gap.
+                        Aggiungi Attività/Requisiti di libreria per usarli nei futuri assessment Gap.
                       </p>
                     </div>
                   ) : (
@@ -1031,7 +1031,7 @@ export default function GapProcessDetail() {
                                     </h5>
                                     {linkedStandards.length === 0 ? (
                                       <p className="mt-1 text-xs text-slate-500">
-                                        Nessuna norma collegata a questa Attivita/Requisito.
+                                        Nessuna norma collegata a questa Attività/Requisito.
                                       </p>
                                     ) : (
                                       <div className="mt-2 flex flex-wrap gap-2">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -29,35 +29,41 @@ import {
   getGapStandards,
   replaceGapActivityStandards,
   updateGapActivityEvaluation,
+  updateGapAssessmentStatus,
   updateGapAssessmentStats,
   type GapActivityStandardLinkInput,
   type GapStandardInput,
   type GapAreaWithActivities,
   type GapProcessWithStructure,
 } from '../../services/gapService'
-import { exportGapAssessmentToExcel, exportGapAssessmentToPDF } from '../../services/gapExportService'
+import {
+  exportGapAssessmentToExcel,
+  exportGapAssessmentToPDF,
+  type GapAssessmentPDFChartImages,
+} from '../../services/gapExportService'
 import type {
   ComplianceStatus,
   GapAction,
   GapActivityStandard,
   GapActivityEvaluation,
   GapAssessment,
+  GapAssessmentStatus,
   GapStandard,
   RiskPriority,
 } from '../../types/gap'
 import { GapActionPlanTab } from '../../components/gap/GapActionPlanTab'
-import { GapAssessmentStatsReport } from '../../components/gap/GapAssessmentStatsReport'
+import { GapAssessmentStatsReport, type GapReportChartRefs } from '../../components/gap/GapAssessmentStatsReport'
 import { GapEvaluationRow } from '../../components/gap/GapEvaluationRow'
 import { GapInlineActivityForm, type GapInlineActivityFormPayload } from '../../components/gap/GapInlineActivityForm'
 import { GapInlineDomainForm, type GapInlineDomainFormPayload } from '../../components/gap/GapInlineDomainForm'
 import { aggregateAssessmentStats } from '../../lib/gapScoring'
 import {
+  GAP_ASSESSMENT_STATUS_OPTIONS,
   COMPLIANCE_STATUS_OPTIONS,
   RISK_PRIORITY_OPTIONS,
   getComplianceStatusColor,
   getComplianceStatusLabel,
   getGapAssessmentStatusColor,
-  getGapAssessmentStatusLabel,
   getGapRiskPriorityColor,
   getGapRiskPriorityLabel,
 } from '../../lib/labels'
@@ -66,6 +72,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { StatCard } from '../../components/ui/StatCard'
+import { elementToPngDataUrl } from '../../lib/exportImage'
 
 interface EvaluationDraft {
   current_state: string
@@ -123,7 +130,7 @@ const evaluationQuickFilters: Array<{ value: EvaluationQuickFilter; label: strin
   { value: 'all', label: 'Tutte' },
   { value: 'not_evaluated', label: 'Da valutare' },
   { value: 'with_gap', label: 'Con gap' },
-  { value: 'high_priority', label: 'Alta priorita' },
+  { value: 'high_priority', label: 'Alta priorità' },
   { value: 'non_compliant', label: 'Non conformi' },
 ]
 
@@ -141,6 +148,29 @@ const complianceOrder: Partial<Record<ComplianceStatus, number>> = {
 const toNullable = (value: string) => {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+const formatDomainDescription = (payload: GapInlineDomainFormPayload) => {
+  const operationalContext = payload.operational_context.trim()
+  const description = payload.description.trim()
+
+  if (operationalContext && description) {
+    return `Contesto operativo: ${operationalContext}\n\nDescrizione:\n${description}`
+  }
+
+  if (operationalContext) {
+    return `Contesto operativo: ${operationalContext}`
+  }
+
+  return description
+}
+
+const getPayloadOrderIndex = (
+  value: string,
+  fallback: number,
+) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
 }
 
 const toEvaluationDraft = (evaluation: GapActivityEvaluation): EvaluationDraft => ({
@@ -201,6 +231,12 @@ const groupStandardsByActivity = (links: GapActivityStandard[]): StandardsByActi
 export default function GapAssessmentDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const pdfComplianceByDomainRef = useRef<HTMLDivElement | null>(null)
+  const pdfComplianceDistributionRef = useRef<HTMLDivElement | null>(null)
+  const pdfPriorityDistributionRef = useRef<HTMLDivElement | null>(null)
+  const pdfActionStatusRef = useRef<HTMLDivElement | null>(null)
+  const pdfVerificationStatusRef = useRef<HTMLDivElement | null>(null)
+  const pdfActionGanttRef = useRef<HTMLDivElement | null>(null)
   const [assessment, setAssessment] = useState<GapAssessment | null>(null)
   const [evaluations, setEvaluations] = useState<GapActivityEvaluation[]>([])
   const [assessmentProcesses, setAssessmentProcesses] = useState<GapProcessWithStructure[]>([])
@@ -210,6 +246,7 @@ export default function GapAssessmentDetail() {
   const [drafts, setDrafts] = useState<Record<string, EvaluationDraft>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [savingAssessmentStatus, setSavingAssessmentStatus] = useState(false)
   const [savingEvaluationId, setSavingEvaluationId] = useState<string | null>(null)
   const [exportingPDF, setExportingPDF] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
@@ -234,6 +271,15 @@ export default function GapAssessmentDetail() {
   const [showCreateStandardForm, setShowCreateStandardForm] = useState(false)
   const [newStandardForm, setNewStandardForm] = useState<StandardFormState>(emptyStandardForm)
   const [savingNewStandard, setSavingNewStandard] = useState(false)
+
+  const pdfChartRefs: GapReportChartRefs = {
+    complianceByDomain: pdfComplianceByDomainRef,
+    complianceDistribution: pdfComplianceDistributionRef,
+    priorityDistribution: pdfPriorityDistributionRef,
+    actionStatus: pdfActionStatusRef,
+    verificationStatus: pdfVerificationStatusRef,
+    actionGantt: pdfActionGanttRef,
+  }
 
   useEffect(() => {
     if (!id || !user?.id) return
@@ -282,7 +328,7 @@ export default function GapAssessmentDetail() {
         } catch (standardsError) {
           console.error('Errore caricamento riferimenti normativi Gap:', standardsError)
           if (active) {
-            setError('Assessment caricato, ma non e stato possibile caricare alcuni riferimenti normativi.')
+            setError('Assessment caricato, ma non è stato possibile caricare alcuni riferimenti normativi.')
           }
         }
       } catch (fetchError) {
@@ -475,8 +521,8 @@ export default function GapAssessmentDetail() {
       }))
       resetStandardEditor()
     } catch (saveError) {
-      console.error('Errore salvataggio norme Attivita/Requisito:', saveError)
-      setError('Impossibile salvare le norme collegate all Attivita/Requisito.')
+      console.error('Errore salvataggio norme Attività/Requisito:', saveError)
+      setError("Impossibile salvare le norme collegate all'Attività/Requisito.")
     } finally {
       setSavingStandards(false)
     }
@@ -581,8 +627,8 @@ export default function GapAssessmentDetail() {
       const area = await createGapArea(user.id, process.id, {
         code: payload.code,
         name: payload.name,
-        description: toNullable(payload.description),
-        order_index: getNextOrderIndex(process.areas),
+        description: toNullable(formatDomainDescription(payload)),
+        order_index: getPayloadOrderIndex(payload.order_index, getNextOrderIndex(process.areas)),
       })
       const areaWithActivities: GapAreaWithActivities = { ...area, activities: [] }
 
@@ -611,13 +657,13 @@ export default function GapAssessmentDetail() {
     if (!user?.id || !assessment || !selectedActivityProcess || !selectedActivityArea) return
 
     if (!payload.name) {
-      setError('Il nome dell Attivita/Requisito e obbligatorio.')
+      setError("Il nome dell'Attività/Requisito è obbligatorio.")
       return
     }
 
     const generatedCode = getNextActivityCode(selectedActivityArea)
     if (!generatedCode) {
-      setError('Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
+      setError('Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
       return
     }
 
@@ -672,8 +718,8 @@ export default function GapAssessmentDetail() {
       setExpandedEvaluationId(evaluation.id)
       setShowActivityForm(false)
     } catch (createError) {
-      console.error('Errore creazione Attivita/Requisito Gap:', createError)
-      setError('Impossibile creare l Attivita/Requisito nell assessment Gap.')
+      console.error('Errore creazione Attività/Requisito Gap:', createError)
+      setError("Impossibile creare l'Attività/Requisito nell'assessment Gap.")
     } finally {
       setSavingActivity(false)
     }
@@ -721,7 +767,7 @@ export default function GapAssessmentDetail() {
       } catch (statsError) {
         console.error('Errore aggiornamento indicatori assessment Gap:', statsError)
         setError(
-          'Valutazione salvata, ma gli indicatori dell assessment non sono stati aggiornati. Ricarica la pagina o riprova il salvataggio.',
+          "Valutazione salvata, ma gli indicatori dell'assessment non sono stati aggiornati. Ricarica la pagina o riprova il salvataggio.",
         )
       }
     } catch (saveError) {
@@ -729,6 +775,23 @@ export default function GapAssessmentDetail() {
       setError('Impossibile salvare la valutazione. Verifica i dati e riprova.')
     } finally {
       setSavingEvaluationId(null)
+    }
+  }
+
+  const changeAssessmentStatus = async (status: GapAssessmentStatus) => {
+    if (!assessment || !user?.id || status === assessment.status) return
+
+    setSavingAssessmentStatus(true)
+    setError(null)
+
+    try {
+      const updated = await updateGapAssessmentStatus(assessment.id, user.id, status)
+      setAssessment(updated)
+    } catch (statusError) {
+      console.error('Errore aggiornamento stato assessment Gap:', statusError)
+      setError("Impossibile aggiornare lo stato dell'assessment Gap.")
+    } finally {
+      setSavingAssessmentStatus(false)
     }
   }
 
@@ -754,19 +817,61 @@ export default function GapAssessmentDetail() {
     }
   }
 
-  const handleExportPDF = () => {
+  const captureReportChartImages = async (): Promise<GapAssessmentPDFChartImages> => {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve())
+    })
+
+    const capture = async (element: HTMLElement | null, label: string) => {
+      try {
+        return await elementToPngDataUrl(element)
+      } catch (captureError) {
+        console.warn(`Impossibile acquisire grafico Gap per PDF: ${label}`, captureError)
+        return null
+      }
+    }
+
+    const [
+      complianceByDomain,
+      complianceDistribution,
+      priorityDistribution,
+      actionStatus,
+      verificationStatus,
+      actionGantt,
+    ] = await Promise.all([
+      capture(pdfComplianceByDomainRef.current, 'compliance per Dominio/Sezione'),
+      capture(pdfComplianceDistributionRef.current, 'distribuzione conformità'),
+      capture(pdfPriorityDistributionRef.current, 'priorità gap'),
+      capture(pdfActionStatusRef.current, 'stato azioni'),
+      capture(pdfVerificationStatusRef.current, 'verifica efficacia'),
+      capture(pdfActionGanttRef.current, 'Diagramma di GANTT azioni'),
+    ])
+
+    return {
+      complianceByDomain,
+      complianceDistribution,
+      priorityDistribution,
+      actionStatus,
+      verificationStatus,
+      actionGantt,
+    }
+  }
+
+  const handleExportPDF = async () => {
     if (!assessment) return
 
     setExportingPDF(true)
     setError(null)
 
     try {
+      const chartImages = await captureReportChartImages()
       exportGapAssessmentToPDF({
         assessment,
         evaluations,
         actions: gapActions,
         standardsByActivityId,
         targetStateByActivityId,
+        chartImages,
       })
     } catch (exportError) {
       console.error('Errore export PDF Gap:', exportError)
@@ -825,7 +930,7 @@ export default function GapAssessmentDetail() {
               setShowDomainForm(false)
             }}
           >
-            Aggiungi Attivita/Requisito
+            Aggiungi Attività/Requisito
           </Button>
         </div>
       </div>
@@ -927,7 +1032,7 @@ export default function GapAssessmentDetail() {
 
         {links.length === 0 ? (
           <p className="text-sm text-slate-500">
-            Nessun riferimento normativo collegato all'Attivita/Requisito.
+            Nessun riferimento normativo collegato all'Attività/Requisito.
           </p>
         ) : (
           <div className="grid gap-3">
@@ -1002,7 +1107,7 @@ export default function GapAssessmentDetail() {
       <div className="clinical-page">
         <PageHeader
           title="Assessment Gap non trovato"
-          description="L assessment richiesto non esiste oppure non e accessibile con l utente corrente."
+          description="L'assessment richiesto non esiste oppure non è accessibile con l'utente corrente."
           eyebrow="Gap Analysis"
           icon={<ClipboardList className="h-6 w-6" />}
           backAction={(
@@ -1025,7 +1130,7 @@ export default function GapAssessmentDetail() {
     <div className="clinical-page">
       <PageHeader
         title={assessment.title}
-        description={assessment.description || 'Valuta conformita, gap e priorita per ogni Attivita/Requisito selezionato.'}
+        description={assessment.description || 'Valuta conformità, gap e priorità per ogni Attività/Requisito selezionato.'}
         eyebrow="Gap Analysis"
         icon={<ClipboardList className="h-6 w-6" />}
         backAction={(
@@ -1062,9 +1167,21 @@ export default function GapAssessmentDetail() {
               )}
               Esporta Excel
             </button>
-            <span className={`rounded-full px-3 py-1 text-sm font-medium ${getGapAssessmentStatusColor(assessment.status)}`}>
-              {getGapAssessmentStatusLabel(assessment.status)}
-            </span>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Stato</span>
+              <select
+                value={assessment.status}
+                disabled={savingAssessmentStatus}
+                onChange={(event) => changeAssessmentStatus(event.target.value as GapAssessmentStatus)}
+                className={`rounded-full border-0 px-3 py-1 text-sm font-medium outline-none disabled:cursor-not-allowed disabled:opacity-60 ${getGapAssessmentStatusColor(assessment.status)}`}
+              >
+                {GAP_ASSESSMENT_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </>
         )}
       />
@@ -1083,7 +1200,7 @@ export default function GapAssessmentDetail() {
               <p className="mt-1 font-medium text-slate-800">{assessment.facility_name || 'N/D'}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Reparto / Unita</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Reparto / Unità</p>
               <p className="mt-1 font-medium text-slate-800">{assessment.department || 'N/D'}</p>
             </div>
             <div>
@@ -1100,7 +1217,7 @@ export default function GapAssessmentDetail() {
 
       <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard
-          label="Attivita/Requisiti"
+          label="Attività/Requisiti"
           value={stats.total_activities}
           icon={<FileText className="h-6 w-6" />}
           tone="clinical"
@@ -1164,7 +1281,7 @@ export default function GapAssessmentDetail() {
               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }`}
         >
-          Gap Findings
+          Gap rilevati
           <span className="ml-2 rounded-full bg-white/80 px-2 py-0.5 text-xs">
             {gapFindings.length}
           </span>
@@ -1203,7 +1320,7 @@ export default function GapAssessmentDetail() {
           <EmptyState
             icon={<ClipboardList className="h-6 w-6" />}
             title="Nessuna valutazione disponibile"
-            description="Questo assessment non contiene ancora Attivita/Requisiti da valutare."
+            description="Questo assessment non contiene ancora Attività/Requisiti da valutare."
           />
         </div>
       ) : (
@@ -1215,10 +1332,10 @@ export default function GapAssessmentDetail() {
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-800">
-                    Clicca su un'Attivita/Requisito per compilare o aggiornare la valutazione.
+                    Clicca su un'Attività/Requisito per compilare o aggiornare la valutazione.
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Gerarchia: Processo {'->'} Dominio/Sezione {'->'} Contesto operativo {'->'} Attivita/Requisito.
+                    Gerarchia: Processo {'->'} Dominio/Sezione {'->'} Contesto operativo {'->'} Attività/Requisito.
                   </p>
                 </div>
               </div>
@@ -1245,7 +1362,7 @@ export default function GapAssessmentDetail() {
           {filteredEvaluations.length === 0 ? (
             <EmptyState
               icon={<Search className="h-6 w-6" />}
-              title="Nessuna Attivita/Requisito corrisponde al filtro"
+              title="Nessuna Attività/Requisito corrisponde al filtro"
               description="Seleziona un filtro diverso per visualizzare altre valutazioni."
             />
           ) : groupedEvaluations.map((processGroup) => (
@@ -1253,7 +1370,7 @@ export default function GapAssessmentDetail() {
               <CardHeader>
                 <CardTitle>{processGroup.processName}</CardTitle>
                 <CardDescription>
-                  Valutazioni organizzate per Dominio/Sezione e Attivita/Requisito.
+                  Valutazioni organizzate per Dominio/Sezione e Attività/Requisito.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1264,17 +1381,17 @@ export default function GapAssessmentDetail() {
                         {areaGroup.areaName}
                       </h2>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                        {areaGroup.evaluations.length} Attivita/Requisiti
+                        {areaGroup.evaluations.length} Attività/Requisiti
                       </span>
                     </div>
 
                     <div className="grid gap-4">
-                      <div className="hidden rounded-lg border border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:grid xl:grid-cols-[0.9fr_1.1fr_1fr_0.8fr_0.8fr_0.7fr_0.7fr_1fr_auto] xl:items-center">
+                      <div className="hidden rounded-lg border border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:grid xl:grid-cols-[120px_minmax(150px,1.2fr)_minmax(150px,1fr)_120px_120px_100px_90px_150px_44px] xl:items-center">
                         <span>Codice</span>
-                        <span>Attivita/Requisito</span>
+                        <span>Attività/Requisito</span>
                         <span>Dominio/Sezione</span>
-                        <span>Conformita</span>
-                        <span>Priorita</span>
+                        <span>Conformità</span>
+                        <span>Priorità</span>
                         <span>Azioni</span>
                         <span>Norme</span>
                         <span>Ultima valutazione</span>
@@ -1342,9 +1459,9 @@ export default function GapAssessmentDetail() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Gap Findings</CardTitle>
+              <CardTitle>Gap rilevati</CardTitle>
               <CardDescription>
-                Vista filtrata delle valutazioni non conformi o parzialmente conformi, ordinate per priorita e severita del gap.
+                Vista filtrata delle valutazioni non conformi o parzialmente conformi, ordinate per priorità e severità del gap.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1358,13 +1475,13 @@ export default function GapAssessmentDetail() {
                       value={findingSearch}
                       onChange={(event) => setFindingSearch(event.target.value)}
                       className="clinical-input pl-9"
-                      placeholder="Attivita, gap, note..."
+                      placeholder="Attività, gap, note..."
                     />
                   </span>
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">Conformita</span>
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Conformità</span>
                   <select
                     value={findingComplianceFilter}
                     onChange={(event) => setFindingComplianceFilter(event.target.value as FindingComplianceFilter)}
@@ -1377,7 +1494,7 @@ export default function GapAssessmentDetail() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">Priorita</span>
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Priorità</span>
                   <select
                     value={findingPriorityFilter}
                     onChange={(event) => setFindingPriorityFilter(event.target.value as FindingPriorityFilter)}
@@ -1443,11 +1560,11 @@ export default function GapAssessmentDetail() {
                               {getComplianceStatusLabel(evaluation.compliance_status)}
                             </span>
                             <span className={`rounded-full px-3 py-1 text-xs font-medium ${getGapRiskPriorityColor(evaluation.risk_priority)}`}>
-                              Priorita {getGapRiskPriorityLabel(evaluation.risk_priority)}
+                              Priorità {getGapRiskPriorityLabel(evaluation.risk_priority)}
                             </span>
                           </div>
                           <h3 className="mt-3 text-base font-semibold text-slate-950">
-                            {evaluation.activity_name_snapshot || 'Attivita/Requisito senza nome'}
+                            {evaluation.activity_name_snapshot || 'Attività/Requisito senza nome'}
                           </h3>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                             <span>Processo: {evaluation.process_name_snapshot || 'N/D'}</span>
@@ -1492,7 +1609,7 @@ export default function GapAssessmentDetail() {
                                 {targetStateByActivityId[evaluation.activity_id] || 'Target atteso non definito nella libreria.'}
                               </p>
                               <p className="mt-2 text-xs leading-5 text-slate-500">
-                                Il target appartiene all'Attivita/Requisito di libreria ed e mostrato in sola lettura.
+                                Il target appartiene all'Attività/Requisito di libreria ed è mostrato in sola lettura.
                               </p>
                             </div>
 
@@ -1515,7 +1632,7 @@ export default function GapAssessmentDetail() {
                           <div className="grid gap-4 md:grid-cols-3">
                             <label className="block">
                               <span className="mb-1 block text-sm font-medium text-slate-700">
-                                Valutazione conformita
+                                Valutazione conformità
                               </span>
                               <select
                                 value={draft.compliance_status}
@@ -1534,7 +1651,7 @@ export default function GapAssessmentDetail() {
 
                             <label className="block">
                               <span className="mb-1 block text-sm font-medium text-slate-700">
-                                Priorita
+                                Priorità
                               </span>
                               <select
                                 value={draft.risk_priority}
@@ -1616,6 +1733,20 @@ export default function GapAssessmentDetail() {
           targetStateByActivityId={targetStateByActivityId}
         />
       )}
+
+      <div
+        className="pointer-events-none fixed -left-[10000px] top-0 w-[1180px] bg-white p-6"
+        aria-hidden="true"
+      >
+        <GapAssessmentStatsReport
+          assessment={assessment}
+          evaluations={evaluations}
+          actions={gapActions}
+          standardsByActivityId={standardsByActivityId}
+          targetStateByActivityId={targetStateByActivityId}
+          chartRefs={pdfChartRefs}
+        />
+      </div>
 
     </div>
   )

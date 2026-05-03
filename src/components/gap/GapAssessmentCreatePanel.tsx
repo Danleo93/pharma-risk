@@ -58,6 +58,29 @@ const toNullable = (value: string) => {
   return trimmed.length > 0 ? trimmed : null
 }
 
+const formatDomainDescription = (payload: GapInlineDomainFormPayload) => {
+  const operationalContext = payload.operational_context.trim()
+  const description = payload.description.trim()
+
+  if (operationalContext && description) {
+    return `Contesto operativo: ${operationalContext}\n\nDescrizione:\n${description}`
+  }
+
+  if (operationalContext) {
+    return `Contesto operativo: ${operationalContext}`
+  }
+
+  return description
+}
+
+const getPayloadOrderIndex = (
+  value: string,
+  fallback: number,
+) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+}
+
 const buildEvaluationSnapshots = (
   selectedProcesses: GapProcessWithStructure[],
 ): GapActivityEvaluationInput[] => {
@@ -196,8 +219,8 @@ export function GapAssessmentCreatePanel({
       const area = await createGapArea(user.id, processId, {
         code: payload.code,
         name: payload.name,
-        description: toNullable(payload.description),
-        order_index: getNextOrderIndex(process.areas),
+        description: toNullable(formatDomainDescription(payload)),
+        order_index: getPayloadOrderIndex(payload.order_index, getNextOrderIndex(process.areas)),
       })
       const areaWithActivities: GapAreaWithActivities = {
         ...area,
@@ -233,13 +256,13 @@ export function GapAssessmentCreatePanel({
     if (!context) return
 
     if (!payload.name) {
-      setError('Il nome dell Attivita/Requisito e obbligatorio.')
+      setError("Il nome dell'Attività/Requisito è obbligatorio.")
       return
     }
 
     const generatedCode = getNextActivityCode(context.area)
     if (!generatedCode) {
-      setError('Non si possono inserire piu di 99 Attivita/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
+      setError('Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
       return
     }
 
@@ -276,8 +299,8 @@ export function GapAssessmentCreatePanel({
       }))
       setActivityFormAreaId(null)
     } catch (createError) {
-      console.error('Errore creazione Attivita/Requisito Gap:', createError)
-      setError('Impossibile creare l Attivita/Requisito nella libreria Gap.')
+      console.error('Errore creazione Attività/Requisito Gap:', createError)
+      setError("Impossibile creare l'Attività/Requisito nella libreria Gap.")
     } finally {
       setSavingActivityAreaId(null)
     }
@@ -297,7 +320,7 @@ export function GapAssessmentCreatePanel({
     if (!user?.id) return
 
     if (!form.title.trim()) {
-      setError('Il titolo assessment e obbligatorio.')
+      setError("Il titolo assessment è obbligatorio.")
       return
     }
 
@@ -309,7 +332,7 @@ export function GapAssessmentCreatePanel({
 
     if (evaluationSnapshots.length === 0) {
       setError(
-        'Non e possibile creare un assessment senza Attivita/Requisiti. Aggiungi Attivita/Requisiti alla libreria oppure crea prima un nuovo macro-processo completo.',
+        'Non è possibile creare un assessment senza Attività/Requisiti. Aggiungi Attività/Requisiti alla libreria oppure crea prima un nuovo macro-processo completo.',
       )
       return
     }
@@ -355,8 +378,8 @@ export function GapAssessmentCreatePanel({
       console.error('Errore creazione assessment Gap:', createError)
       setError(
         createdAssessmentId
-          ? 'Assessment creato, ma uno step successivo non e riuscito. Verifica la lista assessment e riprova manualmente se necessario.'
-          : 'Impossibile creare l assessment Gap. Verifica i dati e riprova.',
+          ? 'Assessment creato, ma uno step successivo non è riuscito. Verifica la lista assessment e riprova manualmente se necessario.'
+          : "Impossibile creare l'assessment Gap. Verifica i dati e riprova.",
       )
     } finally {
       setCreating(false)
@@ -379,7 +402,7 @@ export function GapAssessmentCreatePanel({
       <EmptyState
         icon={<Layers3 className="h-6 w-6" />}
         title="Nessun macro-processo disponibile"
-        description="Per creare un assessment Gap devi prima definire almeno un macro-processo con Domini/Sezioni e Attivita/Requisiti."
+        description="Per creare un assessment Gap devi prima definire almeno un macro-processo con Domini/Sezioni e Attività/Requisiti."
         action={(
           <Link
             to="/gap/processes"
@@ -405,7 +428,7 @@ export function GapAssessmentCreatePanel({
         <CardHeader>
           <CardTitle>Dati generali</CardTitle>
           <CardDescription>
-            Definisci il perimetro dell assessment Gap prima di selezionare i processi.
+            Definisci il perimetro dell'assessment Gap prima di selezionare i processi.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -434,13 +457,13 @@ export function GapAssessmentCreatePanel({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Reparto / Unita</span>
+              <span className="mb-1 block text-sm font-medium text-slate-700">Reparto / Unità</span>
               <input
                 type="text"
                 value={form.department}
                 onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))}
                 className="clinical-input"
-                placeholder="Reparto o unita operativa"
+                placeholder="Reparto o unità operativa"
               />
             </label>
 
@@ -471,7 +494,7 @@ export function GapAssessmentCreatePanel({
                 value={form.description}
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
                 className="clinical-input min-h-28 resize-y"
-                placeholder="Obiettivo, perimetro e note dell assessment."
+                placeholder="Obiettivo, perimetro e note dell'assessment."
               />
             </label>
           </div>
@@ -492,7 +515,7 @@ export function GapAssessmentCreatePanel({
         >
           <CardTitle>Processi da includere</CardTitle>
           <CardDescription>
-            Ogni processo selezionato includera automaticamente tutti i Domini/Sezioni e le Attivita/Requisiti presenti in libreria.
+            Ogni processo selezionato includerà automaticamente tutti i Domini/Sezioni e le Attività/Requisiti presenti in libreria.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -521,14 +544,14 @@ export function GapAssessmentCreatePanel({
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Attivita/Requisiti</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Attività/Requisiti</p>
               <p className="mt-2 text-2xl font-semibold text-slate-950">{evaluationSnapshots.length}</p>
             </div>
           </div>
 
           {selectedProcessesWithoutActivities.length > 0 && (
             <div className="mb-5 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
-              Alcuni processi selezionati non contengono ancora Attivita/Requisiti. Aggiungili qui sotto oppure verranno inclusi solo come riferimento:
+              Alcuni processi selezionati non contengono ancora Attività/Requisiti. Aggiungili qui sotto oppure verranno inclusi solo come riferimento:
               {' '}
               {selectedProcessesWithoutActivities.map((process) => process.name).join(', ')}.
             </div>
@@ -559,7 +582,7 @@ export function GapAssessmentCreatePanel({
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant={selected ? 'success' : 'neutral'}>{process.code}</Badge>
                           {selected && <Badge variant="success">Selezionato</Badge>}
-                          {activitiesCount === 0 && <Badge variant="warning">Nessuna Attivita/Requisito</Badge>}
+                          {activitiesCount === 0 && <Badge variant="warning">Nessuna Attività/Requisito</Badge>}
                         </div>
                         <h3 className="mt-3 font-semibold text-slate-900">{process.name}</h3>
                         {process.description && (
@@ -576,7 +599,7 @@ export function GapAssessmentCreatePanel({
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                           <CheckSquare className="h-3.5 w-3.5" />
-                          {activitiesCount} Attivita/Requisiti
+                          {activitiesCount} Attività/Requisiti
                         </span>
                       </div>
                     </div>
@@ -588,7 +611,7 @@ export function GapAssessmentCreatePanel({
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Arricchisci libreria</p>
                           <p className="text-sm text-slate-500">
-                            Aggiungi Domini/Sezioni e Attivita/Requisiti prima di creare l assessment.
+                            Aggiungi Domini/Sezioni e Attività/Requisiti prima di creare l'assessment.
                           </p>
                         </div>
                         <button
@@ -611,7 +634,7 @@ export function GapAssessmentCreatePanel({
 
                       {process.areas.length === 0 ? (
                         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                          Nessun Dominio/Sezione presente. Aggiungine uno per poter inserire Attivita/Requisiti valutabili.
+                          Nessun Dominio/Sezione presente. Aggiungine uno per poter inserire Attività/Requisiti valutabili.
                         </div>
                       ) : (
                         <div className="grid gap-3">
@@ -626,7 +649,7 @@ export function GapAssessmentCreatePanel({
                                     <div className="flex flex-wrap items-center gap-2">
                                       <Badge variant="neutral">{area.code}</Badge>
                                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                                        {area.activities.length} Attivita/Requisiti
+                                        {area.activities.length} Attività/Requisiti
                                       </span>
                                     </div>
                                     <h4 className="mt-2 font-semibold text-slate-900">{area.name}</h4>
@@ -641,7 +664,7 @@ export function GapAssessmentCreatePanel({
                                     className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                                   >
                                     <Plus className="h-4 w-4" />
-                                    Aggiungi Attivita/Requisito
+                                    Aggiungi Attività/Requisito
                                   </button>
                                 </div>
 
