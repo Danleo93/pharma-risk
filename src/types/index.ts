@@ -55,7 +55,7 @@ export interface RiskAssessment {
   process_id: string | null
   title: string
   description: string | null
-  status: 'draft' | 'in_progress' | 'completed'
+  status: 'draft' | 'in_progress' | 'completed' | 'archived'
   created_at: string
   updated_at: string
   // Relazioni opzionali

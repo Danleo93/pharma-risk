@@ -20,6 +20,17 @@ const parseCategory = (category: string): { area: string; subArea: string | null
   return { area: category || 'Altro', subArea: null }
 }
 
+const getAssessmentStatusText = (status: string) => {
+  const statusMap: Record<string, string> = {
+    draft: 'Bozza',
+    in_progress: 'In Corso',
+    completed: 'Completato',
+    archived: 'Archiviato',
+  }
+
+  return statusMap[status] || status
+}
+
 export const exportToPDF = ({ assessment, riskItems, facilityName, actions = [], paretoThreshold = 80 }: ExportData) => {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -112,12 +123,6 @@ const col2Label = pageWidth / 2 + 10
 const col2Value = pageWidth / 2 + 45
 let infoY = boxY + 15
 
-const statusMap: Record<string, string> = {
-  'draft': 'Bozza',
-  'in_progress': 'In Corso',
-  'completed': 'Completato'
-}
-
 // Struttura su riga intera (per nomi lunghi)
 doc.setFont('helvetica', 'bold')
 doc.text('Struttura:', col1Label, infoY)
@@ -137,7 +142,7 @@ infoY += 10
 doc.setFont('helvetica', 'bold')
 doc.text('Stato:', col1Label, infoY)
 doc.setFont('helvetica', 'normal')
-doc.text(statusMap[assessment.status] || assessment.status, col1Value, infoY)
+doc.text(getAssessmentStatusText(assessment.status), col1Value, infoY)
 
 infoY += 10
 doc.setFont('helvetica', 'bold')
@@ -937,7 +942,7 @@ export const exportToExcel = ({ assessment, riskItems, actions = [] }: ExportDat
     [''],
     ['Titolo', assessment.title],
     ['Descrizione', assessment.description || ''],
-    ['Stato', assessment.status === 'draft' ? 'Bozza' : assessment.status === 'in_progress' ? 'In Corso' : 'Completato'],
+    ['Stato', getAssessmentStatusText(assessment.status)],
     ['Data Creazione', new Date(assessment.created_at).toLocaleDateString('it-IT')],
     ['Data Export', new Date().toLocaleDateString('it-IT')],
     [''],

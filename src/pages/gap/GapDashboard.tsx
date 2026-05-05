@@ -163,7 +163,7 @@ export default function GapDashboard() {
         <EmptyState
           icon={<AlertCircle className="h-6 w-6" />}
           title="Nessun assessment Gap disponibile"
-          description="Crea il primo assessment Gap per visualizzare KPI, grafici e priorita operative."
+          description="Crea il primo assessment Gap per visualizzare KPI, grafici e priorità operative."
           action={(
             <Link
               to="/gap/assessments"
@@ -195,7 +195,7 @@ export default function GapDashboard() {
               tone="risk"
             />
             <StatCard
-              label="Gap alta priorita"
+              label="Gap alta priorità"
               value={dashboardStats.highPriorityGaps}
               icon={<AlertTriangle className="h-6 w-6" />}
               tone="risk"
@@ -228,7 +228,7 @@ export default function GapDashboard() {
           </div>
 
           <div className="mb-4">
-            <h2 className="text-lg font-semibold text-slate-950">Priorita operative</h2>
+            <h2 className="text-lg font-semibold text-slate-950">Priorità operative</h2>
             <p className="mt-1 text-sm text-slate-500">
               Elementi recenti o critici da aprire per completare valutazioni, azioni e verifiche.
             </p>
@@ -244,7 +244,7 @@ export default function GapDashboard() {
                 )}
               >
                 <CardTitle>Ultimi assessment Gap</CardTitle>
-                <CardDescription>Assessment piu recenti da consultare o completare.</CardDescription>
+                <CardDescription>Assessment più recenti da consultare o completare.</CardDescription>
               </CardHeader>
               <div className="divide-y divide-slate-100">
                 {latestAssessments.map((assessment) => (
@@ -279,15 +279,15 @@ export default function GapDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Top gap ad alta priorita</CardTitle>
-                <CardDescription>Gap critici da valutare per priorita di intervento.</CardDescription>
+                <CardTitle>Top gap ad alta priorità</CardTitle>
+                <CardDescription>Gap critici da valutare per priorità di intervento.</CardDescription>
               </CardHeader>
               {topHighPriorityGaps.length === 0 ? (
                 <CardContent>
                   <EmptyState
                     icon={<AlertTriangle className="h-6 w-6" />}
-                    title="Nessun gap alta priorita"
-                    description="I gap ad alta priorita compariranno quando una valutazione risulta non conforme o parziale."
+                    title="Nessun gap alta priorità"
+                    description="I gap ad alta priorità compariranno quando una valutazione risulta non conforme o parziale."
                   />
                 </CardContent>
               ) : (
@@ -304,7 +304,7 @@ export default function GapDashboard() {
                             {evaluation.activity_code_snapshot || 'Senza codice'}
                           </p>
                           <h3 className="mt-1 font-semibold text-slate-900">
-                            {evaluation.activity_name_snapshot || 'Attivita/Requisito'}
+                            {evaluation.activity_name_snapshot || 'Attività/Requisito'}
                           </h3>
                           <p className="mt-1 text-sm text-slate-500">
                             {evaluation.process_name_snapshot || 'Processo non specificato'} - {evaluation.area_name_snapshot || 'Dominio/Sezione non specificato'}

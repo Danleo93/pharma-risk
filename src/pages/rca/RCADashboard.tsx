@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import type { RCAAssessment, RCAAssessmentStatus, RCASeverity } from '../../types'
+import type { RCAAssessment, RCASeverity } from '../../types'
 import {
   getEffectiveRootCauseStatus,
   getRCAAssessmentStatusColor,
@@ -115,20 +115,21 @@ export default function RCADashboard() {
   }
 
   const today = new Date().toISOString().split('T')[0]
+  const activeAssessments = assessments.filter((assessment) => assessment.status !== 'archived')
 
-  const assessmentStatusCounts: Record<RCAAssessmentStatus, number> = {
-    draft: assessments.filter((assessment) => assessment.status === 'draft').length,
-    in_progress: assessments.filter((assessment) => assessment.status === 'in_progress').length,
-    action_planned: assessments.filter((assessment) => assessment.status === 'action_planned').length,
-    completed: assessments.filter((assessment) => assessment.status === 'completed').length,
-    archived: assessments.filter((assessment) => assessment.status === 'archived').length,
+  const assessmentStatusCounts: Record<'draft' | 'in_progress' | 'completed', number> = {
+    draft: activeAssessments.filter((assessment) => assessment.status === 'draft').length,
+    in_progress: activeAssessments.filter((assessment) =>
+      assessment.status === 'in_progress' || assessment.status === 'action_planned',
+    ).length,
+    completed: activeAssessments.filter((assessment) => assessment.status === 'completed').length,
   }
 
   const severityCounts: Record<RCASeverity, number> = {
-    low: assessments.filter((assessment) => assessment.severity === 'low').length,
-    medium: assessments.filter((assessment) => assessment.severity === 'medium').length,
-    high: assessments.filter((assessment) => assessment.severity === 'high').length,
-    critical: assessments.filter((assessment) => assessment.severity === 'critical').length,
+    low: activeAssessments.filter((assessment) => assessment.severity === 'low').length,
+    medium: activeAssessments.filter((assessment) => assessment.severity === 'medium').length,
+    high: activeAssessments.filter((assessment) => assessment.severity === 'high').length,
+    critical: activeAssessments.filter((assessment) => assessment.severity === 'critical').length,
   }
 
   const actionCounts = {
@@ -145,12 +146,12 @@ export default function RCADashboard() {
   const candidateCauses = causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'candidate').length
   const confirmedRootCauses = causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed').length
   const notConfirmedRootCauses = causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed').length
-  const latestAssessments = assessments.slice(0, 5)
+  const latestAssessments = activeAssessments.slice(0, 5)
 
   const metricCards = [
     {
       label: 'Assessment RCA',
-      value: assessments.length,
+      value: activeAssessments.length,
       icon: FileText,
       tone: 'rca' as const,
     },
@@ -226,7 +227,7 @@ export default function RCADashboard() {
         </div>
       )}
 
-      {assessments.length === 0 ? (
+      {activeAssessments.length === 0 ? (
         <EmptyState
           className="mb-8"
           icon={<AlertCircle className="w-6 h-6" />}
@@ -273,8 +274,8 @@ export default function RCADashboard() {
               <div className="space-y-3">
                 {Object.entries(assessmentStatusCounts).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between gap-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAAssessmentStatusColor(status as RCAAssessmentStatus)}`}>
-                      {getRCAAssessmentStatusLabel(status as RCAAssessmentStatus)}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRCAAssessmentStatusColor(status)}`}>
+                      {getRCAAssessmentStatusLabel(status)}
                     </span>
                     <span className="text-lg font-semibold text-slate-900">{count}</span>
                   </div>

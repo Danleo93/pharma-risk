@@ -13,8 +13,9 @@ import type {
   GapActivityStandard,
   GapArea,
   GapAssessment,
-  GapAssessmentStats,
   GapAssessmentProcess,
+  GapAssessmentStats,
+  GapAssessmentStatus,
   GapProcess,
   GapStandard,
   RiskPriority,
@@ -57,6 +58,19 @@ export interface GapActivityInput {
   operator?: string | null
   target_state?: string | null
   order_index: number
+}
+
+const REQUIRED_ACTIVITY_TARGET_MESSAGE =
+  "Il target atteso di riferimento è obbligatorio per salvare un'Attività/Requisito."
+
+const requireActivityTargetState = (targetState?: string | null) => {
+  const normalizedTargetState = targetState?.trim()
+
+  if (!normalizedTargetState) {
+    throw new Error(REQUIRED_ACTIVITY_TARGET_MESSAGE)
+  }
+
+  return normalizedTargetState
 }
 
 export interface GapActivityStandardLinkInput {
@@ -105,7 +119,11 @@ export interface GapActionInput {
   notes?: string | null
 }
 
-export interface GapActionUpdateInput extends GapActionInput {}
+export interface GapActionUpdateInput extends GapActionInput {
+  assessment_id?: string
+  activity_id?: string
+  evaluation_id?: string
+}
 
 export interface GapActionVerificationInput {
   verification_method?: string | null
@@ -242,6 +260,23 @@ export const updateGapAssessmentStats = async (
       na_count: stats.na_count,
       compliance_percentage: stats.compliance_percentage,
     })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+
+  throwIfError(error)
+  return data as GapAssessment
+}
+
+export const updateGapAssessmentStatus = async (
+  id: string,
+  userId: string,
+  status: GapAssessmentStatus,
+): Promise<GapAssessment> => {
+  const { data, error } = await supabase
+    .from('gap_assessments')
+    .update({ status })
     .eq('id', id)
     .eq('user_id', userId)
     .select('*')
@@ -591,10 +626,13 @@ export const createGapActivity = async (
   areaId: string,
   payload: GapActivityInput,
 ): Promise<GapActivity> => {
+  const targetState = requireActivityTargetState(payload.target_state)
+
   const { data, error } = await supabase
     .from('gap_activities')
     .insert({
       ...payload,
+      target_state: targetState,
       user_id: userId,
       area_id: areaId,
     })
@@ -610,9 +648,14 @@ export const updateGapActivity = async (
   userId: string,
   payload: GapActivityInput,
 ): Promise<GapActivity> => {
+  const targetState = requireActivityTargetState(payload.target_state)
+
   const { data, error } = await supabase
     .from('gap_activities')
-    .update(payload)
+    .update({
+      ...payload,
+      target_state: targetState,
+    })
     .eq('id', id)
     .eq('user_id', userId)
     .select('*')
@@ -712,6 +755,18 @@ export const getGapEvaluationsByAssessment = async (
   return (data || []) as GapActivityEvaluation[]
 }
 
+export const getGapEvaluations = async (userId: string): Promise<GapActivityEvaluation[]> => {
+  const { data, error } = await supabase
+    .from('gap_activity_evaluations')
+    .select('*')
+    .eq('user_id', userId)
+    .order('activity_code_snapshot', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+
+  throwIfError(error)
+  return (data || []) as GapActivityEvaluation[]
+}
+
 export const updateGapActivityEvaluation = async (
   id: string,
   userId: string,
@@ -727,6 +782,19 @@ export const updateGapActivityEvaluation = async (
 
   throwIfError(error)
   return data as GapActivityEvaluation
+}
+
+export const deleteGapActivityEvaluation = async (
+  id: string,
+  userId: string,
+): Promise<void> => {
+  const { error } = await supabase
+    .from('gap_activity_evaluations')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  throwIfError(error)
 }
 
 export const getGapActionsByAssessment = async (
@@ -794,19 +862,30 @@ export const updateGapAction = async (
   userId: string,
   payload: GapActionUpdateInput,
 ): Promise<GapAction> => {
+  const updatePayload: Record<string, unknown> = {
+    description: payload.description,
+    responsible: payload.responsible || null,
+    priority: payload.priority,
+    status: payload.status,
+    progress: payload.progress,
+    phase: payload.phase || null,
+    planned_start_date: payload.planned_start_date || null,
+    planned_end_date: payload.planned_end_date || null,
+    notes: payload.notes || null,
+  }
+
+  if (payload.assessment_id) {
+    updatePayload.assessment_id = payload.assessment_id
+  }
+
+  if (payload.activity_id && payload.evaluation_id) {
+    updatePayload.activity_id = payload.activity_id
+    updatePayload.evaluation_id = payload.evaluation_id
+  }
+
   const { data, error } = await supabase
     .from('gap_actions')
-    .update({
-      description: payload.description,
-      responsible: payload.responsible || null,
-      priority: payload.priority,
-      status: payload.status,
-      progress: payload.progress,
-      phase: payload.phase || null,
-      planned_start_date: payload.planned_start_date || null,
-      planned_end_date: payload.planned_end_date || null,
-      notes: payload.notes || null,
-    })
+    .update(updatePayload)
     .eq('id', id)
     .eq('user_id', userId)
     .select('*')
@@ -889,22 +968,33 @@ export const completeGapAction = async (
   payload: GapActionUpdateInput,
 ): Promise<GapAction> => {
   const today = new Date()
+  const updatePayload: Record<string, unknown> = {
+    description: payload.description,
+    responsible: payload.responsible || null,
+    priority: payload.priority,
+    status: 'completed',
+    progress: payload.progress,
+    phase: payload.phase || null,
+    planned_start_date: payload.planned_start_date || null,
+    planned_end_date: payload.planned_end_date || null,
+    actual_end_date: action.actual_end_date || toDateKey(today),
+    verification_due_date: action.verification_due_date || toDateKey(addDays(today, 30)),
+    verification_result: 'pending',
+    notes: payload.notes || null,
+  }
+
+  if (payload.assessment_id) {
+    updatePayload.assessment_id = payload.assessment_id
+  }
+
+  if (payload.activity_id && payload.evaluation_id) {
+    updatePayload.activity_id = payload.activity_id
+    updatePayload.evaluation_id = payload.evaluation_id
+  }
+
   const { data, error } = await supabase
     .from('gap_actions')
-    .update({
-      description: payload.description,
-      responsible: payload.responsible || null,
-      priority: payload.priority,
-      status: 'completed',
-      progress: payload.progress,
-      phase: payload.phase || null,
-      planned_start_date: payload.planned_start_date || null,
-      planned_end_date: payload.planned_end_date || null,
-      actual_end_date: action.actual_end_date || toDateKey(today),
-      verification_due_date: action.verification_due_date || toDateKey(addDays(today, 30)),
-      verification_result: 'pending',
-      notes: payload.notes || null,
-    })
+    .update(updatePayload)
     .eq('id', action.id)
     .eq('user_id', userId)
     .select('*')

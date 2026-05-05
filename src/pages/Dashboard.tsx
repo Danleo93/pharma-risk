@@ -45,6 +45,7 @@ export default function Dashboard() {
   }
 
   // Calcoli statistiche rischi
+  const activeAssessments = assessments.filter((assessment) => assessment.status !== 'archived')
   const totalRisks = riskItems.length
   const highRisks = riskItems.filter(r => r.risk_class === 'Alta').length
   const mediumRisks = riskItems.filter(r => r.risk_class === 'Media').length
@@ -93,19 +94,19 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3 mb-6">
         <StatCard
           label="Totale Assessment"
-          value={assessments.length}
+          value={activeAssessments.length}
           icon={<FileText className="w-6 h-6" />}
           tone="fmea"
         />
         <StatCard
           label="In Corso"
-          value={assessments.filter(a => a.status === 'in_progress').length}
+          value={activeAssessments.filter(a => a.status === 'in_progress').length}
           icon={<Clock className="w-6 h-6" />}
           tone="warning"
         />
         <StatCard
           label="Completati"
-          value={assessments.filter(a => a.status === 'completed').length}
+          value={activeAssessments.filter(a => a.status === 'completed').length}
           icon={<CheckCircle className="w-6 h-6" />}
           tone="success"
         />
@@ -229,7 +230,7 @@ export default function Dashboard() {
           <div className="p-12 text-center text-slate-500">
             Caricamento...
           </div>
-        ) : assessments.length === 0 ? (
+        ) : activeAssessments.length === 0 ? (
           <div className="p-6">
             <EmptyState
               icon={<AlertTriangle className="w-6 h-6" />}
@@ -247,7 +248,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {assessments.map((assessment) => (
+            {activeAssessments.slice(0, 5).map((assessment) => (
               <Link
                 key={assessment.id}
                 to={`/fmea/assessment/${assessment.id}`}

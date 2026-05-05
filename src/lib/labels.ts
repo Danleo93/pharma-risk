@@ -12,7 +12,7 @@ import type {
 export type RCAActionStatus = 'planned' | 'in_progress' | 'completed'
 export type RCAPriority = 'low' | 'medium' | 'high' | 'critical'
 export type RootCauseStatus = 'candidate' | 'confirmed' | 'not_confirmed'
-export type FMEAStatus = 'draft' | 'in_progress' | 'completed'
+export type FMEAStatus = 'draft' | 'in_progress' | 'completed' | 'archived'
 export type FMEAActionStatus = 'planned' | 'in_progress' | 'completed'
 export type FMEARiskClass = 'Alta' | 'Media' | 'Bassa'
 
@@ -24,7 +24,13 @@ type RootCauseLike = {
 export const RCA_ASSESSMENT_STATUS_OPTIONS: { value: RCAAssessmentStatus; label: string }[] = [
   { value: 'draft', label: 'Bozza' },
   { value: 'in_progress', label: 'In corso' },
-  { value: 'action_planned', label: 'Azioni pianificate' },
+  { value: 'completed', label: 'Completato' },
+  { value: 'archived', label: 'Archiviato' },
+]
+
+export const FMEA_ASSESSMENT_STATUS_OPTIONS: { value: FMEAStatus; label: string }[] = [
+  { value: 'draft', label: 'Bozza' },
+  { value: 'in_progress', label: 'In corso' },
   { value: 'completed', label: 'Completato' },
   { value: 'archived', label: 'Archiviato' },
 ]
@@ -59,7 +65,6 @@ export const GAP_ASSESSMENT_STATUS_OPTIONS: { value: GapAssessmentStatus; label:
 
 export const COMPLIANCE_STATUS_OPTIONS: { value: ComplianceStatus; label: string }[] = [
   { value: 'not_evaluated', label: 'Non valutata' },
-  { value: 'not_applicable', label: 'Non applicabile' },
   { value: 'non_compliant', label: 'Non conforme' },
   { value: 'partially_compliant', label: 'Parzialmente conforme' },
   { value: 'compliant', label: 'Conforme' },
@@ -79,7 +84,6 @@ export const GAP_ACTION_STATUS_OPTIONS: { value: GapActionStatus; label: string 
   { value: 'completed', label: 'Completata' },
   { value: 'verified', label: 'Verificata' },
   { value: 'ineffective', label: 'Non efficace' },
-  { value: 'closed', label: 'Chiusa' },
 ]
 
 export const GAP_ACTION_PRIORITY_OPTIONS: { value: GapActionPriority; label: string }[] = [
@@ -127,7 +131,7 @@ export const getRCAAssessmentStatusLabel = (status: RCAAssessmentStatus | string
     case 'in_progress':
       return 'In corso'
     case 'action_planned':
-      return 'Azioni pianificate'
+      return 'In corso'
     case 'completed':
       return 'Completato'
     case 'archived':
@@ -142,7 +146,6 @@ export const getRCAAssessmentStatusColor = (status: RCAAssessmentStatus | string
     case 'completed':
       return 'bg-green-100 text-green-700'
     case 'action_planned':
-      return 'bg-sky-100 text-sky-700'
     case 'in_progress':
       return 'bg-yellow-100 text-yellow-700'
     case 'archived':
@@ -466,7 +469,9 @@ export const getFMEAAssessmentStatusLabel = (status: FMEAStatus | string | null 
     case 'completed':
       return 'Completato'
     case 'in_progress':
-      return 'In Corso'
+      return 'In corso'
+    case 'archived':
+      return 'Archiviato'
     default:
       return 'Bozza'
   }
@@ -478,6 +483,8 @@ export const getFMEAAssessmentStatusColor = (status: FMEAStatus | string | null 
       return 'bg-green-100 text-green-700'
     case 'in_progress':
       return 'bg-yellow-100 text-yellow-700'
+    case 'archived':
+      return 'bg-slate-100 text-slate-600'
     default:
       return 'bg-gray-100 text-gray-600'
   }

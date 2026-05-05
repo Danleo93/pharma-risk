@@ -171,7 +171,7 @@ export default function GapProcesses() {
       setProcesses((current) => current.filter((item) => item.id !== process.id))
     } catch (deleteError) {
       console.error('Errore eliminazione processo Gap:', deleteError)
-      setError('Impossibile eliminare il processo. Potrebbe essere gia collegato ad assessment o dati operativi.')
+      setError('Impossibile eliminare il processo. Potrebbe essere già collegato ad assessment o dati operativi.')
     }
   }
 
@@ -179,11 +179,18 @@ export default function GapProcesses() {
     <div className="clinical-page">
       <PageHeader
         title="Processi Gap"
-        description="Definisci macro-processi riutilizzabili secondo la gerarchia Processo -> Dominio/Sezione -> Contesto operativo -> Attivita/Requisito."
+        description="Definisci macro-processi riutilizzabili secondo la gerarchia Processo -> Dominio/Sezione -> Contesto operativo -> Attività/Requisito."
         eyebrow="Gap Analysis"
         icon={<Layers3 className="h-6 w-6" />}
         actions={(
-          <Button type="button" tone="success" icon={<Plus className="h-4 w-4" />} onClick={startCreate}>
+          <Button
+            type="button"
+            tone="success"
+            size="lg"
+            icon={<Plus className="h-5 w-5" />}
+            onClick={startCreate}
+            className="min-w-[220px] shadow-clinical"
+          >
             Nuovo macro-processo
           </Button>
         )}
@@ -213,7 +220,7 @@ export default function GapProcesses() {
             <CardTitle>{editingProcess ? 'Modifica macro-processo' : 'Nuovo macro-processo'}</CardTitle>
             <CardDescription>
               Il processo rappresenta un macro-flusso valutabile. Al suo interno potrai organizzare
-              Domini/Sezioni, cioe fasi o sottosezioni, e Attivita/Requisiti, cioe azioni o controlli valutabili.
+              Domini/Sezioni, cioè fasi o sottosezioni, e Attività/Requisiti, cioè azioni o controlli valutabili.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -316,7 +323,7 @@ export default function GapProcesses() {
         <EmptyState
           icon={<Layers3 className="h-6 w-6" />}
           title="Nessun macro-processo disponibile"
-          description="Crea il primo macro-processo della libreria Gap. Ogni macro-processo conterra Domini/Sezioni, Contesti operativi descrittivi e Attivita/Requisiti valutabili."
+          description="Crea il primo macro-processo della libreria Gap. Ogni macro-processo conterrà Domini/Sezioni, Contesti operativi descrittivi e Attività/Requisiti valutabili."
           action={(
             <Button type="button" tone="success" icon={<Plus className="h-4 w-4" />} onClick={startCreate}>
               Crea macro-processo

@@ -10,7 +10,7 @@ export default function NewGapAssessment() {
     <div className="clinical-page">
       <PageHeader
         title="Nuovo assessment Gap"
-        description="Crea un assessment selezionando uno o piu processi della libreria Gap."
+        description="Crea un assessment selezionando uno o più processi della libreria Gap."
         eyebrow="Gap Analysis"
         icon={<FilePlus2 className="h-6 w-6" />}
         backAction={(

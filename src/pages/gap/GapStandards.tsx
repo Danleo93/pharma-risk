@@ -197,11 +197,18 @@ export default function GapStandards() {
     <div className="clinical-page">
       <PageHeader
         title="Norme e standard"
-        description="Catalogo dei riferimenti normativi e procedurali collegabili alle attivita Gap."
+        description="Catalogo dei riferimenti normativi e procedurali collegabili alle Attività/Requisiti Gap."
         eyebrow="Gap Analysis"
         icon={<BookMarked className="h-6 w-6" />}
         actions={(
-          <Button type="button" tone="success" icon={<Plus className="h-4 w-4" />} onClick={startCreate}>
+          <Button
+            type="button"
+            tone="success"
+            size="lg"
+            icon={<Plus className="h-5 w-5" />}
+            onClick={startCreate}
+            className="min-w-[180px] shadow-clinical"
+          >
             Nuova norma
           </Button>
         )}

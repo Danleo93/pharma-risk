@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react'
+import { Info } from 'lucide-react'
 import { Button } from '../ui/Button'
 
 export interface GapInlineDomainFormPayload {
   code: string
   name: string
+  operational_context: string
   description: string
+  order_index: string
 }
 
 interface GapInlineDomainFormProps {
@@ -16,7 +19,9 @@ interface GapInlineDomainFormProps {
 const emptyForm: GapInlineDomainFormPayload = {
   code: '',
   name: '',
+  operational_context: '',
   description: '',
+  order_index: '0',
 }
 
 export function GapInlineDomainForm({
@@ -31,7 +36,9 @@ export function GapInlineDomainForm({
     onSubmit({
       code: form.code.trim(),
       name: form.name.trim(),
+      operational_context: form.operational_context.trim(),
       description: form.description.trim(),
+      order_index: form.order_index,
     })
   }
 
@@ -39,8 +46,16 @@ export function GapInlineDomainForm({
     <form onSubmit={handleSubmit} className="rounded-xl border border-teal-100 bg-teal-50/50 p-4">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">
+          <span className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
             Codice Dominio/Sezione *
+            <button
+              type="button"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              title="Codice sintetico e stabile del Dominio/Sezione, utile per identificarlo rapidamente in libreria, assessment e report. Preferisci sigle brevi e riconoscibili."
+              aria-label="Aiuto codice Dominio/Sezione"
+            >
+              <Info className="h-4 w-4" />
+            </button>
           </span>
           <input
             type="text"
@@ -50,6 +65,9 @@ export function GapInlineDomainForm({
             placeholder="Codice sintetico del Dominio/Sezione"
             required
           />
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            Usa un codice sintetico e riconoscibile per identificare il Dominio/Sezione in valutazioni e report.
+          </span>
         </label>
 
         <label className="block">
@@ -66,13 +84,40 @@ export function GapInlineDomainForm({
           />
         </label>
 
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">
+            Ordine di visualizzazione
+          </span>
+          <input
+            type="number"
+            min="0"
+            value={form.order_index}
+            onChange={(event) => setForm((current) => ({ ...current, order_index: event.target.value }))}
+            className="clinical-input bg-white"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Contesto operativo</span>
+          <input
+            type="text"
+            value={form.operational_context}
+            onChange={(event) => setForm((current) => ({ ...current, operational_context: event.target.value }))}
+            className="clinical-input bg-white"
+            placeholder="Es. UFA, Magazzino farmaceutico, Reparto, Laboratorio galenico"
+          />
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            Per ora il contesto operativo viene salvato nella descrizione del Dominio/Sezione; in futuro potra diventare un campo strutturato.
+          </span>
+        </label>
+
         <label className="block md:col-span-2">
           <span className="mb-1 block text-sm font-medium text-slate-700">Descrizione</span>
           <textarea
             value={form.description}
             onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
             className="clinical-input min-h-20 resize-y bg-white"
-            placeholder="Ambito, contesto operativo o confini del Dominio/Sezione."
+            placeholder="Ambito del Dominio/Sezione, confini e note operative."
           />
         </label>
       </div>

@@ -1181,6 +1181,11 @@ export default function RCAAssessmentDetail() {
   const updateAssessmentStatus = async (nextStatus: RCAAssessmentStatus) => {
     if (!assessment || !user || nextStatus === assessment.status) return
 
+    if (nextStatus === 'archived') {
+      const confirmed = confirm("Archiviare questo assessment? Sarà spostato nell'Archivio assessment.")
+      if (!confirmed) return
+    }
+
     setStatusUpdating(true)
     setStatusError(null)
 
@@ -2888,15 +2893,17 @@ export default function RCAAssessmentDetail() {
                 <button
                   type="button"
                   onClick={exportRCAReportPDF}
-                  className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
                 >
+                  <Download className="w-4 h-4" />
                   PDF
                 </button>
                 <button
                   type="button"
                   onClick={exportRCAReportExcel}
-                  className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition"
                 >
+                  <Download className="w-4 h-4" />
                   Excel
                 </button>
               </div>
@@ -3221,7 +3228,7 @@ export default function RCAAssessmentDetail() {
             <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
               Stato RCA
               <select
-                value={assessment.status}
+                value={assessment.status === 'action_planned' ? 'in_progress' : assessment.status}
                 disabled={statusUpdating}
                 onChange={(event) => updateAssessmentStatus(event.target.value as RCAAssessmentStatus)}
                 className="min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none disabled:bg-gray-50 disabled:text-gray-400"
