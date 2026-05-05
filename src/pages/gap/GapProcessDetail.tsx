@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   createGapArea,
   createGapActivity,
+  createGapStandard,
   deleteGapArea,
   deleteGapActivity,
   getGapActivityStandardsByActivity,
@@ -18,6 +19,7 @@ import {
   type GapActivityStandardLinkInput,
   type GapActivityInput,
   type GapAreaInput,
+  type GapStandardInput,
 } from '../../services/gapService'
 import type { GapActivity, GapActivityStandard, GapArea, GapProcess, GapStandard } from '../../types/gap'
 import { Badge } from '../../components/ui/Badge'
@@ -55,12 +57,30 @@ interface StandardDraftLink {
   specific_reference: string
 }
 
+interface StandardFormState {
+  code: string
+  name: string
+  version: string
+  issuing_body: string
+  description: string
+  url: string
+}
+
 const emptyActivityForm: ActivityFormState = {
   code: '',
   name: '',
   description: '',
   operator: '',
   target_state: '',
+}
+
+const emptyStandardForm: StandardFormState = {
+  code: '',
+  name: '',
+  version: '',
+  issuing_body: '',
+  description: '',
+  url: '',
 }
 
 const toNullable = (value: string) => {
@@ -159,6 +179,9 @@ export default function GapProcessDetail() {
   const [activityForm, setActivityForm] = useState<ActivityFormState>(emptyActivityForm)
   const [editingStandardsForActivity, setEditingStandardsForActivity] = useState<string | null>(null)
   const [standardDraftLinks, setStandardDraftLinks] = useState<StandardDraftLink[]>([])
+  const [showCreateStandardForm, setShowCreateStandardForm] = useState(false)
+  const [newStandardForm, setNewStandardForm] = useState<StandardFormState>(emptyStandardForm)
+  const [savingNewStandard, setSavingNewStandard] = useState(false)
   const [expandedAreaId, setExpandedAreaId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -228,6 +251,8 @@ export default function GapProcessDetail() {
   const resetStandardEditor = () => {
     setEditingStandardsForActivity(null)
     setStandardDraftLinks([])
+    setShowCreateStandardForm(false)
+    setNewStandardForm(emptyStandardForm)
     setError(null)
   }
 
@@ -386,6 +411,11 @@ export default function GapProcessDetail() {
       return
     }
 
+    if (!activityForm.target_state.trim()) {
+      setError("Il target atteso di riferimento è obbligatorio per salvare un'Attività/Requisito.")
+      return
+    }
+
     setSaving(true)
     setError(null)
 
@@ -507,6 +537,54 @@ export default function GapProcessDetail() {
       setError("Impossibile salvare le norme collegate all'Attività/Requisito.")
     } finally {
       setSavingStandards(false)
+    }
+  }
+
+  const createStandardAndLinkToActivity = async (activityId: string) => {
+    if (!user?.id) return
+
+    const code = newStandardForm.code.trim()
+    const name = newStandardForm.name.trim()
+
+    if (!code || !name) {
+      setError('Codice e nome della norma sono obbligatori.')
+      return
+    }
+
+    setSavingNewStandard(true)
+    setError(null)
+
+    try {
+      const payload: GapStandardInput = {
+        code,
+        name,
+        version: toNullable(newStandardForm.version),
+        issuing_body: toNullable(newStandardForm.issuing_body),
+        description: toNullable(newStandardForm.description),
+        url: toNullable(newStandardForm.url),
+      }
+      const createdStandard = await createGapStandard(user.id, payload)
+      const nextDraftLinks = [
+        ...standardDraftLinks.filter((link) => link.standard_id !== createdStandard.id),
+        { standard_id: createdStandard.id, specific_reference: '' },
+      ]
+      const linkPayload: GapActivityStandardLinkInput[] = nextDraftLinks.map((link) => ({
+        standard_id: link.standard_id,
+        specific_reference: toNullable(link.specific_reference),
+      }))
+      const updatedLinks = await replaceGapActivityStandards(activityId, user.id, linkPayload)
+
+      setStandards((current) => [createdStandard, ...current])
+      setActivityStandardsByActivity((current) => ({
+        ...current,
+        [activityId]: updatedLinks,
+      }))
+      resetStandardEditor()
+    } catch (createError) {
+      console.error('Errore creazione norma da Attività/Requisito:', createError)
+      setError('Impossibile creare e collegare la norma. Verifica i dati e riprova.')
+    } finally {
+      setSavingNewStandard(false)
     }
   }
 
@@ -923,10 +1001,11 @@ export default function GapProcessDetail() {
                           </label>
 
                           <label className="block md:col-span-2">
-                            <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso di riferimento</span>
+                            <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso di riferimento *</span>
                             <input
                               type="text"
                               value={activityForm.target_state}
+                              required
                               onChange={(event) => setActivityForm((current) => ({ ...current, target_state: event.target.value }))}
                               className="clinical-input"
                               placeholder="Stato atteso standard dell'Attività/Requisito"
@@ -1068,23 +1147,29 @@ export default function GapProcessDetail() {
 
                                 {editingStandards && (
                                   <div className="mt-4 rounded-lg border border-teal-100 bg-teal-50/60 p-4">
-                                    {standards.length === 0 ? (
-                                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                        <p className="text-sm text-slate-600">
-                                          Crea prima una norma nel Catalogo Norme.
-                                        </p>
-                                        <Link
-                                          to="/gap/standards"
-                                          className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-teal-800 ring-1 ring-teal-100 transition hover:bg-teal-50"
-                                        >
-                                          Vai al Catalogo Norme
-                                        </Link>
+                                    <div className="space-y-4">
+                                      <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-3 text-sm leading-6 text-sky-800">
+                                        Le norme create qui saranno salvate nel Catalogo Norme personale e riutilizzabili nei futuri assessment.
+                                        Le norme sono collegate all'Attività/Requisito di libreria.
                                       </div>
-                                    ) : (
-                                      <div className="space-y-3">
-                                        <p className="text-sm font-semibold text-slate-900">
-                                          Seleziona le norme applicabili
-                                        </p>
+
+                                      {standards.length > 0 && (
+                                        <div className="space-y-3">
+                                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              Seleziona le norme applicabili
+                                            </p>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              tone="neutral"
+                                              size="sm"
+                                              onClick={() => setShowCreateStandardForm((current) => !current)}
+                                            >
+                                              {showCreateStandardForm ? 'Chiudi nuova norma' : 'Crea nuova norma'}
+                                            </Button>
+                                          </div>
+
                                         {standards.map((standard) => {
                                           const selected = isStandardSelected(standard.id)
                                           const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
@@ -1131,29 +1216,133 @@ export default function GapProcessDetail() {
                                             </div>
                                           )
                                         })}
-
-                                        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            tone="neutral"
-                                            size="sm"
-                                            onClick={resetStandardEditor}
-                                          >
-                                            Annulla
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            tone="success"
-                                            size="sm"
-                                            loading={savingStandards}
-                                            onClick={() => saveActivityStandards(activity.id)}
-                                          >
-                                            Salva norme
-                                          </Button>
                                         </div>
+                                      )}
+
+                                      {(standards.length === 0 || showCreateStandardForm) && (
+                                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                                          <div className="mb-3">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              Crea nuova norma
+                                            </p>
+                                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                                              La norma verrà salvata nel Catalogo Norme personale e collegata subito a questa Attività/Requisito.
+                                            </p>
+                                          </div>
+
+                                          <div className="grid gap-3 md:grid-cols-2">
+                                            <label className="block">
+                                              <span className="mb-1 block text-xs font-medium text-slate-600">Codice *</span>
+                                              <input
+                                                type="text"
+                                                value={newStandardForm.code}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, code: event.target.value }))}
+                                                className="clinical-input py-2 text-sm"
+                                                placeholder="Es. ISO-9001, LG-001"
+                                              />
+                                            </label>
+
+                                            <label className="block">
+                                              <span className="mb-1 block text-xs font-medium text-slate-600">Nome *</span>
+                                              <input
+                                                type="text"
+                                                value={newStandardForm.name}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, name: event.target.value }))}
+                                                className="clinical-input py-2 text-sm"
+                                                placeholder="Nome norma o riferimento"
+                                              />
+                                            </label>
+
+                                            <label className="block">
+                                              <span className="mb-1 block text-xs font-medium text-slate-600">Versione</span>
+                                              <input
+                                                type="text"
+                                                value={newStandardForm.version}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, version: event.target.value }))}
+                                                className="clinical-input py-2 text-sm"
+                                                placeholder="Es. 2026"
+                                              />
+                                            </label>
+
+                                            <label className="block">
+                                              <span className="mb-1 block text-xs font-medium text-slate-600">Ente emittente</span>
+                                              <input
+                                                type="text"
+                                                value={newStandardForm.issuing_body}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, issuing_body: event.target.value }))}
+                                                className="clinical-input py-2 text-sm"
+                                                placeholder="Es. Ministero, ISO, Regione"
+                                              />
+                                            </label>
+
+                                            <label className="block md:col-span-2">
+                                              <span className="mb-1 block text-xs font-medium text-slate-600">Descrizione</span>
+                                              <textarea
+                                                value={newStandardForm.description}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, description: event.target.value }))}
+                                                className="clinical-input min-h-20 resize-y py-2 text-sm"
+                                                placeholder="Descrizione sintetica della norma."
+                                              />
+                                            </label>
+
+                                            <label className="block md:col-span-2">
+                                              <span className="mb-1 block text-xs font-medium text-slate-600">URL</span>
+                                              <input
+                                                type="url"
+                                                value={newStandardForm.url}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, url: event.target.value }))}
+                                                className="clinical-input py-2 text-sm"
+                                                placeholder="https://..."
+                                              />
+                                            </label>
+                                          </div>
+
+                                          <div className="mt-3 flex flex-wrap justify-end gap-2">
+                                            {standards.length > 0 && (
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                tone="neutral"
+                                                size="sm"
+                                                onClick={() => setShowCreateStandardForm(false)}
+                                              >
+                                                Annulla nuova norma
+                                              </Button>
+                                            )}
+                                            <Button
+                                              type="button"
+                                              tone="success"
+                                              size="sm"
+                                              loading={savingNewStandard}
+                                              onClick={() => createStandardAndLinkToActivity(activity.id)}
+                                            >
+                                              Crea e collega norma
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-teal-100 pt-3">
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          tone="neutral"
+                                          size="sm"
+                                          onClick={resetStandardEditor}
+                                        >
+                                          Annulla
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          tone="success"
+                                          size="sm"
+                                          loading={savingStandards}
+                                          onClick={() => saveActivityStandards(activity.id)}
+                                        >
+                                          Salva norme
+                                        </Button>
                                       </div>
-                                    )}
+                                    </div>
                                   </div>
                                 )}
                               </div>

@@ -21,6 +21,7 @@ import {
   createGapActivityEvaluationForAssessment,
   createGapArea,
   createGapStandard,
+  deleteGapActivityEvaluation,
   getGapAssessmentById,
   getGapAssessmentProcessesWithStructure,
   getGapActivityStandardsForActivities,
@@ -248,6 +249,7 @@ export default function GapAssessmentDetail() {
   const [error, setError] = useState<string | null>(null)
   const [savingAssessmentStatus, setSavingAssessmentStatus] = useState(false)
   const [savingEvaluationId, setSavingEvaluationId] = useState<string | null>(null)
+  const [deletingEvaluationId, setDeletingEvaluationId] = useState<string | null>(null)
   const [exportingPDF, setExportingPDF] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [activeTab, setActiveTab] = useState<DetailTab>('evaluation')
@@ -661,6 +663,11 @@ export default function GapAssessmentDetail() {
       return
     }
 
+    if (!payload.target_state.trim()) {
+      setError("Il target atteso di riferimento è obbligatorio per creare una nuova Attività/Requisito.")
+      return
+    }
+
     const generatedCode = getNextActivityCode(selectedActivityArea)
     if (!generatedCode) {
       setError('Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
@@ -778,8 +785,54 @@ export default function GapAssessmentDetail() {
     }
   }
 
+  const removeEvaluationFromAssessment = async (evaluation: GapActivityEvaluation) => {
+    if (!user?.id || !assessment) return
+
+    const actionCount = actionCountByEvaluationId[evaluation.id] || 0
+    const confirmed = confirm(
+      actionCount > 0
+        ? `Rimuovere "${evaluation.activity_code_snapshot || evaluation.activity_name_snapshot}" dall'assessment? Verranno eliminate anche ${actionCount === 1 ? "l'azione correttiva collegata" : 'le azioni correttive collegate'}. L'Attivita/Requisito restera nella libreria.`
+        : `Rimuovere "${evaluation.activity_code_snapshot || evaluation.activity_name_snapshot}" dall'assessment? L'Attivita/Requisito restera nella libreria.`,
+    )
+    if (!confirmed) return
+
+    setDeletingEvaluationId(evaluation.id)
+    setError(null)
+
+    try {
+      await deleteGapActivityEvaluation(evaluation.id, user.id)
+
+      const nextEvaluations = evaluations.filter((item) => item.id !== evaluation.id)
+      const nextStats = aggregateAssessmentStats(nextEvaluations)
+      const updatedAssessment = await updateGapAssessmentStats(assessment.id, user.id, nextStats)
+
+      setEvaluations(nextEvaluations)
+      setGapActions((current) => current.filter((action) => action.evaluation_id !== evaluation.id))
+      setDrafts((current) => {
+        const next = { ...current }
+        delete next[evaluation.id]
+        return next
+      })
+      setAssessment(updatedAssessment)
+      setExpandedEvaluationId((current) => (current === evaluation.id ? null : current))
+      if (editingStandardsEvaluationId === evaluation.id) {
+        resetStandardEditor()
+      }
+    } catch (deleteError) {
+      console.error('Errore rimozione evaluation Gap:', deleteError)
+      setError("Impossibile rimuovere l'Attivita/Requisito dall'assessment.")
+    } finally {
+      setDeletingEvaluationId(null)
+    }
+  }
+
   const changeAssessmentStatus = async (status: GapAssessmentStatus) => {
     if (!assessment || !user?.id || status === assessment.status) return
+
+    if (status === 'archived') {
+      const confirmed = confirm("Archiviare questo assessment? Sarà spostato nell'Archivio assessment.")
+      if (!confirmed) return
+    }
 
     setSavingAssessmentStatus(true)
     setError(null)
@@ -1410,6 +1463,7 @@ export default function GapAssessmentDetail() {
                             expanded={expandedEvaluationId === evaluation.id}
                             changed={changed}
                             saving={saving}
+                            deleting={deletingEvaluationId === evaluation.id}
                             actionCount={actionCountByEvaluationId[evaluation.id] || 0}
                             standards={standardsByActivityId[evaluation.activity_id] || []}
                             targetState={targetStateByActivityId[evaluation.activity_id] || null}
@@ -1420,7 +1474,7 @@ export default function GapAssessmentDetail() {
                             showCreateStandardForm={showCreateStandardForm}
                             newStandardForm={newStandardForm}
                             savingNewStandard={savingNewStandard}
-                            savingDisabled={savingEvaluationId !== null}
+                            savingDisabled={savingEvaluationId !== null || deletingEvaluationId !== null}
                             onToggle={() => {
                               resetStandardEditor()
                               setExpandedEvaluationId((current) => (
@@ -1442,6 +1496,7 @@ export default function GapAssessmentDetail() {
                             onSaveStandards={() => saveEvaluationActivityStandards(evaluation)}
                             onCreateStandard={() => createStandardAndLinkToActivity(evaluation)}
                             onCreateAction={() => openActionFormForEvaluation(evaluation)}
+                            onDelete={() => removeEvaluationFromAssessment(evaluation)}
                             onSave={() => saveEvaluation(evaluation)}
                           />
                         )

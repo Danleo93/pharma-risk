@@ -634,13 +634,15 @@ export default function GapActions() {
           <Button
             type="button"
             tone="success"
-            icon={<Plus className="h-4 w-4" />}
+            size="lg"
+            icon={<Plus className="h-5 w-5" />}
             onClick={() => {
               setShowCreateForm((current) => !current)
               setEditingActionId(null)
               setEditForm(null)
               setError(null)
             }}
+            className="min-w-[180px] shadow-clinical"
           >
             Nuova azione
           </Button>

@@ -260,6 +260,11 @@ export function GapAssessmentCreatePanel({
       return
     }
 
+    if (!payload.target_state.trim()) {
+      setError("Il target atteso di riferimento è obbligatorio per creare una nuova Attività/Requisito.")
+      return
+    }
+
     const generatedCode = getNextActivityCode(context.area)
     if (!generatedCode) {
       setError('Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')

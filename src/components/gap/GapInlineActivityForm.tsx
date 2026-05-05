@@ -31,16 +31,24 @@ export function GapInlineActivityForm({
   onSubmit,
 }: GapInlineActivityFormProps) {
   const [form, setForm] = useState<GapInlineActivityFormPayload>(emptyForm)
+  const [targetError, setTargetError] = useState<string | null>(null)
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (limitReached) return
 
+    const targetState = form.target_state.trim()
+    if (!targetState) {
+      setTargetError("Il target atteso di riferimento è obbligatorio per creare una nuova Attività/Requisito.")
+      return
+    }
+
+    setTargetError(null)
     onSubmit({
       name: form.name.trim(),
       description: form.description.trim(),
       operator: form.operator.trim(),
-      target_state: form.target_state.trim(),
+      target_state: targetState,
     })
   }
 
@@ -90,15 +98,23 @@ export function GapInlineActivityForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso di riferimento</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso di riferimento *</span>
           <input
             type="text"
             value={form.target_state}
-            onChange={(event) => setForm((current) => ({ ...current, target_state: event.target.value }))}
+            onChange={(event) => {
+              setForm((current) => ({ ...current, target_state: event.target.value }))
+              if (targetError) setTargetError(null)
+            }}
             className="clinical-input"
             placeholder="Requisito o stato atteso"
+            required
+            aria-invalid={Boolean(targetError)}
             disabled={limitReached}
           />
+          {targetError && (
+            <span className="mt-1 block text-xs leading-5 text-red-600">{targetError}</span>
+          )}
           <span className="mt-1 block text-xs leading-5 text-slate-500">
             Definisce lo stato atteso standard dell'Attività/Requisito nella libreria.
           </span>
