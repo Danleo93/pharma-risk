@@ -20,6 +20,8 @@ import {
   createGapActivity,
   createGapActivityEvaluationForAssessment,
   createGapArea,
+  createGapAction,
+  createGapActionEvent,
   createGapStandard,
   deleteGapActivityEvaluation,
   getGapAssessmentById,
@@ -34,6 +36,7 @@ import {
   updateGapAssessmentStatus,
   updateGapAssessmentStats,
   type GapActivityStandardLinkInput,
+  type GapActionInput,
   type GapActionRef,
   type GapStandardInput,
   type GapAreaWithActivities,
@@ -78,7 +81,9 @@ import { StatCard } from '../../components/ui/StatCard'
 import { elementToPngDataUrl } from '../../lib/exportImage'
 import {
   GAP_PDF_EXPORT_WARNING_EVALUATIONS,
+  GAP_ACTIONS_PER_ASSESSMENT_HARD_LIMIT,
   GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT,
+  isGapHardLimitReached,
   isGapWarningLimitReached,
 } from '../../lib/gapLimits'
 
@@ -118,6 +123,14 @@ interface StandardFormState {
   url: string
 }
 
+interface QuickActionDraft {
+  description: string
+  responsible: string
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  planned_end_date: string
+  notes: string
+}
+
 type StandardsByActivityId = Record<string, GapActivityStandard[]>
 
 type DetailTab = 'evaluation' | 'findings' | 'actions' | 'report'
@@ -138,6 +151,14 @@ const emptyStandardForm: StandardFormState = {
   add_to_library: true,
   description: '',
   url: '',
+}
+
+const emptyQuickActionDraft: QuickActionDraft = {
+  description: '',
+  responsible: '',
+  priority: 'medium',
+  planned_end_date: '',
+  notes: '',
 }
 
 const evaluationQuickFilters: Array<{ value: EvaluationQuickFilter; label: string }> = [
@@ -164,6 +185,10 @@ const toNullable = (value: string) => {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
 }
+
+const sortGapActions = (actions: GapAction[]) => (
+  [...actions].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+)
 
 const formatDomainDescription = (payload: GapInlineDomainFormPayload) => {
   const operationalContext = payload.operational_context.trim()
@@ -293,6 +318,9 @@ export default function GapAssessmentDetail() {
   const [showCreateStandardForm, setShowCreateStandardForm] = useState(false)
   const [newStandardForm, setNewStandardForm] = useState<StandardFormState>(emptyStandardForm)
   const [savingNewStandard, setSavingNewStandard] = useState(false)
+  const [quickActionEvaluationId, setQuickActionEvaluationId] = useState<string | null>(null)
+  const [quickActionDraft, setQuickActionDraft] = useState<QuickActionDraft>(emptyQuickActionDraft)
+  const [savingQuickAction, setSavingQuickAction] = useState(false)
 
   const pdfChartRefs: GapReportChartRefs = {
     complianceByDomain: pdfComplianceByDomainRef,
@@ -340,6 +368,9 @@ export default function GapAssessmentDetail() {
         setStandardDraftLinks([])
         setShowCreateStandardForm(false)
         setNewStandardForm(emptyStandardForm)
+        setQuickActionEvaluationId(null)
+        setQuickActionDraft(emptyQuickActionDraft)
+        setSavingQuickAction(false)
         setDrafts(
           evaluationData.reduce<Record<string, EvaluationDraft>>((acc, evaluation) => ({
             ...acc,
@@ -509,6 +540,12 @@ export default function GapAssessmentDetail() {
       [action.evaluation_id]: (acc[action.evaluation_id] || 0) + 1,
     }), {})
   }, [actionRefs, actionsLoaded, gapActions])
+  const actionsByEvaluationId = useMemo(() => {
+    return gapActions.reduce<Record<string, GapAction[]>>((acc, action) => ({
+      ...acc,
+      [action.evaluation_id]: [...(acc[action.evaluation_id] || []), action],
+    }), {})
+  }, [gapActions])
   const selectedActivityProcess = useMemo(() => {
     return assessmentProcesses.find((process) => process.id === selectedProcessForActivity) || null
   }, [assessmentProcesses, selectedProcessForActivity])
@@ -1098,20 +1135,96 @@ export default function GapAssessmentDetail() {
     }
   }
 
-  const openActionFormForEvaluation = async (evaluation: GapActivityEvaluation) => {
+  const openQuickActionFormForEvaluation = async (evaluation: GapActivityEvaluation) => {
     if (!findingStatuses.includes(evaluation.compliance_status)) {
       setError('Le azioni correttive possono essere create solo da valutazioni non conformi o parzialmente conformi.')
       return
     }
 
+    const currentActionCount = actionsLoaded ? gapActions.length : actionRefs.length
+    if (isGapHardLimitReached(currentActionCount, GAP_ACTIONS_PER_ASSESSMENT_HARD_LIMIT)) {
+      setError(
+        `Questo assessment contiene gia ${currentActionCount} azioni correttive. Per mantenere prestazioni fluide, modifica o chiudi le azioni esistenti prima di crearne altre.`,
+      )
+      return
+    }
+
     setError(null)
+    setQuickActionEvaluationId((current) => (current === evaluation.id ? null : evaluation.id))
+    setQuickActionDraft(emptyQuickActionDraft)
+
+    if ((actionCountByEvaluationId[evaluation.id] || 0) > 0 && !actionsLoaded) {
+      void ensureActionsLoaded().catch(() => undefined)
+    }
+  }
+
+  const closeQuickActionForm = () => {
+    setQuickActionEvaluationId(null)
+    setQuickActionDraft(emptyQuickActionDraft)
+  }
+
+  const saveQuickActionForEvaluation = async (evaluation: GapActivityEvaluation) => {
+    if (!assessment || !user?.id) return
+
+    if (!quickActionDraft.description.trim()) {
+      setError("La descrizione dell'azione correttiva e obbligatoria.")
+      return
+    }
+
+    setSavingQuickAction(true)
+    setError(null)
+
+    try {
+      const currentActions = await ensureActionsLoaded()
+      if (isGapHardLimitReached(currentActions.length, GAP_ACTIONS_PER_ASSESSMENT_HARD_LIMIT)) {
+        setError(
+          `Questo assessment contiene gia ${currentActions.length} azioni correttive. Per mantenere prestazioni fluide, modifica o chiudi le azioni esistenti prima di crearne altre.`,
+        )
+        return
+      }
+
+      const actionInput: GapActionInput = {
+        description: quickActionDraft.description.trim(),
+        responsible: toNullable(quickActionDraft.responsible),
+        priority: quickActionDraft.priority,
+        status: 'planned',
+        progress: 0,
+        phase: 'planning',
+        planned_start_date: null,
+        planned_end_date: toNullable(quickActionDraft.planned_end_date),
+        notes: toNullable(quickActionDraft.notes),
+      }
+      const created = await createGapAction(user.id, assessment.id, evaluation, actionInput)
+      await createGapActionEvent(user.id, created, 'created', 'Azione correttiva creata da valutazione.')
+      const nextActions = sortGapActions([created, ...currentActions])
+
+      setGapActions(nextActions)
+      setActionRefs((current) => (
+        current.some((action) => action.id === created.id)
+          ? current
+          : [{ id: created.id, evaluation_id: created.evaluation_id }, ...current]
+      ))
+      setActionsLoaded(true)
+      closeQuickActionForm()
+    } catch (createError) {
+      console.error('Errore creazione rapida azione Gap:', createError)
+      setError("Impossibile creare l'azione correttiva Gap.")
+    } finally {
+      setSavingQuickAction(false)
+    }
+  }
+
+  const manageActionsForEvaluation = (evaluation: GapActivityEvaluation) => {
+    setQuickActionEvaluationId(null)
     setActiveTab('actions')
     void ensureActionsLoaded().catch(() => undefined)
     setExpandedEvaluationId(null)
-    setActionCreateRequest((current) => ({
-      evaluationId: evaluation.id,
-      requestId: (current?.requestId || 0) + 1,
-    }))
+    if ((actionCountByEvaluationId[evaluation.id] || 0) === 0 && findingStatuses.includes(evaluation.compliance_status)) {
+      setActionCreateRequest((current) => ({
+        evaluationId: evaluation.id,
+        requestId: (current?.requestId || 0) + 1,
+      }))
+    }
   }
 
   const renderAssessmentEnrichment = () => (
@@ -1652,6 +1765,8 @@ export default function GapAssessmentDetail() {
                             saving={saving}
                             deleting={deletingEvaluationId === evaluation.id}
                             actionCount={actionCountByEvaluationId[evaluation.id] || 0}
+                            actions={actionsByEvaluationId[evaluation.id] || []}
+                            actionsLoaded={actionsLoaded}
                             standards={standardsByActivityId[evaluation.activity_id] || []}
                             targetState={targetStateByActivityId[evaluation.activity_id] || null}
                             assessmentOnly={activityAssessmentOnlyById[evaluation.activity_id]}
@@ -1664,10 +1779,14 @@ export default function GapAssessmentDetail() {
                             savingNewStandard={savingNewStandard}
                             savingDisabled={savingEvaluationId !== null || deletingEvaluationId !== null}
                             onToggle={() => {
+                              const opening = expandedEvaluationId !== evaluation.id
                               resetStandardEditor()
                               setExpandedEvaluationId((current) => (
                                 current === evaluation.id ? null : evaluation.id
                               ))
+                              if (opening && (actionCountByEvaluationId[evaluation.id] || 0) > 0 && !actionsLoaded) {
+                                void ensureActionsLoaded().catch(() => undefined)
+                              }
                             }}
                             onManageStandards={() => (
                               editingStandardsEvaluationId === evaluation.id
@@ -1683,7 +1802,18 @@ export default function GapAssessmentDetail() {
                             onReset={() => resetDraft(evaluation)}
                             onSaveStandards={() => saveEvaluationActivityStandards(evaluation)}
                             onCreateStandard={() => createStandardAndLinkToActivity(evaluation)}
-                            onCreateAction={() => openActionFormForEvaluation(evaluation)}
+                            quickActionOpen={quickActionEvaluationId === evaluation.id}
+                            quickActionDraft={quickActionDraft}
+                            savingQuickAction={savingQuickAction && quickActionEvaluationId === evaluation.id}
+                            quickActionDisabled={isGapHardLimitReached(
+                              actionsLoaded ? gapActions.length : actionRefs.length,
+                              GAP_ACTIONS_PER_ASSESSMENT_HARD_LIMIT,
+                            )}
+                            onCreateAction={() => openQuickActionFormForEvaluation(evaluation)}
+                            onManageActions={() => manageActionsForEvaluation(evaluation)}
+                            onCloseQuickAction={closeQuickActionForm}
+                            onQuickActionDraftChange={(patch) => setQuickActionDraft((current) => ({ ...current, ...patch }))}
+                            onSaveQuickAction={() => saveQuickActionForEvaluation(evaluation)}
                             onDelete={() => removeEvaluationFromAssessment(evaluation)}
                             onSave={() => saveEvaluation(evaluation)}
                           />

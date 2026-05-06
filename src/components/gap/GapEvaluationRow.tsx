@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, BookMarked, ChevronDown, ClipboardCheck, ExternalLink, Plus, Save, Trash2 } from 'lucide-react'
 import type {
   ComplianceStatus,
+  GapAction,
+  GapActionPriority,
   GapActivityEvaluation,
   GapActivityStandard,
   GapStandard,
@@ -9,9 +11,14 @@ import type {
 } from '../../types/gap'
 import {
   COMPLIANCE_STATUS_OPTIONS,
+  GAP_ACTION_PRIORITY_OPTIONS,
   RISK_PRIORITY_OPTIONS,
   getComplianceStatusColor,
   getComplianceStatusLabel,
+  getGapActionPriorityColor,
+  getGapActionPriorityLabel,
+  getGapActionStatusColor,
+  getGapActionStatusLabel,
   getGapRiskPriorityColor,
   getGapRiskPriorityLabel,
 } from '../../lib/labels'
@@ -48,6 +55,14 @@ interface StandardFormState {
   url: string
 }
 
+interface QuickActionDraft {
+  description: string
+  responsible: string
+  priority: GapActionPriority
+  planned_end_date: string
+  notes: string
+}
+
 type StandardMandatoryFilter = 'all' | 'mandatory' | 'optional'
 
 interface GapEvaluationRowProps {
@@ -57,6 +72,8 @@ interface GapEvaluationRowProps {
   changed: boolean
   saving: boolean
   actionCount: number
+  actions: GapAction[]
+  actionsLoaded: boolean
   standards: GapActivityStandard[]
   targetState: string | null
   assessmentOnly?: boolean
@@ -69,6 +86,10 @@ interface GapEvaluationRowProps {
   savingNewStandard: boolean
   savingDisabled: boolean
   deleting?: boolean
+  quickActionOpen: boolean
+  quickActionDraft: QuickActionDraft
+  savingQuickAction: boolean
+  quickActionDisabled: boolean
   onToggle: () => void
   onManageStandards: () => void
   onCancelStandards: () => void
@@ -82,11 +103,19 @@ interface GapEvaluationRowProps {
   onCreateStandard: () => void
   onSave: () => void
   onCreateAction?: () => void
+  onManageActions?: () => void
+  onCloseQuickAction?: () => void
+  onQuickActionDraftChange?: (patch: Partial<QuickActionDraft>) => void
+  onSaveQuickAction?: () => void
   onDelete?: () => void
 }
 
 const formatDateTime = (value: string | null) => {
   return value ? new Date(value).toLocaleString('it-IT') : 'N/D'
+}
+
+const formatDate = (value: string | null) => {
+  return value ? new Date(value).toLocaleDateString('it-IT') : 'N/D'
 }
 
 const getStandardOriginLabel = (standard?: GapStandard | null) => (
@@ -95,14 +124,9 @@ const getStandardOriginLabel = (standard?: GapStandard | null) => (
 
 function NormativeReferences({ standards }: { standards: GapActivityStandard[] }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <BookMarked className="h-4 w-4 text-teal-700" />
-        <h4 className="text-sm font-semibold text-slate-900">Riferimenti normativi</h4>
-      </div>
-
+    <div>
       {standards.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
           Nessun riferimento normativo collegato all'Attività/Requisito.
         </p>
       ) : (
@@ -111,7 +135,7 @@ function NormativeReferences({ standards }: { standards: GapActivityStandard[] }
             const standard = link.standard
 
             return (
-              <div key={link.id} className="rounded-lg border border-slate-200 bg-white p-3">
+              <div key={link.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -183,6 +207,8 @@ export function GapEvaluationRow({
   changed,
   saving,
   actionCount,
+  actions,
+  actionsLoaded,
   standards,
   targetState,
   assessmentOnly = false,
@@ -195,6 +221,10 @@ export function GapEvaluationRow({
   savingNewStandard,
   savingDisabled,
   deleting = false,
+  quickActionOpen,
+  quickActionDraft,
+  savingQuickAction,
+  quickActionDisabled,
   onToggle,
   onManageStandards,
   onCancelStandards,
@@ -208,6 +238,10 @@ export function GapEvaluationRow({
   onCreateStandard,
   onSave,
   onCreateAction,
+  onManageActions,
+  onCloseQuickAction,
+  onQuickActionDraftChange,
+  onSaveQuickAction,
   onDelete,
 }: GapEvaluationRowProps) {
   const [standardSearch, setStandardSearch] = useState('')
@@ -405,15 +439,14 @@ export function GapEvaluationRow({
             <span className="font-medium text-slate-700 xl:hidden">Norme: </span>
             {standards.length > 0 ? (
               <span className="inline-flex flex-wrap gap-1.5">
-                <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 ring-1 ring-teal-100">
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                  hasMandatoryStandards
+                    ? 'bg-amber-50 text-amber-800 ring-amber-100'
+                    : 'bg-slate-100 text-slate-600 ring-slate-200'
+                }`}>
                   {standards.length === 1 ? '1 norma' : `${standards.length} norme`}
                   {hasMandatoryStandards ? ` · ${mandatoryStandardsCount} ${mandatoryStandardsCount === 1 ? 'cogente' : 'cogenti'}` : ''}
                 </span>
-                {hasMandatoryStandards && (
-                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
-                    Norma cogente
-                  </span>
-                )}
               </span>
             ) : (
               <span className="text-slate-400">0 norme</span>
@@ -448,17 +481,15 @@ export function GapEvaluationRow({
             </span>
           </div>
 
-          <NormativeReferences standards={standards} />
-
-          <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-4">
+          <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="flex items-center gap-2">
                   <BookMarked className="h-4 w-4 text-teal-700" />
-                  <h4 className="text-sm font-semibold text-slate-900">Norme dell'Attività/Requisito</h4>
+                  <h4 className="text-sm font-semibold text-slate-900">Norme e riferimenti</h4>
                 </div>
                 <p className="mt-1 text-sm text-slate-600">
-                  Le norme sono collegate all'Attività/Requisito di libreria e saranno riutilizzabili nei futuri assessment.
+                  Le norme collegate supportano la valutazione dell'Attività/Requisito.
                 </p>
               </div>
               <Button
@@ -471,6 +502,10 @@ export function GapEvaluationRow({
               >
                 Gestisci norme
               </Button>
+            </div>
+
+            <div className="mt-4">
+              <NormativeReferences standards={standards} />
             </div>
 
             {standardsEditorOpen && (
@@ -725,35 +760,184 @@ export function GapEvaluationRow({
                 </div>
               </div>
             )}
-          </div>
+          </section>
 
           {isFinding && (
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4">
+            <section className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <ClipboardCheck className="h-4 w-4 text-emerald-700" />
-                    <h4 className="text-sm font-semibold text-slate-900">Gap azionabile</h4>
+                    <h4 className="text-sm font-semibold text-slate-900">Azioni correttive</h4>
                   </div>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Questa valutazione può generare un'azione correttiva collegata all'Attività/Requisito.
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    Crea o consulta le azioni collegate senza uscire dalla valutazione.
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  tone="success"
-                  size="sm"
-                  icon={<ClipboardCheck className="h-4 w-4" />}
-                  onClick={onCreateAction}
-                >
-                  Crea azione correttiva
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    tone="neutral"
+                    size="sm"
+                    onClick={onManageActions}
+                  >
+                    Gestisci nella tab Azioni
+                  </Button>
+                  <Button
+                    type="button"
+                    tone="success"
+                    size="sm"
+                    icon={<ClipboardCheck className="h-4 w-4" />}
+                    onClick={onCreateAction}
+                    disabled={quickActionDisabled}
+                  >
+                    {quickActionOpen ? 'Chiudi azione rapida' : 'Crea azione correttiva'}
+                  </Button>
+                </div>
               </div>
-            </div>
+
+              {actionCount > 0 && (
+                <div className="mt-3 space-y-2">
+                  {actionsLoaded ? (
+                    actions.slice(0, 3).map((action) => (
+                      <div key={action.id} className="rounded-lg border border-emerald-100 bg-white p-3">
+                        <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-900">{action.description}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Responsabile/i: {action.responsible || 'Non assegnato'} - Scadenza: {formatDate(action.planned_end_date)}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getGapActionStatusColor(action.status)}`}>
+                              {getGapActionStatusLabel(action.status)}
+                            </span>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getGapActionPriorityColor(action.priority)}`}>
+                              {getGapActionPriorityLabel(action.priority)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-lg border border-emerald-100 bg-white p-3 text-xs text-slate-500">
+                      {actionCount === 1 ? '1 azione collegata.' : `${actionCount} azioni collegate.`} Apri la tab Azioni per il dettaglio completo.
+                    </p>
+                  )}
+                  {actionsLoaded && actions.length > 3 && (
+                    <p className="text-xs font-medium text-slate-500">
+                      +{actions.length - 3} altre azioni nella tab Azioni correttive.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {quickActionOpen && (
+                <div className="mt-3 rounded-lg border border-emerald-100 bg-white p-3">
+                  <div className="mb-3">
+                    <p className="text-sm font-semibold text-slate-900">Nuova azione rapida</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Per stato avanzato, fase, avanzamento e verifica efficacia usa la tab Azioni correttive.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="block md:col-span-2">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Descrizione/intervento *</span>
+                      <textarea
+                        value={quickActionDraft.description}
+                        onChange={(event) => onQuickActionDraftChange?.({ description: event.target.value })}
+                        className="clinical-input min-h-20 resize-y py-2 text-sm"
+                        placeholder="Descrivi l'intervento correttivo essenziale."
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Responsabile/i</span>
+                      <input
+                        type="text"
+                        value={quickActionDraft.responsible}
+                        onChange={(event) => onQuickActionDraftChange?.({ responsible: event.target.value })}
+                        className="clinical-input py-2 text-sm"
+                        placeholder="Persona, team o funzione"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Priorità</span>
+                      <select
+                        value={quickActionDraft.priority}
+                        onChange={(event) => onQuickActionDraftChange?.({ priority: event.target.value as GapActionPriority })}
+                        className="clinical-input py-2 text-sm"
+                      >
+                        {GAP_ACTION_PRIORITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Scadenza</span>
+                      <input
+                        type="date"
+                        value={quickActionDraft.planned_end_date}
+                        onChange={(event) => onQuickActionDraftChange?.({ planned_end_date: event.target.value })}
+                        className="clinical-input py-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Note</span>
+                      <textarea
+                        value={quickActionDraft.notes}
+                        onChange={(event) => onQuickActionDraftChange?.({ notes: event.target.value })}
+                        className="clinical-input min-h-16 resize-y py-2 text-sm"
+                        placeholder="Note operative opzionali."
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      tone="neutral"
+                      size="sm"
+                      onClick={onCloseQuickAction}
+                    >
+                      Annulla
+                    </Button>
+                    <Button
+                      type="button"
+                      tone="success"
+                      size="sm"
+                      loading={savingQuickAction}
+                      disabled={!quickActionDraft.description.trim() || savingQuickAction}
+                      onClick={onSaveQuickAction}
+                    >
+                      Salva azione
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </section>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <label className="block">
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 ring-1 ring-teal-100">
+                Valutazione assessment-specifica
+              </span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                Stato, gap, conformità e note
+              </span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label className="block">
               <span className="mb-1 block text-sm font-medium text-slate-700">Stato attuale</span>
               <textarea
                 value={draft.current_state}
@@ -761,9 +945,9 @@ export function GapEvaluationRow({
                 className="clinical-input min-h-24 resize-y"
                 placeholder="Descrivi la situazione osservata durante la valutazione."
               />
-            </label>
+              </label>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
               <span className="mb-1 block text-sm font-medium text-slate-700">
                 Target atteso di riferimento
               </span>
@@ -773,10 +957,10 @@ export function GapEvaluationRow({
               <p className="mt-2 text-xs leading-5 text-slate-500">
                 Il target appartiene all'Attività/Requisito di libreria ed è mostrato in sola lettura.
               </p>
+              </div>
             </div>
-          </div>
 
-          <label className="block">
+            <label className="mt-4 block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Gap rilevato rispetto al target</span>
             <textarea
               value={draft.gap_description}
@@ -787,10 +971,10 @@ export function GapEvaluationRow({
             <span className="mt-1 block text-xs leading-5 text-slate-500">
               Descrivi lo scostamento tra stato attuale e target atteso di riferimento.
             </span>
-          </label>
+            </label>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Stato conformità</span>
               <select
                 value={draft.compliance_status}
@@ -803,9 +987,9 @@ export function GapEvaluationRow({
                   </option>
                 ))}
               </select>
-            </label>
+              </label>
 
-            <label className="block">
+              <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Priorità rischio</span>
               <select
                 value={draft.risk_priority}
@@ -818,10 +1002,10 @@ export function GapEvaluationRow({
                   </option>
                 ))}
               </select>
-            </label>
-          </div>
+              </label>
+            </div>
 
-          <label className="block">
+            <label className="mt-4 block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Note</span>
             <textarea
               value={draft.notes}
@@ -829,9 +1013,18 @@ export function GapEvaluationRow({
               className="clinical-input min-h-20 resize-y"
               placeholder="Evidenze, riferimenti o note operative."
             />
-          </label>
+            </label>
+          </section>
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-4">
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-slate-500">
+              {changed ? (
+                <span className="font-medium text-amber-700">Modifiche non salvate</span>
+              ) : (
+                <span>Valutazione allineata ai dati salvati.</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-3">
             {onDelete && (
               <Button
                 type="button"
@@ -864,6 +1057,7 @@ export function GapEvaluationRow({
             >
               Salva valutazione
             </Button>
+            </div>
           </div>
         </div>
       )}
