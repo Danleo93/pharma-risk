@@ -16,6 +16,7 @@ import type {
   GapAssessmentProcess,
   GapAssessmentStats,
   GapAssessmentStatus,
+  GapLibrarySourceType,
   GapProcess,
   GapStandard,
   RiskPriority,
@@ -35,6 +36,10 @@ export interface GapStandardInput {
   issuing_body?: string | null
   description?: string | null
   url?: string | null
+  is_mandatory?: boolean
+  application_scope?: string | null
+  source_type?: GapLibrarySourceType | null
+  created_in_assessment_id?: string | null
 }
 
 export interface GapProcessInput {
@@ -49,6 +54,8 @@ export interface GapAreaInput {
   name: string
   description?: string | null
   order_index: number
+  source_type?: GapLibrarySourceType | null
+  created_in_assessment_id?: string | null
 }
 
 export interface GapActivityInput {
@@ -58,6 +65,8 @@ export interface GapActivityInput {
   operator?: string | null
   target_state?: string | null
   order_index: number
+  source_type?: GapLibrarySourceType | null
+  created_in_assessment_id?: string | null
 }
 
 const REQUIRED_ACTIVITY_TARGET_MESSAGE =
@@ -143,6 +152,154 @@ export interface GapProcessWithStructure extends GapProcess {
 
 const throwIfError = (error: unknown) => {
   if (error) throw error
+}
+
+const normalizeGapSourceType = (
+  sourceType?: GapLibrarySourceType | null,
+): GapLibrarySourceType => (
+  sourceType === 'assessment_only' ? 'assessment_only' : 'library'
+)
+
+const buildGapSourceCreateFields = (
+  sourceType?: GapLibrarySourceType | null,
+  createdInAssessmentId?: string | null,
+) => {
+  const normalizedSourceType = normalizeGapSourceType(sourceType)
+
+  return {
+    source_type: normalizedSourceType,
+    created_in_assessment_id: normalizedSourceType === 'assessment_only'
+      ? createdInAssessmentId || null
+      : null,
+  }
+}
+
+const buildGapSourceUpdateFields = (
+  sourceType?: GapLibrarySourceType | null,
+  createdInAssessmentId?: string | null,
+) => {
+  const fields: {
+    source_type?: GapLibrarySourceType
+    created_in_assessment_id?: string | null
+  } = {}
+
+  if (sourceType !== undefined) {
+    const normalizedSourceType = normalizeGapSourceType(sourceType)
+    fields.source_type = normalizedSourceType
+
+    if (normalizedSourceType === 'library') {
+      fields.created_in_assessment_id = null
+    }
+  }
+
+  if (createdInAssessmentId !== undefined) {
+    fields.created_in_assessment_id = sourceType === 'library'
+      ? null
+      : createdInAssessmentId || null
+  }
+
+  return fields
+}
+
+const SUPABASE_IN_CHUNK_SIZE = 200
+
+const chunkArray = <T,>(items: T[], size = SUPABASE_IN_CHUNK_SIZE): T[][] => {
+  const chunks: T[][] = []
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+
+  return chunks
+}
+
+const uniqueValues = (values: string[]) => [...new Set(values.filter(Boolean))]
+
+const sortProcesses = (processes: GapProcess[]) => (
+  [...processes].sort((a, b) => {
+    if (a.order_index !== b.order_index) return a.order_index - b.order_index
+    return a.name.localeCompare(b.name, 'it')
+  })
+)
+
+const sortAreas = (areas: GapArea[], processIds?: string[]) => {
+  const processOrder = processIds
+    ? new Map(processIds.map((processId, index) => [processId, index]))
+    : null
+
+  return [...areas].sort((a, b) => {
+    if (processOrder) {
+      const processDiff =
+        (processOrder.get(a.process_id) ?? Number.MAX_SAFE_INTEGER) -
+        (processOrder.get(b.process_id) ?? Number.MAX_SAFE_INTEGER)
+      if (processDiff !== 0) return processDiff
+    }
+
+    if (a.order_index !== b.order_index) return a.order_index - b.order_index
+    return a.name.localeCompare(b.name, 'it')
+  })
+}
+
+const sortActivities = (activities: GapActivity[], areaIds?: string[]) => {
+  const areaOrder = areaIds
+    ? new Map(areaIds.map((areaId, index) => [areaId, index]))
+    : null
+
+  return [...activities].sort((a, b) => {
+    if (areaOrder) {
+      const areaDiff =
+        (areaOrder.get(a.area_id) ?? Number.MAX_SAFE_INTEGER) -
+        (areaOrder.get(b.area_id) ?? Number.MAX_SAFE_INTEGER)
+      if (areaDiff !== 0) return areaDiff
+    }
+
+    if (a.order_index !== b.order_index) return a.order_index - b.order_index
+    return a.name.localeCompare(b.name, 'it')
+  })
+}
+
+const buildProcessStructure = (
+  processes: GapProcess[],
+  areas: GapArea[],
+  activities: GapActivity[],
+): GapProcessWithStructure[] => {
+  const sortedProcesses = sortProcesses(processes)
+  const processIds = sortedProcesses.map((process) => process.id)
+  const sortedAreas = sortAreas(areas, processIds)
+  const areaIds = sortedAreas.map((area) => area.id)
+  const sortedActivities = sortActivities(activities, areaIds)
+
+  const activitiesByArea: Record<string, GapActivity[]> = {}
+  sortedActivities.forEach((activity) => {
+    if (!activitiesByArea[activity.area_id]) {
+      activitiesByArea[activity.area_id] = []
+    }
+    activitiesByArea[activity.area_id].push(activity)
+  })
+
+  const areasByProcess: Record<string, GapAreaWithActivities[]> = {}
+  sortedAreas.forEach((area) => {
+    if (!areasByProcess[area.process_id]) {
+      areasByProcess[area.process_id] = []
+    }
+    areasByProcess[area.process_id].push({
+      ...area,
+      activities: activitiesByArea[area.id] || [],
+    })
+  })
+
+  return sortedProcesses.map((process) => {
+    const processAreas = areasByProcess[process.id] || []
+
+    return {
+      ...process,
+      areas: processAreas,
+      total_activities: processAreas.reduce(
+        (sum, area) => sum + area.activities.length,
+        0,
+      ),
+    }
+  })
 }
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10)
@@ -370,34 +527,41 @@ export const getGapProcesses = async (userId: string): Promise<GapProcess[]> => 
   return (data || []) as GapProcess[]
 }
 
+export const getGapProcessesByIds = async (
+  processIds: string[],
+  userId: string,
+): Promise<GapProcess[]> => {
+  const uniqueProcessIds = uniqueValues(processIds)
+  if (uniqueProcessIds.length === 0) return []
+
+  const results: GapProcess[] = []
+
+  for (const processIdChunk of chunkArray(uniqueProcessIds)) {
+    const { data, error } = await supabase
+      .from('gap_processes')
+      .select('*')
+      .eq('user_id', userId)
+      .in('id', processIdChunk)
+      .order('order_index', { ascending: true })
+      .order('name', { ascending: true })
+
+    throwIfError(error)
+    results.push(...((data || []) as GapProcess[]))
+  }
+
+  return sortProcesses(results)
+}
+
 export const getGapProcessesWithStructure = async (
   userId: string,
 ): Promise<GapProcessWithStructure[]> => {
   const processes = await getGapProcesses(userId)
+  const processIds = processes.map((process) => process.id)
+  const areas = await getGapAreasByProcesses(processIds, userId)
+  const areaIds = areas.map((area) => area.id)
+  const activities = await getGapActivitiesByAreas(areaIds, userId)
 
-  return Promise.all(
-    processes.map(async (process) => {
-      const areas = await getGapAreasByProcess(process.id, userId)
-      const areasWithActivities = await Promise.all(
-        areas.map(async (area) => {
-          const activities = await getGapActivitiesByArea(area.id, userId)
-          return {
-            ...area,
-            activities,
-          }
-        }),
-      )
-
-      return {
-        ...process,
-        areas: areasWithActivities,
-        total_activities: areasWithActivities.reduce(
-          (sum, area) => sum + area.activities.length,
-          0,
-        ),
-      }
-    }),
-  )
+  return buildProcessStructure(processes, areas, activities)
 }
 
 export const getGapAssessmentProcessesWithStructure = async (
@@ -413,11 +577,15 @@ export const getGapAssessmentProcessesWithStructure = async (
   throwIfError(error)
 
   const assessmentProcesses = (data || []) as GapAssessmentProcess[]
-  const processIds = new Set(assessmentProcesses.map((item) => item.process_id))
-  if (processIds.size === 0) return []
+  const processIds = uniqueValues(assessmentProcesses.map((item) => item.process_id))
+  if (processIds.length === 0) return []
 
-  const processes = await getGapProcessesWithStructure(userId)
-  return processes.filter((process) => processIds.has(process.id))
+  const processes = await getGapProcessesByIds(processIds, userId)
+  const areas = await getGapAreasByProcesses(processIds, userId, assessmentId)
+  const areaIds = areas.map((area) => area.id)
+  const activities = await getGapActivitiesByAreas(areaIds, userId, assessmentId)
+
+  return buildProcessStructure(processes, areas, activities)
 }
 
 export const getGapProcessById = async (
@@ -488,6 +656,7 @@ export const getGapStandards = async (userId: string): Promise<GapStandard[]> =>
     .from('gap_standards')
     .select('*')
     .eq('user_id', userId)
+    .eq('source_type', 'library')
     .order('code', { ascending: true })
     .order('name', { ascending: true })
 
@@ -505,6 +674,10 @@ export const createGapStandard = async (
       ...payload,
       user_id: userId,
       is_template: false,
+      ...buildGapSourceCreateFields(
+        payload.source_type,
+        payload.created_in_assessment_id,
+      ),
     })
     .select('*')
     .single()
@@ -523,6 +696,10 @@ export const updateGapStandard = async (
     .update({
       ...payload,
       is_template: false,
+      ...buildGapSourceUpdateFields(
+        payload.source_type,
+        payload.created_in_assessment_id,
+      ),
     })
     .eq('id', id)
     .eq('user_id', userId)
@@ -552,11 +729,54 @@ export const getGapAreasByProcess = async (
     .select('*')
     .eq('process_id', processId)
     .eq('user_id', userId)
+    .eq('source_type', 'library')
     .order('order_index', { ascending: true })
     .order('name', { ascending: true })
 
   throwIfError(error)
   return (data || []) as GapArea[]
+}
+
+export const getGapAreasByProcesses = async (
+  processIds: string[],
+  userId: string,
+  assessmentId?: string,
+): Promise<GapArea[]> => {
+  const uniqueProcessIds = uniqueValues(processIds)
+  if (uniqueProcessIds.length === 0) return []
+
+  const results: GapArea[] = []
+
+  for (const processIdChunk of chunkArray(uniqueProcessIds)) {
+    const { data, error } = await supabase
+      .from('gap_areas')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('source_type', 'library')
+      .in('process_id', processIdChunk)
+      .order('order_index', { ascending: true })
+      .order('name', { ascending: true })
+
+    throwIfError(error)
+    results.push(...((data || []) as GapArea[]))
+
+    if (assessmentId) {
+      const { data: assessmentOnlyData, error: assessmentOnlyError } = await supabase
+        .from('gap_areas')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('source_type', 'assessment_only')
+        .eq('created_in_assessment_id', assessmentId)
+        .in('process_id', processIdChunk)
+        .order('order_index', { ascending: true })
+        .order('name', { ascending: true })
+
+      throwIfError(assessmentOnlyError)
+      results.push(...((assessmentOnlyData || []) as GapArea[]))
+    }
+  }
+
+  return sortAreas(results, uniqueProcessIds)
 }
 
 export const createGapArea = async (
@@ -570,6 +790,10 @@ export const createGapArea = async (
       ...payload,
       user_id: userId,
       process_id: processId,
+      ...buildGapSourceCreateFields(
+        payload.source_type,
+        payload.created_in_assessment_id,
+      ),
     })
     .select('*')
     .single()
@@ -585,7 +809,13 @@ export const updateGapArea = async (
 ): Promise<GapArea> => {
   const { data, error } = await supabase
     .from('gap_areas')
-    .update(payload)
+    .update({
+      ...payload,
+      ...buildGapSourceUpdateFields(
+        payload.source_type,
+        payload.created_in_assessment_id,
+      ),
+    })
     .eq('id', id)
     .eq('user_id', userId)
     .select('*')
@@ -614,11 +844,54 @@ export const getGapActivitiesByArea = async (
     .select('*')
     .eq('area_id', areaId)
     .eq('user_id', userId)
+    .eq('source_type', 'library')
     .order('order_index', { ascending: true })
     .order('name', { ascending: true })
 
   throwIfError(error)
   return (data || []) as GapActivity[]
+}
+
+export const getGapActivitiesByAreas = async (
+  areaIds: string[],
+  userId: string,
+  assessmentId?: string,
+): Promise<GapActivity[]> => {
+  const uniqueAreaIds = uniqueValues(areaIds)
+  if (uniqueAreaIds.length === 0) return []
+
+  const results: GapActivity[] = []
+
+  for (const areaIdChunk of chunkArray(uniqueAreaIds)) {
+    const { data, error } = await supabase
+      .from('gap_activities')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('source_type', 'library')
+      .in('area_id', areaIdChunk)
+      .order('order_index', { ascending: true })
+      .order('name', { ascending: true })
+
+    throwIfError(error)
+    results.push(...((data || []) as GapActivity[]))
+
+    if (assessmentId) {
+      const { data: assessmentOnlyData, error: assessmentOnlyError } = await supabase
+        .from('gap_activities')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('source_type', 'assessment_only')
+        .eq('created_in_assessment_id', assessmentId)
+        .in('area_id', areaIdChunk)
+        .order('order_index', { ascending: true })
+        .order('name', { ascending: true })
+
+      throwIfError(assessmentOnlyError)
+      results.push(...((assessmentOnlyData || []) as GapActivity[]))
+    }
+  }
+
+  return sortActivities(results, uniqueAreaIds)
 }
 
 export const createGapActivity = async (
@@ -635,6 +908,10 @@ export const createGapActivity = async (
       target_state: targetState,
       user_id: userId,
       area_id: areaId,
+      ...buildGapSourceCreateFields(
+        payload.source_type,
+        payload.created_in_assessment_id,
+      ),
     })
     .select('*')
     .single()
@@ -655,6 +932,10 @@ export const updateGapActivity = async (
     .update({
       ...payload,
       target_state: targetState,
+      ...buildGapSourceUpdateFields(
+        payload.source_type,
+        payload.created_in_assessment_id,
+      ),
     })
     .eq('id', id)
     .eq('user_id', userId)
@@ -697,15 +978,21 @@ export const getGapActivityStandardsForActivities = async (
   const uniqueActivityIds = [...new Set(activityIds)].filter(Boolean)
   if (uniqueActivityIds.length === 0) return []
 
-  const { data, error } = await supabase
-    .from('gap_activity_standards')
-    .select('*, standard:gap_standards(*)')
-    .eq('user_id', userId)
-    .in('activity_id', uniqueActivityIds)
-    .order('created_at', { ascending: true })
+  const results: GapActivityStandard[] = []
 
-  throwIfError(error)
-  return (data || []) as GapActivityStandard[]
+  for (const activityIdChunk of chunkArray(uniqueActivityIds)) {
+    const { data, error } = await supabase
+      .from('gap_activity_standards')
+      .select('*, standard:gap_standards(*)')
+      .eq('user_id', userId)
+      .in('activity_id', activityIdChunk)
+      .order('created_at', { ascending: true })
+
+    throwIfError(error)
+    results.push(...((data || []) as GapActivityStandard[]))
+  }
+
+  return results
 }
 
 export const replaceGapActivityStandards = async (
@@ -811,6 +1098,25 @@ export const getGapActionsByAssessment = async (
 
   throwIfError(error)
   return (data || []) as GapAction[]
+}
+
+export interface GapActionRef {
+  id: string
+  evaluation_id: string
+}
+
+export const getGapActionRefsByAssessment = async (
+  assessmentId: string,
+  userId: string,
+): Promise<GapActionRef[]> => {
+  const { data, error } = await supabase
+    .from('gap_actions')
+    .select('id, evaluation_id')
+    .eq('assessment_id', assessmentId)
+    .eq('user_id', userId)
+
+  throwIfError(error)
+  return (data || []) as GapActionRef[]
 }
 
 export const getGapActions = async (userId: string): Promise<GapAction[]> => {

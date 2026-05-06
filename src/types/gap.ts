@@ -60,6 +60,8 @@ export type GapLinkedType =
   | 'document'
   | 'external'
 
+export type GapLibrarySourceType = 'library' | 'assessment_only'
+
 export interface GapProcess {
   id: string
   user_id: string
@@ -81,6 +83,8 @@ export interface GapArea {
   name: string
   description: string | null
   order_index: number
+  source_type: GapLibrarySourceType
+  created_in_assessment_id: string | null
   created_at: string
   updated_at: string
   process?: GapProcess
@@ -97,6 +101,8 @@ export interface GapActivity {
   operator: string | null
   target_state: string | null
   order_index: number
+  source_type: GapLibrarySourceType
+  created_in_assessment_id: string | null
   created_at: string
   updated_at: string
   area?: GapArea
@@ -114,6 +120,10 @@ export interface GapStandard {
   description: string | null
   url: string | null
   is_template: boolean
+  is_mandatory: boolean
+  application_scope: string | null
+  source_type: GapLibrarySourceType
+  created_in_assessment_id: string | null
   created_at: string
   updated_at: string
 }
