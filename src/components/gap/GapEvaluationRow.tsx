@@ -55,6 +55,7 @@ interface GapEvaluationRowProps {
   actionCount: number
   standards: GapActivityStandard[]
   targetState: string | null
+  assessmentOnly?: boolean
   standardsCatalog: GapStandard[]
   standardsEditorOpen: boolean
   standardDraftLinks: StandardDraftLink[]
@@ -180,6 +181,7 @@ export function GapEvaluationRow({
   actionCount,
   standards,
   targetState,
+  assessmentOnly = false,
   standardsCatalog,
   standardsEditorOpen,
   standardDraftLinks,
@@ -346,6 +348,11 @@ export function GapEvaluationRow({
               {hasGap && (
                 <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-100">
                   Gap presente
+                </span>
+              )}
+              {assessmentOnly && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                  Solo assessment
                 </span>
               )}
             </div>

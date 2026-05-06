@@ -517,6 +517,28 @@ export default function GapAssessmentDetail() {
       return acc
     }, {})
   }, [assessmentProcesses])
+  const activityAssessmentOnlyById = useMemo(() => {
+    return assessmentProcesses.reduce<Record<string, boolean>>((acc, process) => {
+      process.areas.forEach((area) => {
+        area.activities.forEach((activity) => {
+          acc[activity.id] = activity.source_type === 'assessment_only'
+        })
+      })
+
+      return acc
+    }, {})
+  }, [assessmentProcesses])
+  const areaAssessmentOnlyByActivityId = useMemo(() => {
+    return assessmentProcesses.reduce<Record<string, boolean>>((acc, process) => {
+      process.areas.forEach((area) => {
+        area.activities.forEach((activity) => {
+          acc[activity.id] = area.source_type === 'assessment_only'
+        })
+      })
+
+      return acc
+    }, {})
+  }, [assessmentProcesses])
 
   const updateDraft = (
     evaluationId: string,
@@ -704,7 +726,7 @@ export default function GapAssessmentDetail() {
   }
 
   const addDomainToAssessmentProcess = async (payload: GapInlineDomainFormPayload) => {
-    if (!user?.id || !selectedProcessForDomain) return
+    if (!user?.id || !assessment?.id || !selectedProcessForDomain) return
 
     const process = assessmentProcesses.find((item) => item.id === selectedProcessForDomain)
     if (!process) return
@@ -723,6 +745,8 @@ export default function GapAssessmentDetail() {
         name: payload.name,
         description: toNullable(formatDomainDescription(payload)),
         order_index: getPayloadOrderIndex(payload.order_index, getNextOrderIndex(process.areas)),
+        source_type: payload.add_to_library ? 'library' : 'assessment_only',
+        created_in_assessment_id: payload.add_to_library ? null : assessment.id,
       })
       const areaWithActivities: GapAreaWithActivities = { ...area, activities: [] }
 
@@ -777,6 +801,8 @@ export default function GapAssessmentDetail() {
         operator: toNullable(payload.operator),
         target_state: toNullable(payload.target_state),
         order_index: getNextOrderIndex(selectedActivityArea.activities),
+        source_type: payload.add_to_library ? 'library' : 'assessment_only',
+        created_in_assessment_id: payload.add_to_library ? null : assessment.id,
       })
 
       const evaluation = await createGapActivityEvaluationForAssessment(user.id, assessment.id, {
@@ -1108,6 +1134,8 @@ export default function GapAssessmentDetail() {
               </label>
               <GapInlineDomainForm
                 loading={savingDomain}
+                showLibraryToggle
+                defaultAddToLibrary={false}
                 onCancel={() => setShowDomainForm(false)}
                 onSubmit={addDomainToAssessmentProcess}
               />
@@ -1162,6 +1190,8 @@ export default function GapAssessmentDetail() {
                   generatedCode={getNextActivityCode(selectedActivityArea)}
                   limitReached={!getNextActivityCode(selectedActivityArea)}
                   loading={savingActivity}
+                  showLibraryToggle
+                  defaultAddToLibrary={false}
                   onCancel={() => setShowActivityForm(false)}
                   onSubmit={addActivityToAssessment}
                 />
@@ -1527,12 +1557,24 @@ export default function GapAssessmentDetail() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {processGroup.areas.map((areaGroup) => (
+                {processGroup.areas.map((areaGroup) => {
+                  const areaIsAssessmentOnly = areaGroup.evaluations.some((evaluation) => (
+                    areaAssessmentOnlyByActivityId[evaluation.activity_id]
+                  ))
+
+                  return (
                   <section key={`${processGroup.processName}-${areaGroup.areaName}`} className="space-y-4">
                     <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                        {areaGroup.areaName}
-                      </h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                          {areaGroup.areaName}
+                        </h2>
+                        {areaIsAssessmentOnly && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                            Solo assessment
+                          </span>
+                        )}
+                      </div>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                         {areaGroup.evaluations.length} Attività/Requisiti
                       </span>
@@ -1567,6 +1609,7 @@ export default function GapAssessmentDetail() {
                             actionCount={actionCountByEvaluationId[evaluation.id] || 0}
                             standards={standardsByActivityId[evaluation.activity_id] || []}
                             targetState={targetStateByActivityId[evaluation.activity_id] || null}
+                            assessmentOnly={activityAssessmentOnlyById[evaluation.activity_id]}
                             standardsCatalog={standards}
                             standardsEditorOpen={editingStandardsEvaluationId === evaluation.id}
                             standardDraftLinks={standardDraftLinks}
@@ -1603,7 +1646,8 @@ export default function GapAssessmentDetail() {
                       })}
                     </div>
                   </section>
-                ))}
+                  )
+                })}
               </CardContent>
             </Card>
           ))}

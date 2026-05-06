@@ -6,12 +6,15 @@ export interface GapInlineActivityFormPayload {
   description: string
   operator: string
   target_state: string
+  add_to_library: boolean
 }
 
 interface GapInlineActivityFormProps {
   generatedCode: string | null
   limitReached?: boolean
   loading?: boolean
+  showLibraryToggle?: boolean
+  defaultAddToLibrary?: boolean
   onCancel: () => void
   onSubmit: (payload: GapInlineActivityFormPayload) => void
 }
@@ -21,16 +24,22 @@ const emptyForm: GapInlineActivityFormPayload = {
   description: '',
   operator: '',
   target_state: '',
+  add_to_library: true,
 }
 
 export function GapInlineActivityForm({
   generatedCode,
   limitReached = false,
   loading = false,
+  showLibraryToggle = false,
+  defaultAddToLibrary = true,
   onCancel,
   onSubmit,
 }: GapInlineActivityFormProps) {
-  const [form, setForm] = useState<GapInlineActivityFormPayload>(emptyForm)
+  const [form, setForm] = useState<GapInlineActivityFormPayload>({
+    ...emptyForm,
+    add_to_library: defaultAddToLibrary,
+  })
   const [targetError, setTargetError] = useState<string | null>(null)
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -49,6 +58,7 @@ export function GapInlineActivityForm({
       description: form.description.trim(),
       operator: form.operator.trim(),
       target_state: targetState,
+      add_to_library: form.add_to_library,
     })
   }
 
@@ -131,6 +141,29 @@ export function GapInlineActivityForm({
           />
         </label>
       </div>
+
+      {showLibraryToggle && (
+        <label className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <input
+            type="checkbox"
+            checked={form.add_to_library}
+            onChange={(event) => setForm((current) => ({
+              ...current,
+              add_to_library: event.target.checked,
+            }))}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+            disabled={limitReached}
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-800">
+              Aggiungi alla libreria personale
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              Se non aggiungi l'elemento alla libreria personale, sara disponibile solo in questo assessment.
+            </span>
+          </span>
+        </label>
+      )}
 
       <div className="mt-4 flex flex-wrap justify-end gap-2">
         <button
