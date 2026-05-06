@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import type { RiskCatalogBase, UserCustomRisk } from '../types'
 import { Search, AlertTriangle, Plus, Trash2, X, ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react'
+import { Card, CardContent } from '../components/ui/Card'
+import { EmptyState } from '../components/ui/EmptyState'
+import { PageHeader } from '../components/ui/PageHeader'
 
 // Funzione per parsare la categoria in Area e Sotto-area
 const parseCategory = (category: string): { area: string; subArea: string | null } => {
@@ -178,35 +181,35 @@ const filteredRisks = allRisks.filter(risk => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Catalogo Rischi</h1>
-          <p className="text-gray-500 mt-1">
-            {risks.length} rischi standard + {userCustomRisks.length} personalizzati
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-lg font-medium transition"
-        >
-          <Plus className="w-5 h-5" />
-          Nuovo Rischio
-        </button>
-      </div>
+    <div className="clinical-page">
+      <PageHeader
+        title="Catalogo Rischi"
+        description={`${risks.length} rischi standard + ${userCustomRisks.length} personalizzati`}
+        eyebrow="Analisi Proattiva"
+        icon={<AlertTriangle className="h-5 w-5" />}
+        actions={(
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 font-medium text-white transition hover:bg-emerald-700"
+          >
+            <Plus className="w-5 h-5" />
+            Nuovo Rischio
+          </button>
+        )}
+      />
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <Card className="mb-6">
+        <CardContent className="p-4">
+        <div className="flex flex-col gap-4 sm:flex-row">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Cerca rischio per nome, descrizione o categoria..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+              className="clinical-input py-3 pl-10 pr-4"
             />
           </div>
 
@@ -214,7 +217,7 @@ const filteredRisks = allRisks.filter(risk => {
   <select
     value={selectedArea}
     onChange={(e) => setSelectedArea(e.target.value)}
-    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none appearance-none bg-white"
+    className="clinical-input px-4 py-3"
   >
     <option value="">Tutte le aree</option>
     {allAreas.map(area => (
@@ -224,13 +227,13 @@ const filteredRisks = allRisks.filter(risk => {
 </div>
 
 {/* Filtro tipo catalogo */}
-<div className="flex rounded-lg border border-gray-300 overflow-hidden">
+<div className="flex overflow-hidden rounded-lg border border-slate-200">
   <button
     onClick={() => setCatalogFilter('all')}
     className={`px-4 py-3 text-sm font-medium transition ${
       catalogFilter === 'all'
-        ? 'bg-sky-600 text-white'
-        : 'bg-white text-gray-600 hover:bg-gray-50'
+        ? 'bg-sky-700 text-white'
+        : 'bg-white text-slate-600 hover:bg-slate-50'
     }`}
   >
     Tutti
@@ -239,8 +242,8 @@ const filteredRisks = allRisks.filter(risk => {
     onClick={() => setCatalogFilter('standard')}
     className={`px-4 py-3 text-sm font-medium border-l border-gray-300 transition ${
       catalogFilter === 'standard'
-        ? 'bg-sky-600 text-white'
-        : 'bg-white text-gray-600 hover:bg-gray-50'
+        ? 'bg-sky-700 text-white'
+        : 'bg-white text-slate-600 hover:bg-slate-50'
     }`}
   >
     Standard
@@ -250,7 +253,7 @@ const filteredRisks = allRisks.filter(risk => {
     className={`px-4 py-3 text-sm font-medium border-l border-gray-300 transition ${
       catalogFilter === 'personal'
         ? 'bg-emerald-600 text-white'
-        : 'bg-white text-gray-600 hover:bg-gray-50'
+        : 'bg-white text-slate-600 hover:bg-slate-50'
     }`}
   >
     Personali
@@ -259,7 +262,7 @@ const filteredRisks = allRisks.filter(risk => {
         </div>
 
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-slate-500">
             {filteredRisks.length} rischi trovati
 {(searchTerm || selectedArea || catalogFilter !== 'all') && (
   <button
@@ -277,7 +280,7 @@ const filteredRisks = allRisks.filter(risk => {
             >
               Espandi tutto
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-slate-300">|</span>
             <button
               onClick={collapseAll}
               className="text-sm text-sky-600 hover:text-sky-700"
@@ -286,7 +289,8 @@ const filteredRisks = allRisks.filter(risk => {
             </button>
           </div>
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Area Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
@@ -318,15 +322,18 @@ const filteredRisks = allRisks.filter(risk => {
 
       {/* Hierarchical Risk List */}
       {loading ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-500">
+        <Card>
+          <CardContent className="p-12 text-center text-slate-500">
           <div className="w-12 h-12 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           Caricamento...
-        </div>
+          </CardContent>
+        </Card>
       ) : filteredRisks.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center">
-          <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">Nessun rischio trovato</p>
-        </div>
+        <EmptyState
+          icon={<AlertTriangle className="h-6 w-6" />}
+          title="Nessun rischio trovato"
+          description="Modifica ricerca o filtri per visualizzare altri rischi."
+        />
       ) : (
         <div className="space-y-4">
           {sortedAreas.map(area => {
@@ -437,10 +444,11 @@ const filteredRisks = allRisks.filter(risk => {
 
       {/* Modal Crea Rischio */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Nuovo Rischio Personalizzato</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <Card elevated className="w-full max-w-md">
+            <CardContent className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Nuovo Rischio Personalizzato</h3>
               <button
                 onClick={() => {
                   setShowCreateModal(false)
@@ -448,7 +456,7 @@ const filteredRisks = allRisks.filter(risk => {
                   setCustomRiskCategory('')
                   setCustomRiskDescription('')
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -456,7 +464,7 @@ const filteredRisks = allRisks.filter(risk => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Nome Rischio *
                 </label>
                 <input
@@ -464,12 +472,12 @@ const filteredRisks = allRisks.filter(risk => {
                   value={customRiskName}
                   onChange={(e) => setCustomRiskName(e.target.value)}
                   placeholder="Es: Errore di trascrizione dose"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                  className="clinical-input px-4 py-2"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Categoria *
                 </label>
                 <input
@@ -478,20 +486,20 @@ const filteredRisks = allRisks.filter(risk => {
                   onChange={(e) => setCustomRiskCategory(e.target.value)}
                   placeholder="Es: UFA - Prescrizione"
                   list="categories-list-modal"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                  className="clinical-input px-4 py-2"
                 />
                 <datalist id="categories-list-modal">
                   {allCategories.map(cat => (
                     <option key={cat} value={cat} />
                   ))}
                 </datalist>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   Usa il formato "Area - Sotto-area" per la gerarchia (es. "UFA - Prescrizione")
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Descrizione (opzionale)
                 </label>
                 <textarea
@@ -499,7 +507,7 @@ const filteredRisks = allRisks.filter(risk => {
                   onChange={(e) => setCustomRiskDescription(e.target.value)}
                   placeholder="Descrivi il rischio in dettaglio..."
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-none"
+                  className="clinical-input resize-none px-4 py-2"
                 />
               </div>
 
@@ -511,20 +519,21 @@ const filteredRisks = allRisks.filter(risk => {
                     setCustomRiskCategory('')
                     setCustomRiskDescription('')
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50"
                 >
                   Annulla
                 </button>
                 <button
                   onClick={createCustomRisk}
                   disabled={!customRiskName.trim() || !customRiskCategory.trim()}
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Crea Rischio
                 </button>
               </div>
             </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

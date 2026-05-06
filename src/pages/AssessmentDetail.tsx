@@ -7,13 +7,14 @@ import RiskMatrix from '../components/RiskMatrix'
 import ParetoChart from '../components/ParetoChart'
 import ParetoAnalysis from '../components/ParetoAnalysis'
 import type { RiskAssessment, RiskItem, RiskCatalogBase, ActionPlan, UserCustomRisk } from '../types'
+import { FMEA_ASSESSMENT_STATUS_OPTIONS, type FMEAStatus } from '../lib/labels'
 import {
   ArrowLeft,
   Plus,
   Trash2,
   AlertTriangle,
   X,
-  FileDown,
+  Download,
   Filter,
   RotateCcw,
   ClipboardPlus,
@@ -93,7 +94,7 @@ export default function AssessmentDetail() {
     const { data, error } = await supabase.from('risk_assessments').select('*').eq('id', id).single()
     if (error) {
       console.error('Errore:', error)
-      navigate('/dashboard')
+      navigate('/fmea/dashboard')
     } else {
       setAssessment(data)
     }
@@ -399,14 +400,25 @@ export default function AssessmentDetail() {
     }
   }
 
-  const updateAssessmentStatus = async (status: string) => {
+  const updateAssessmentStatus = async (status: FMEAStatus) => {
+    if (status === 'archived') {
+      const confirmed = confirm("Archiviare questo assessment? Sarà spostato nell'Archivio assessment.")
+      if (!confirmed) return
+    }
+
     const { error } = await supabase
       .from('risk_assessments')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id)
 
-    if (!error && assessment) {
-      setAssessment({ ...assessment, status: status as any })
+    if (error) {
+      console.error('Errore aggiornamento stato assessment FMEA:', error)
+      alert("Impossibile aggiornare lo stato dell'assessment. Verifica che il database supporti lo stato Archiviato.")
+      return
+    }
+
+    if (assessment) {
+      setAssessment({ ...assessment, status })
     }
   }
 
@@ -427,7 +439,7 @@ export default function AssessmentDetail() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+        <button onClick={() => navigate('/fmea/dashboard')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
           <ArrowLeft className="w-4 h-4" />
           Torna alla Dashboard
         </button>
@@ -441,12 +453,14 @@ export default function AssessmentDetail() {
           <div className="flex items-center gap-3">
             <select
               value={assessment.status}
-              onChange={(e) => updateAssessmentStatus(e.target.value)}
+              onChange={(e) => updateAssessmentStatus(e.target.value as FMEAStatus)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
             >
-              <option value="draft">Bozza</option>
-              <option value="in_progress">In Corso</option>
-              <option value="completed">Completato</option>
+              {FMEA_ASSESSMENT_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
 
             <button
@@ -462,7 +476,7 @@ export default function AssessmentDetail() {
               disabled={riskItems.length === 0}
               className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FileDown className="w-5 h-5" />
+              <Download className="w-5 h-5" />
               PDF
             </button>
 
@@ -471,7 +485,7 @@ export default function AssessmentDetail() {
               disabled={riskItems.length === 0}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FileDown className="w-5 h-5" />
+              <Download className="w-5 h-5" />
               Excel
             </button>
           </div>

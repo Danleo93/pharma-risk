@@ -55,7 +55,7 @@ export interface RiskAssessment {
   process_id: string | null
   title: string
   description: string | null
-  status: 'draft' | 'in_progress' | 'completed'
+  status: 'draft' | 'in_progress' | 'completed' | 'archived'
   created_at: string
   updated_at: string
   // Relazioni opzionali
@@ -157,4 +157,34 @@ export interface UserCustomRisk {
   category: string
   description?: string
   created_at: string
+}
+
+// Tipi minimi per RCA MVP
+export type RCAAssessmentStatus = 'draft' | 'in_progress' | 'action_planned' | 'completed' | 'archived'
+export type RCAMethodology = '5_whys' | 'fishbone' | 'combined'
+export type RCAEventType = 'incident' | 'near_miss' | 'non_conformity' | 'complaint' | 'other'
+export type RCASeverity = 'low' | 'medium' | 'high' | 'critical'
+
+export interface RCAAssessment {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  status: RCAAssessmentStatus
+  methodology: RCAMethodology | null
+  event_title: string
+  event_description: string | null
+  event_type: RCAEventType | null
+  event_date: string | null
+  event_time: string | null
+  reported_at: string | null
+  location: string | null
+  department: string | null
+  severity: RCASeverity | null
+  immediate_containment: string | null
+  summary: string | null
+  conclusion: string | null
+  closed_at: string | null
+  created_at: string
+  updated_at: string
 }

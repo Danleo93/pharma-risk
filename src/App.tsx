@@ -1,13 +1,15 @@
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Docs from './pages/Docs'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Contacts from './pages/Contacts'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
 import NewAssessment from './pages/NewAssessment'
 import AssessmentDetail from './pages/AssessmentDetail'
@@ -15,6 +17,19 @@ import Actions from './pages/Actions'
 import RiskCatalog from './pages/RiskCatalog'
 import Settings from './pages/Settings'
 import Assessments from './pages/Assessments'
+import RCADashboard from './pages/rca/RCADashboard'
+import RCAAssessments from './pages/rca/RCAAssessments'
+import NewRCAAssessment from './pages/rca/NewRCAAssessment'
+import RCAAssessmentDetail from './pages/rca/RCAAssessmentDetail'
+import RCAActions from './pages/rca/RCAActions'
+import GapDashboard from './pages/gap/GapDashboard'
+import GapAssessments from './pages/gap/GapAssessments'
+import NewGapAssessment from './pages/gap/NewGapAssessment'
+import GapAssessmentDetail from './pages/gap/GapAssessmentDetail'
+import GapProcesses from './pages/gap/GapProcesses'
+import GapProcessDetail from './pages/gap/GapProcessDetail'
+import GapStandards from './pages/gap/GapStandards'
+import GapActions from './pages/gap/GapActions'
 // Componente per proteggere le route
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -53,10 +68,15 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/fmea/dashboard" replace />
   }
 
   return <>{children}</>
+}
+
+function LegacyAssessmentRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/fmea/assessment/${id}`} replace />
 }
 
 function AppRoutes() {
@@ -72,19 +92,47 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       
-      {/* Route protette */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/assessment/new" element={<ProtectedRoute><NewAssessment /></ProtectedRoute>} />
-      <Route path="/assessment/:id" element={<ProtectedRoute><AssessmentDetail /></ProtectedRoute>} />
-      <Route path="/actions" element={<ProtectedRoute><Actions /></ProtectedRoute>} />
-      <Route path="/risks" element={<ProtectedRoute><RiskCatalog /></ProtectedRoute>} />
+      {/* Route protette generali */}
+      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
       <Route path="/docs" element={<ProtectedRoute><Docs /></ProtectedRoute>} />
+      <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+
+      {/* Analisi Proattiva - FMEA */}
+      <Route path="/fmea/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/fmea/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
+      <Route path="/fmea/assessment/new" element={<ProtectedRoute><NewAssessment /></ProtectedRoute>} />
+      <Route path="/fmea/assessment/:id" element={<ProtectedRoute><AssessmentDetail /></ProtectedRoute>} />
+      <Route path="/fmea/risks" element={<ProtectedRoute><RiskCatalog /></ProtectedRoute>} />
+      <Route path="/fmea/actions" element={<ProtectedRoute><Actions /></ProtectedRoute>} />
+
+      {/* Analisi Reattiva - RCA placeholder */}
+      <Route path="/rca/dashboard" element={<ProtectedRoute><RCADashboard /></ProtectedRoute>} />
+      <Route path="/rca/assessments" element={<ProtectedRoute><RCAAssessments /></ProtectedRoute>} />
+      <Route path="/rca/assessment/new" element={<ProtectedRoute><NewRCAAssessment /></ProtectedRoute>} />
+      <Route path="/rca/assessment/:id" element={<ProtectedRoute><RCAAssessmentDetail /></ProtectedRoute>} />
+      <Route path="/rca/actions" element={<ProtectedRoute><RCAActions /></ProtectedRoute>} />
+
+      {/* Gap Analysis */}
+      <Route path="/gap/dashboard" element={<ProtectedRoute><GapDashboard /></ProtectedRoute>} />
+      <Route path="/gap/assessments" element={<ProtectedRoute><GapAssessments /></ProtectedRoute>} />
+      <Route path="/gap/assessment/new" element={<ProtectedRoute><NewGapAssessment /></ProtectedRoute>} />
+      <Route path="/gap/assessment/:id" element={<ProtectedRoute><GapAssessmentDetail /></ProtectedRoute>} />
+      <Route path="/gap/processes" element={<ProtectedRoute><GapProcesses /></ProtectedRoute>} />
+      <Route path="/gap/process/:id" element={<ProtectedRoute><GapProcessDetail /></ProtectedRoute>} />
+      <Route path="/gap/standards" element={<ProtectedRoute><GapStandards /></ProtectedRoute>} />
+      <Route path="/gap/actions" element={<ProtectedRoute><GapActions /></ProtectedRoute>} />
       
+      {/* Redirect legacy FMEA */}
+      <Route path="/dashboard" element={<Navigate to="/fmea/dashboard" replace />} />
+      <Route path="/assessments" element={<Navigate to="/fmea/assessments" replace />} />
+      <Route path="/assessment/new" element={<Navigate to="/fmea/assessment/new" replace />} />
+      <Route path="/assessment/:id" element={<LegacyAssessmentRedirect />} />
+      <Route path="/risks" element={<Navigate to="/fmea/risks" replace />} />
+      <Route path="/actions" element={<Navigate to="/fmea/actions" replace />} />
+
       {/* Redirect default */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

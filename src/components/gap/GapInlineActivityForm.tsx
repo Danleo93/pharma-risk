@@ -1,0 +1,182 @@
+import { useState, type FormEvent } from 'react'
+import { Button } from '../ui/Button'
+
+export interface GapInlineActivityFormPayload {
+  name: string
+  description: string
+  operator: string
+  target_state: string
+  add_to_library: boolean
+}
+
+interface GapInlineActivityFormProps {
+  generatedCode: string | null
+  limitReached?: boolean
+  loading?: boolean
+  showLibraryToggle?: boolean
+  defaultAddToLibrary?: boolean
+  onCancel: () => void
+  onSubmit: (payload: GapInlineActivityFormPayload) => void
+}
+
+const emptyForm: GapInlineActivityFormPayload = {
+  name: '',
+  description: '',
+  operator: '',
+  target_state: '',
+  add_to_library: true,
+}
+
+export function GapInlineActivityForm({
+  generatedCode,
+  limitReached = false,
+  loading = false,
+  showLibraryToggle = false,
+  defaultAddToLibrary = true,
+  onCancel,
+  onSubmit,
+}: GapInlineActivityFormProps) {
+  const [form, setForm] = useState<GapInlineActivityFormPayload>({
+    ...emptyForm,
+    add_to_library: defaultAddToLibrary,
+  })
+  const [targetError, setTargetError] = useState<string | null>(null)
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (limitReached) return
+
+    const targetState = form.target_state.trim()
+    if (!targetState) {
+      setTargetError("Il target atteso di riferimento è obbligatorio per creare una nuova Attività/Requisito.")
+      return
+    }
+
+    setTargetError(null)
+    onSubmit({
+      name: form.name.trim(),
+      description: form.description.trim(),
+      operator: form.operator.trim(),
+      target_state: targetState,
+      add_to_library: form.add_to_library,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Codice generato
+        </p>
+        <p className="mt-1 font-mono text-sm font-semibold text-slate-800">
+          {generatedCode || 'Limite raggiunto'}
+        </p>
+      </div>
+
+      {limitReached && (
+        <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
+          Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="block md:col-span-2">
+          <span className="mb-1 block text-sm font-medium text-slate-700">
+            Nome Attività/Requisito *
+          </span>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            className="clinical-input"
+            placeholder="Es. Preparazione in cappa biologica"
+            required
+            disabled={limitReached}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Operatore/Funzione coinvolta</span>
+          <input
+            type="text"
+            value={form.operator}
+            onChange={(event) => setForm((current) => ({ ...current, operator: event.target.value }))}
+            className="clinical-input"
+            placeholder="Figura, team o funzione coinvolta"
+            disabled={limitReached}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Target atteso di riferimento *</span>
+          <input
+            type="text"
+            value={form.target_state}
+            onChange={(event) => {
+              setForm((current) => ({ ...current, target_state: event.target.value }))
+              if (targetError) setTargetError(null)
+            }}
+            className="clinical-input"
+            placeholder="Requisito o stato atteso"
+            required
+            aria-invalid={Boolean(targetError)}
+            disabled={limitReached}
+          />
+          {targetError && (
+            <span className="mt-1 block text-xs leading-5 text-red-600">{targetError}</span>
+          )}
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            Definisce lo stato atteso standard dell'Attività/Requisito nella libreria.
+          </span>
+        </label>
+
+        <label className="block md:col-span-2">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Descrizione</span>
+          <textarea
+            value={form.description}
+            onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+            className="clinical-input min-h-20 resize-y"
+            placeholder="Descrizione del controllo, requisito o attività valutabile."
+            disabled={limitReached}
+          />
+        </label>
+      </div>
+
+      {showLibraryToggle && (
+        <label className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <input
+            type="checkbox"
+            checked={form.add_to_library}
+            onChange={(event) => setForm((current) => ({
+              ...current,
+              add_to_library: event.target.checked,
+            }))}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+            disabled={limitReached}
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-800">
+              Aggiungi alla libreria personale
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              Se non aggiungi l'elemento alla libreria personale, sara disponibile solo in questo assessment.
+            </span>
+          </span>
+        </label>
+      )}
+
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          Annulla
+        </button>
+        <Button type="submit" tone="success" loading={loading} disabled={limitReached || !generatedCode}>
+          Salva Attività/Requisito
+        </Button>
+      </div>
+    </form>
+  )
+}

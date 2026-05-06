@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import * as htmlToImage from 'html-to-image'
+import { Download } from 'lucide-react'
 import type { RiskItem } from '../types'
 
 interface RiskMatrixProps {
@@ -7,21 +8,17 @@ interface RiskMatrixProps {
 }
 
 export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
-  // Ref per catturare la matrice come immagine
   const matrixRef = useRef<HTMLDivElement>(null)
 
-  // Crea la matrice 5x5
   const matrix: { [key: string]: RiskItem[] } = {}
-  
-  // Inizializza tutte le celle
-  for (let s = 1; s <= 5; s++) {
-    for (let p = 1; p <= 5; p++) {
-      matrix[`${s}-${p}`] = []
+
+  for (let severity = 1; severity <= 5; severity++) {
+    for (let probability = 1; probability <= 5; probability++) {
+      matrix[`${severity}-${probability}`] = []
     }
   }
 
-  // Popola la matrice con i rischi
-  riskItems.forEach(item => {
+  riskItems.forEach((item) => {
     if (item.severity && item.probability) {
       const key = `${item.severity}-${item.probability}`
       if (matrix[key]) {
@@ -30,18 +27,16 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
     }
   })
 
-  // Colori delle celle basati su Hazard Score (S × P)
   const getCellColor = (severity: number, probability: number) => {
     const score = severity * probability
     if (score >= 15) return 'bg-red-500 hover:bg-red-600'
-    if (score >= 8) return 'bg-yellow-400 hover:bg-yellow-500'
-    return 'bg-green-500 hover:bg-green-600'
+    if (score >= 8) return 'bg-amber-400 hover:bg-amber-500'
+    return 'bg-emerald-500 hover:bg-emerald-600'
   }
 
   const severityLabels = ['Critica', 'Alta', 'Moderata', 'Bassa', 'Minima']
   const probabilityLabels = ['Rara', 'Improbabile', 'Occasionale', 'Probabile', 'Frequente']
 
-  // Esporta la matrice come PNG
   const exportPNG = () => {
     if (!matrixRef.current) return
 
@@ -58,38 +53,39 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
       })
       .catch((err) => {
         console.error('Errore esportazione PNG:', err)
-        alert('Errore durante l’esportazione della matrice in PNG.')
+        alert('Errore durante l esportazione della matrice in PNG.')
       })
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      {/* Header con titolo + bottone export */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">
-          Matrice del Rischio (5×5)
-        </h3>
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">Matrice del Rischio (5x5)</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Distribuzione dei rischi per severita e probabilita.
+          </p>
+        </div>
 
         <button
           type="button"
           onClick={exportPNG}
-          className="inline-flex items-center gap-2 text-sm bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-lg font-medium shadow-sm transition"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-800"
         >
+          <Download className="h-4 w-4" />
           Esporta PNG
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        {/* Tutta la matrice + legenda + assi dentro al ref */}
-        <div className="min-w-[500px] px-8 py-10" ref={matrixRef}>
-          {/* Header Probabilità */}
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/60">
+        <div className="min-w-[760px] bg-white px-8 py-10" ref={matrixRef}>
           <div className="flex">
-            <div className="w-24 flex-shrink-0"></div>
-            <div className="flex-1 grid grid-cols-5 gap-1 mb-1">
-              {probabilityLabels.map((label, i) => (
+            <div className="w-28 flex-shrink-0" />
+            <div className="mb-2 grid flex-1 grid-cols-5 gap-2">
+              {probabilityLabels.map((label) => (
                 <div
-                  key={i}
-                  className="text-center text-xs font-medium text-gray-600 px-1"
+                  key={label}
+                  className="flex h-9 items-center justify-center rounded-md bg-slate-50 px-2 text-center text-[11px] font-semibold uppercase leading-tight tracking-wide text-slate-600"
                 >
                   {label}
                 </div>
@@ -97,22 +93,19 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
             </div>
           </div>
 
-          {/* Matrice */}
           <div className="flex">
-            {/* Labels Severità */}
-            <div className="w-24 flex-shrink-0 flex flex-col gap-1">
-              {severityLabels.map((label, i) => (
+            <div className="flex w-28 flex-shrink-0 flex-col gap-2">
+              {severityLabels.map((label) => (
                 <div
-                  key={i}
-                  className="h-16 flex items-center justify-end pr-2 text-xs font-medium text-gray-600"
+                  key={label}
+                  className="flex h-[72px] items-center justify-end pr-3 text-xs font-semibold uppercase tracking-wide text-slate-500"
                 >
                   {label}
                 </div>
               ))}
             </div>
 
-            {/* Celle */}
-            <div className="flex-1 grid grid-cols-5 gap-1">
+            <div className="grid flex-1 grid-cols-5 gap-2">
               {[5, 4, 3, 2, 1].map((severity) =>
                 [1, 2, 3, 4, 5].map((probability) => {
                   const key = `${severity}-${probability}`
@@ -122,72 +115,57 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
                   return (
                     <div
                       key={key}
-                      className={`
-                        h-16 rounded-lg flex items-center justify-center
-                        ${getCellColor(severity, probability)}
-                        transition-colors cursor-pointer relative group
-                      `}
+                      className={`group relative flex h-[72px] cursor-pointer items-center justify-center rounded-xl shadow-sm ring-1 ring-white/70 transition-colors ${getCellColor(
+                        severity,
+                        probability,
+                      )}`}
                       title={cellRisks
-                        .map(
-                          (r) =>
-                            r.risk_catalog_base?.name || r.custom_risk_name
-                        )
+                        .map((risk) => risk.risk_catalog_base?.name || risk.custom_risk_name)
                         .join('\n')}
                     >
                       {count > 0 && (
-                        <span className="text-white font-bold text-lg">
-                          {count}
-                        </span>
+                        <span className="text-lg font-bold text-white drop-shadow-sm">{count}</span>
                       )}
 
-                      {/* Tooltip */}
                       {count > 0 && (
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 max-w-xs">
-                            {cellRisks.slice(0, 3).map((r, i) => (
-                              <div key={i} className="whitespace-nowrap">
-                                • {r.risk_catalog_base?.name || r.custom_risk_name}
+                        <div className="absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 transform group-hover:block">
+                          <div className="max-w-xs rounded-lg bg-slate-950 px-3 py-2 text-xs text-white shadow-xl">
+                            {cellRisks.slice(0, 3).map((risk, index) => (
+                              <div key={index} className="whitespace-nowrap">
+                                {risk.risk_catalog_base?.name || risk.custom_risk_name}
                               </div>
                             ))}
                             {count > 3 && (
-                              <div className="text-gray-400 mt-1">
-                                +{count - 3} altri...
-                              </div>
+                              <div className="mt-1 text-slate-400">+{count - 3} altri...</div>
                             )}
                           </div>
                         </div>
                       )}
                     </div>
                   )
-                })
+                }),
               )}
             </div>
           </div>
 
-          {/* Legenda */}
-          <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-gray-100">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-5 border-t border-slate-100 pt-4">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-red-500"></div>
-              <span className="text-sm text-gray-600">Alto (≥15)</span>
+              <div className="h-4 w-4 rounded bg-red-500" />
+              <span className="text-sm text-slate-600">Alto (&gt;=15)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-yellow-400"></div>
-              <span className="text-sm text-gray-600">Medio (8-14)</span>
+              <div className="h-4 w-4 rounded bg-amber-400" />
+              <span className="text-sm text-slate-600">Medio (8-14)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-500"></div>
-              <span className="text-sm text-gray-600">Basso (1-7)</span>
+              <div className="h-4 w-4 rounded bg-emerald-500" />
+              <span className="text-sm text-slate-600">Basso (1-7)</span>
             </div>
           </div>
 
-          {/* Assi labels */}
-          <div className="flex justify-between mt-4 text-sm text-gray-500">
-            <div className="flex items-center gap-1">
-              <span className="font-medium">↑ Severità</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="font-medium">Probabilità →</span>
-            </div>
+          <div className="mt-4 flex justify-between text-sm text-slate-500">
+            <span className="font-medium">Severita</span>
+            <span className="font-medium">Probabilita</span>
           </div>
         </div>
       </div>
