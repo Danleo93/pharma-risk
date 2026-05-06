@@ -21,6 +21,15 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
 import { EmptyState } from '../ui/EmptyState'
+import {
+  GAP_ASSESSMENT_ACTIVITY_HARD_LIMIT,
+  GAP_ASSESSMENT_ACTIVITY_WARNING,
+  GAP_LIBRARY_ACTIVITY_HARD_LIMIT,
+  GAP_LIBRARY_ACTIVITY_WARNING,
+  isGapHardLimitExceeded,
+  isGapHardLimitReached,
+  isGapWarningLimitReached,
+} from '../../lib/gapLimits'
 
 interface GapAssessmentFormState {
   title: string
@@ -153,6 +162,26 @@ export function GapAssessmentCreatePanel({
     () => buildEvaluationSnapshots(selectedProcesses),
     [selectedProcesses],
   )
+  const libraryActivityCount = useMemo(
+    () => processes.reduce((sum, process) => sum + process.total_activities, 0),
+    [processes],
+  )
+  const assessmentActivityWarning = isGapWarningLimitReached(
+    evaluationSnapshots.length,
+    GAP_ASSESSMENT_ACTIVITY_WARNING,
+  )
+  const assessmentActivityBlocked = isGapHardLimitExceeded(
+    evaluationSnapshots.length,
+    GAP_ASSESSMENT_ACTIVITY_HARD_LIMIT,
+  )
+  const libraryActivityWarning = isGapWarningLimitReached(
+    libraryActivityCount,
+    GAP_LIBRARY_ACTIVITY_WARNING,
+  )
+  const libraryActivityBlocked = isGapHardLimitReached(
+    libraryActivityCount,
+    GAP_LIBRARY_ACTIVITY_HARD_LIMIT,
+  )
 
   const selectedProcessesWithoutActivities = selectedProcesses.filter(
     (process) => process.total_activities === 0,
@@ -265,6 +294,13 @@ export function GapAssessmentCreatePanel({
       return
     }
 
+    if (libraryActivityBlocked) {
+      setError(
+        `La libreria contiene giÃ  ${libraryActivityCount} AttivitÃ /Requisiti. Per mantenere prestazioni fluide, crea un nuovo perimetro di libreria o riorganizza gli elementi prima di aggiungerne altri.`,
+      )
+      return
+    }
+
     const generatedCode = getNextActivityCode(context.area)
     if (!generatedCode) {
       setError('Non si possono inserire più di 99 Attività/Requisiti per Dominio/Sezione. Procedi con la creazione di un nuovo Dominio/Sezione.')
@@ -338,6 +374,13 @@ export function GapAssessmentCreatePanel({
     if (evaluationSnapshots.length === 0) {
       setError(
         'Non è possibile creare un assessment senza Attività/Requisiti. Aggiungi Attività/Requisiti alla libreria oppure crea prima un nuovo macro-processo completo.',
+      )
+      return
+    }
+
+    if (assessmentActivityBlocked) {
+      setError(
+        `Questo assessment include ${evaluationSnapshots.length} AttivitÃ /Requisiti. Per mantenere prestazioni fluide, il limite operativo Ã¨ ${GAP_ASSESSMENT_ACTIVITY_HARD_LIMIT}. Valuta di dividerlo per macro-processo o Dominio/Sezione.`,
       )
       return
     }
@@ -559,6 +602,26 @@ export function GapAssessmentCreatePanel({
               Alcuni processi selezionati non contengono ancora Attività/Requisiti. Aggiungili qui sotto oppure verranno inclusi solo come riferimento:
               {' '}
               {selectedProcessesWithoutActivities.map((process) => process.name).join(', ')}.
+            </div>
+          )}
+
+          {assessmentActivityWarning && (
+            <div className={`mb-5 rounded-xl border p-4 text-sm ${
+              assessmentActivityBlocked
+                ? 'border-red-100 bg-red-50 text-red-700'
+                : 'border-amber-100 bg-amber-50 text-amber-800'
+            }`}>
+              Questo assessment include {evaluationSnapshots.length} AttivitÃ /Requisiti. Per mantenere prestazioni fluide, valuta di dividerlo in piÃ¹ parti per macro-processo o Dominio/Sezione.
+            </div>
+          )}
+
+          {libraryActivityWarning && (
+            <div className={`mb-5 rounded-xl border p-4 text-sm ${
+              libraryActivityBlocked
+                ? 'border-red-100 bg-red-50 text-red-700'
+                : 'border-amber-100 bg-amber-50 text-amber-800'
+            }`}>
+              La libreria contiene {libraryActivityCount} AttivitÃ /Requisiti. Mantieni la libreria essenziale e ben organizzata per garantire prestazioni fluide.
             </div>
           )}
 

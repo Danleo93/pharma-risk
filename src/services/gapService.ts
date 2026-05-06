@@ -852,6 +852,17 @@ export const getGapActivitiesByArea = async (
   return (data || []) as GapActivity[]
 }
 
+export const getGapActivityCount = async (userId: string): Promise<number> => {
+  const { count, error } = await supabase
+    .from('gap_activities')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('source_type', 'library')
+
+  throwIfError(error)
+  return count || 0
+}
+
 export const getGapActivitiesByAreas = async (
   areaIds: string[],
   userId: string,

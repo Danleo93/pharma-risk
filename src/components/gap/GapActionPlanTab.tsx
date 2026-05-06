@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AlertTriangle, CheckSquare, Edit3, Plus, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import { isGapActionOverdue } from '../../lib/gapScoring'
 import {
+  GAP_ACTIONS_PER_ASSESSMENT_HARD_LIMIT,
+  GAP_ACTIONS_PER_ASSESSMENT_WARNING,
+  isGapHardLimitReached,
+  isGapWarningLimitReached,
+} from '../../lib/gapLimits'
+import {
   GAP_ACTION_PHASE_OPTIONS,
   GAP_ACTION_PRIORITY_OPTIONS,
   GAP_ACTION_STATUS_OPTIONS,
@@ -375,6 +381,8 @@ export function GapActionPlanTab({
   const [verifyingAction, setVerifyingAction] = useState<GapAction | null>(null)
   const [savingVerification, setSavingVerification] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const actionsWarning = isGapWarningLimitReached(actions.length, GAP_ACTIONS_PER_ASSESSMENT_WARNING)
+  const actionsBlocked = isGapHardLimitReached(actions.length, GAP_ACTIONS_PER_ASSESSMENT_HARD_LIMIT)
 
   useEffect(() => {
     const firstEvaluationId = evaluations[0]?.id || ''
@@ -396,12 +404,19 @@ export function GapActionPlanTab({
     const evaluation = evaluations.find((item) => item.id === createRequest.evaluationId)
     if (!evaluation) return
 
+    if (actionsBlocked) {
+      setError(
+        `Questo assessment contiene giÃ  ${actions.length} azioni correttive. Per mantenere prestazioni fluide, modifica o chiudi le azioni esistenti prima di crearne altre.`,
+      )
+      return
+    }
+
     setShowCreateForm(true)
     setEditingActionId(null)
     setEditForm(null)
     setError(null)
     setCreateForm(emptyForm(evaluation.id))
-  }, [createRequest, evaluations])
+  }, [actions.length, actionsBlocked, createRequest, evaluations])
 
   const evaluationById = useMemo(() => {
     return evaluations.reduce<Record<string, GapActivityEvaluation>>((acc, evaluation) => ({
@@ -436,6 +451,14 @@ export function GapActionPlanTab({
 
   const createAction = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    if (actionsBlocked) {
+      setError(
+        `Questo assessment contiene giÃ  ${actions.length} azioni correttive. Per mantenere prestazioni fluide, modifica o chiudi le azioni esistenti prima di crearne altre.`,
+      )
+      return
+    }
+
     const selectedEvaluationId = createForm.evaluation_id
     const evaluation = evaluationById[selectedEvaluationId]
     if (!evaluation) {
@@ -604,6 +627,7 @@ export function GapActionPlanTab({
               type="button"
               tone="success"
               icon={<Plus className="h-4 w-4" />}
+              disabled={actionsBlocked}
               onClick={() => {
                 setShowCreateForm(true)
                 setEditingActionId(null)
@@ -620,6 +644,16 @@ export function GapActionPlanTab({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {actionsWarning && (
+            <div className={`rounded-xl border p-4 text-sm ${
+              actionsBlocked
+                ? 'border-red-100 bg-red-50 text-red-700'
+                : 'border-amber-100 bg-amber-50 text-amber-800'
+            }`}>
+              Questo assessment contiene {actions.length} azioni correttive. Per mantenere prestazioni fluide, chiudi o aggiorna le azioni esistenti prima di crearne molte altre.
+            </div>
+          )}
+
           {showCreateForm && (
             <ActionForm
               form={createForm}

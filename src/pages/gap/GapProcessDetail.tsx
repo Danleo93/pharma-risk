@@ -8,6 +8,7 @@ import {
   createGapStandard,
   deleteGapArea,
   deleteGapActivity,
+  getGapActivityCount,
   getGapActivityStandardsForActivities,
   getGapActivitiesByAreas,
   getGapAreasByProcess,
@@ -27,6 +28,14 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
+import {
+  GAP_LIBRARY_ACTIVITY_HARD_LIMIT,
+  GAP_LIBRARY_ACTIVITY_WARNING,
+  GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT,
+  GAP_STANDARDS_PER_ACTIVITY_WARNING,
+  isGapHardLimitReached,
+  isGapWarningLimitReached,
+} from '../../lib/gapLimits'
 
 interface AreaFormState {
   code: string
@@ -173,6 +182,7 @@ export default function GapProcessDetail() {
   const [activitiesByArea, setActivitiesByArea] = useState<Record<string, GapActivity[]>>({})
   const [standards, setStandards] = useState<GapStandard[]>([])
   const [activityStandardsByActivity, setActivityStandardsByActivity] = useState<Record<string, GapActivityStandard[]>>({})
+  const [libraryActivityCount, setLibraryActivityCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingStandards, setSavingStandards] = useState(false)
@@ -201,10 +211,11 @@ export default function GapProcessDetail() {
       setError(null)
 
       try {
-        const [processData, areasData, standardsData] = await Promise.all([
+        const [processData, areasData, standardsData, activityCount] = await Promise.all([
           getGapProcessById(id, user.id),
           getGapAreasByProcess(id, user.id),
           getGapStandards(user.id),
+          getGapActivityCount(user.id),
         ])
         const areaIds = areasData.map((area) => area.id)
         const batchedActivities = await getGapActivitiesByAreas(areaIds, user.id)
@@ -239,6 +250,7 @@ export default function GapProcessDetail() {
         setProcess(processData)
         setAreas(areasData)
         setStandards(standardsData)
+        setLibraryActivityCount(activityCount)
         setActivitiesByArea(Object.fromEntries(activityEntries))
         setActivityStandardsByActivity(Object.fromEntries(activityStandardEntries))
       } catch (fetchError) {
@@ -267,6 +279,16 @@ export default function GapProcessDetail() {
     () => standards.filter((standard) => selectedStandardIds.has(standard.id)),
     [selectedStandardIds, standards],
   )
+  const libraryActivityWarning = isGapWarningLimitReached(
+    libraryActivityCount,
+    GAP_LIBRARY_ACTIVITY_WARNING,
+  )
+  const libraryActivityBlocked = isGapHardLimitReached(
+    libraryActivityCount,
+    GAP_LIBRARY_ACTIVITY_HARD_LIMIT,
+  )
+  const standardsLimitReached = standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT
+  const standardsLimitWarning = standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_WARNING
   const filteredStandards = useMemo(() => {
     const normalizedSearch = standardSearch.trim().toLowerCase()
 
@@ -483,6 +505,13 @@ export default function GapProcessDetail() {
       return
     }
 
+    if (!editingActivity && libraryActivityBlocked) {
+      setError(
+        `La libreria contiene giÃ  ${libraryActivityCount} AttivitÃ /Requisiti. Per mantenere prestazioni fluide, crea un nuovo perimetro di libreria o riorganizza gli elementi prima di aggiungerne altri.`,
+      )
+      return
+    }
+
     if (!activityCode || !activityForm.name.trim()) {
       setError('Codice e nome Attività/Requisito sono obbligatori.')
       return
@@ -522,6 +551,7 @@ export default function GapProcessDetail() {
         }))
       } else {
         const createdActivity = await createGapActivity(user.id, areaId, payload)
+        setLibraryActivityCount((current) => current + 1)
         setActivitiesByArea((current) => ({
           ...current,
           [areaId]: sortActivities([...(current[areaId] || []), createdActivity]),
@@ -549,6 +579,7 @@ export default function GapProcessDetail() {
 
     try {
       await deleteGapActivity(activity.id, user.id)
+      setLibraryActivityCount((current) => Math.max(0, current - 1))
       setActivitiesByArea((current) => ({
         ...current,
         [activity.area_id]: (current[activity.area_id] || []).filter((item) => item.id !== activity.id),
@@ -573,6 +604,13 @@ export default function GapProcessDetail() {
         return current.filter((link) => link.standard_id !== standardId)
       }
 
+      if (current.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
+        setError(
+          `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+        )
+        return current
+      }
+
       return [...current, { standard_id: standardId, specific_reference: '' }]
     })
   }
@@ -590,6 +628,7 @@ export default function GapProcessDetail() {
   const renderStandardSelectorCard = (standard: GapStandard) => {
     const selected = selectedStandardIds.has(standard.id)
     const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
+    const disabledByLimit = !selected && standardsLimitReached
 
     return (
       <div
@@ -601,6 +640,7 @@ export default function GapProcessDetail() {
             type="checkbox"
             checked={selected}
             onChange={() => toggleStandardDraftLink(standard.id)}
+            disabled={disabledByLimit}
             className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
           />
           <span className="min-w-0 flex-1">
@@ -649,6 +689,13 @@ export default function GapProcessDetail() {
   const saveActivityStandards = async (activityId: string) => {
     if (!user?.id) return
 
+    if (standardDraftLinks.length > GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
+      setError(
+        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+      )
+      return
+    }
+
     setSavingStandards(true)
     setError(null)
 
@@ -674,6 +721,13 @@ export default function GapProcessDetail() {
 
   const createStandardAndLinkToActivity = async (activityId: string) => {
     if (!user?.id) return
+
+    if (standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
+      setError(
+        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+      )
+      return
+    }
 
     const code = newStandardForm.code.trim()
     const name = newStandardForm.name.trim()
@@ -787,6 +841,16 @@ export default function GapProcessDetail() {
       {error && (
         <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {libraryActivityWarning && (
+        <div className={`mb-6 rounded-xl border p-4 text-sm ${
+          libraryActivityBlocked
+            ? 'border-red-100 bg-red-50 text-red-700'
+            : 'border-amber-100 bg-amber-50 text-amber-800'
+        }`}>
+          La libreria contiene {libraryActivityCount} AttivitÃ /Requisiti. Per mantenere prestazioni fluide, conserva una struttura essenziale e valuta di suddividere per perimetri piÃ¹ specifici.
         </div>
       )}
 
@@ -1057,6 +1121,7 @@ export default function GapProcessDetail() {
                       size="sm"
                       icon={<Plus className="h-4 w-4" />}
                       onClick={() => startCreateActivity(area.id)}
+                      disabled={libraryActivityBlocked}
                     >
                       Nuova Attività/Requisito
                     </Button>
@@ -1299,6 +1364,14 @@ export default function GapProcessDetail() {
                                         Le norme sono collegate all'Attività/Requisito di libreria.
                                       </div>
 
+                                      <div className={`rounded-lg border p-3 text-sm ${
+                                        standardsLimitWarning
+                                          ? 'border-amber-100 bg-amber-50 text-amber-800'
+                                          : 'border-slate-200 bg-white text-slate-600'
+                                      }`}>
+                                        Per mantenere prestazioni fluide, collega solo i riferimenti realmente essenziali. Limite operativo: {GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme per AttivitÃ /Requisito.
+                                      </div>
+
                                       {standards.length > 0 && (
                                         <div className="space-y-3">
                                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1311,6 +1384,7 @@ export default function GapProcessDetail() {
                                               tone="neutral"
                                               size="sm"
                                               onClick={() => setShowCreateStandardForm((current) => !current)}
+                                              disabled={standardsLimitReached && !showCreateStandardForm}
                                             >
                                               {showCreateStandardForm ? 'Chiudi nuova norma' : 'Crea nuova norma'}
                                             </Button>
@@ -1488,6 +1562,7 @@ export default function GapProcessDetail() {
                                               size="sm"
                                               loading={savingNewStandard}
                                               onClick={() => createStandardAndLinkToActivity(activity.id)}
+                                              disabled={standardsLimitReached}
                                             >
                                               Crea e collega norma
                                             </Button>
@@ -1511,6 +1586,7 @@ export default function GapProcessDetail() {
                                           size="sm"
                                           loading={savingStandards}
                                           onClick={() => saveActivityStandards(activity.id)}
+                                          disabled={standardDraftLinks.length > GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT}
                                         >
                                           Salva norme
                                         </Button>

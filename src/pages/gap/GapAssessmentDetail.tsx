@@ -76,6 +76,11 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { StatCard } from '../../components/ui/StatCard'
 import { elementToPngDataUrl } from '../../lib/exportImage'
+import {
+  GAP_PDF_EXPORT_WARNING_EVALUATIONS,
+  GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT,
+  isGapWarningLimitReached,
+} from '../../lib/gapLimits'
 
 interface EvaluationDraft {
   current_state: string
@@ -421,6 +426,10 @@ export default function GapAssessmentDetail() {
   }
 
   const stats = useMemo(() => aggregateAssessmentStats(evaluations), [evaluations])
+  const evaluationVolumeWarning = isGapWarningLimitReached(
+    evaluations.length,
+    GAP_PDF_EXPORT_WARNING_EVALUATIONS,
+  )
   const filteredEvaluations = useMemo(() => {
     return evaluations.filter((evaluation) => {
       switch (evaluationQuickFilter) {
@@ -596,6 +605,13 @@ export default function GapAssessmentDetail() {
         return current.filter((link) => link.standard_id !== standardId)
       }
 
+      if (current.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
+        setError(
+          `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+        )
+        return current
+      }
+
       return [...current, { standard_id: standardId, specific_reference: '' }]
     })
   }
@@ -612,6 +628,13 @@ export default function GapAssessmentDetail() {
 
   const saveEvaluationActivityStandards = async (evaluation: GapActivityEvaluation) => {
     if (!user?.id) return
+
+    if (standardDraftLinks.length > GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
+      setError(
+        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+      )
+      return
+    }
 
     setSavingStandards(true)
     setError(null)
@@ -639,6 +662,13 @@ export default function GapAssessmentDetail() {
   const createStandardAndLinkToActivity = async (evaluation: GapActivityEvaluation) => {
     if (!user?.id) return
     if (!assessment?.id) return
+
+    if (standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
+      setError(
+        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+      )
+      return
+    }
 
     const code = newStandardForm.code.trim()
     const name = newStandardForm.name.trim()
@@ -1034,6 +1064,15 @@ export default function GapAssessmentDetail() {
 
   const handleExportPDF = async () => {
     if (!assessment) return
+
+    if (
+      evaluationVolumeWarning &&
+      !confirm(
+        `Questo assessment contiene ${evaluations.length} AttivitÃ /Requisiti. L'export PDF potrebbe richiedere piÃ¹ tempo. Vuoi continuare?`,
+      )
+    ) {
+      return
+    }
 
     setExportingPDF(true)
     setError(null)
@@ -1509,6 +1548,12 @@ export default function GapAssessmentDetail() {
       ) : (
         <div className="space-y-6">
           {renderAssessmentEnrichment()}
+
+          {evaluationVolumeWarning && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
+              Questo assessment contiene {evaluations.length} AttivitÃ /Requisiti. Per mantenere la valutazione fluida, valuta di lavorare per filtri o di dividere futuri assessment molto estesi in piÃ¹ parti.
+            </div>
+          )}
 
           <Card className="border-teal-100 bg-teal-50/40">
             <CardContent className="space-y-4 p-4">

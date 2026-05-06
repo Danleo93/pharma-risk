@@ -17,6 +17,10 @@ import {
 } from '../../lib/labels'
 import { cn } from '../../lib/ui'
 import { Button } from '../ui/Button'
+import {
+  GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT,
+  GAP_STANDARDS_PER_ACTIVITY_WARNING,
+} from '../../lib/gapLimits'
 
 export interface GapEvaluationDraft {
   current_state: string
@@ -213,6 +217,8 @@ export function GapEvaluationRow({
   const isFinding = evaluation.compliance_status === 'non_compliant' || evaluation.compliance_status === 'partially_compliant'
   const mandatoryStandardsCount = standards.filter((link) => link.standard?.is_mandatory).length
   const hasMandatoryStandards = mandatoryStandardsCount > 0
+  const standardsLimitReached = standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT
+  const standardsLimitWarning = standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_WARNING
   const selectedStandardIds = useMemo(
     () => new Set(standardDraftLinks.map((link) => link.standard_id)),
     [standardDraftLinks],
@@ -274,6 +280,7 @@ export function GapEvaluationRow({
   const renderStandardSelectorCard = (standard: GapStandard) => {
     const selected = selectedStandardIds.has(standard.id)
     const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
+    const disabledByLimit = !selected && standardsLimitReached
 
     return (
       <div key={standard.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -282,6 +289,7 @@ export function GapEvaluationRow({
             type="checkbox"
             checked={selected}
             onChange={() => onToggleStandard(standard.id)}
+            disabled={disabledByLimit}
             className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
           />
           <span className="min-w-0 flex-1">
@@ -472,6 +480,13 @@ export function GapEvaluationRow({
                     Le norme create qui possono essere salvate nel Catalogo Norme personale se vuoi riutilizzarle nei futuri assessment.
                     Le norme sono collegate all'Attività/Requisito di libreria, non solo alla valutazione corrente.
                   </div>
+                  <div className={`rounded-lg border p-3 text-sm ${
+                    standardsLimitWarning
+                      ? 'border-amber-100 bg-amber-50 text-amber-800'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}>
+                    Per mantenere prestazioni fluide, collega solo i riferimenti realmente essenziali. Limite operativo: {GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme per Attività/Requisito.
+                  </div>
 
                   {standardsCatalog.length > 0 && (
                     <div className="space-y-3">
@@ -485,6 +500,7 @@ export function GapEvaluationRow({
                           tone="neutral"
                           size="sm"
                           onClick={onToggleCreateStandard}
+                          disabled={standardsLimitReached && !showCreateStandardForm}
                         >
                           {showCreateStandardForm ? 'Chiudi nuova norma' : 'Crea nuova norma'}
                         </Button>
@@ -673,11 +689,12 @@ export function GapEvaluationRow({
                         )}
                         <Button
                           type="button"
-                          tone="success"
-                          size="sm"
-                          loading={savingNewStandard}
-                          onClick={onCreateStandard}
-                        >
+                      tone="success"
+                      size="sm"
+                      loading={savingNewStandard}
+                      onClick={onCreateStandard}
+                      disabled={standardsLimitReached}
+                    >
                           Crea e collega norma
                         </Button>
                       </div>
@@ -700,6 +717,7 @@ export function GapEvaluationRow({
                       size="sm"
                       loading={savingStandards}
                       onClick={onSaveStandards}
+                      disabled={standardDraftLinks.length > GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT}
                     >
                       Salva norme
                     </Button>

@@ -27,6 +27,12 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
+import {
+  GAP_STANDARDS_HARD_LIMIT,
+  GAP_STANDARDS_WARNING,
+  isGapHardLimitReached,
+  isGapWarningLimitReached,
+} from '../../lib/gapLimits'
 
 interface StandardFormState {
   code: string
@@ -93,6 +99,8 @@ export default function GapStandards() {
   const [showForm, setShowForm] = useState(false)
   const [editingStandard, setEditingStandard] = useState<GapStandard | null>(null)
   const [form, setForm] = useState<StandardFormState>(emptyForm)
+  const standardsWarning = isGapWarningLimitReached(standards.length, GAP_STANDARDS_WARNING)
+  const standardsBlocked = isGapHardLimitReached(standards.length, GAP_STANDARDS_HARD_LIMIT)
 
   useEffect(() => {
     if (!user?.id) return
@@ -176,6 +184,13 @@ export default function GapStandards() {
   }
 
   const startCreate = () => {
+    if (standardsBlocked) {
+      setError(
+        `Il catalogo contiene giÃ  ${standards.length} norme. Per mantenere prestazioni fluide, riorganizza o rimuovi riferimenti non piÃ¹ necessari prima di crearne altri.`,
+      )
+      return
+    }
+
     setForm(emptyForm)
     setEditingStandard(null)
     setShowForm(true)
@@ -204,6 +219,13 @@ export default function GapStandards() {
 
     if (!form.code.trim() || !form.name.trim()) {
       setError('Codice e nome sono obbligatori.')
+      return
+    }
+
+    if (!editingStandard && standardsBlocked) {
+      setError(
+        `Il catalogo contiene giÃ  ${standards.length} norme. Per mantenere prestazioni fluide, riorganizza o rimuovi riferimenti non piÃ¹ necessari prima di crearne altri.`,
+      )
       return
     }
 
@@ -332,6 +354,7 @@ export default function GapStandards() {
             size="lg"
             icon={<Plus className="h-5 w-5" />}
             onClick={startCreate}
+            disabled={standardsBlocked}
             className="min-w-[180px] shadow-clinical"
           >
             Nuova norma
@@ -342,6 +365,16 @@ export default function GapStandards() {
       {error && (
         <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {standardsWarning && (
+        <div className={`mb-6 rounded-xl border p-4 text-sm ${
+          standardsBlocked
+            ? 'border-red-100 bg-red-50 text-red-700'
+            : 'border-amber-100 bg-amber-50 text-amber-800'
+        }`}>
+          Il catalogo contiene {standards.length} norme. Per mantenere prestazioni fluide, conserva in catalogo solo i riferimenti realmente utili e riutilizzabili.
         </div>
       )}
 
