@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AlertCircle, ArrowLeft, BookMarked, ChevronDown, ChevronRight, ClipboardList, Edit3, Info, Layers3, Map, Plus, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -8,8 +8,8 @@ import {
   createGapStandard,
   deleteGapArea,
   deleteGapActivity,
-  getGapActivityStandardsByActivity,
-  getGapActivitiesByArea,
+  getGapActivityStandardsForActivities,
+  getGapActivitiesByAreas,
   getGapAreasByProcess,
   getGapProcessById,
   getGapStandards,
@@ -62,9 +62,13 @@ interface StandardFormState {
   name: string
   version: string
   issuing_body: string
+  application_scope: string
+  is_mandatory: boolean
   description: string
   url: string
 }
+
+type StandardMandatoryFilter = 'all' | 'mandatory' | 'optional'
 
 const emptyActivityForm: ActivityFormState = {
   code: '',
@@ -79,6 +83,8 @@ const emptyStandardForm: StandardFormState = {
   name: '',
   version: '',
   issuing_body: '',
+  application_scope: '',
+  is_mandatory: false,
   description: '',
   url: '',
 }
@@ -182,6 +188,9 @@ export default function GapProcessDetail() {
   const [showCreateStandardForm, setShowCreateStandardForm] = useState(false)
   const [newStandardForm, setNewStandardForm] = useState<StandardFormState>(emptyStandardForm)
   const [savingNewStandard, setSavingNewStandard] = useState(false)
+  const [standardSearch, setStandardSearch] = useState('')
+  const [standardMandatoryFilter, setStandardMandatoryFilter] = useState<StandardMandatoryFilter>('all')
+  const [standardScopeFilter, setStandardScopeFilter] = useState('all')
   const [expandedAreaId, setExpandedAreaId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -197,19 +206,35 @@ export default function GapProcessDetail() {
           getGapAreasByProcess(id, user.id),
           getGapStandards(user.id),
         ])
-        const activityEntries = await Promise.all(
-          areasData.map(async (area) => {
-            const activities = await getGapActivitiesByArea(area.id, user.id)
-            return [area.id, sortActivities(activities)] as const
-          }),
-        )
+        const areaIds = areasData.map((area) => area.id)
+        const batchedActivities = await getGapActivitiesByAreas(areaIds, user.id)
+        const batchedActivitiesByArea = batchedActivities.reduce<Record<string, GapActivity[]>>((acc, activity) => {
+          if (!acc[activity.area_id]) {
+            acc[activity.area_id] = []
+          }
+          acc[activity.area_id].push(activity)
+          return acc
+        }, {})
+        const activityEntries = areasData.map((area) => [
+          area.id,
+          sortActivities(batchedActivitiesByArea[area.id] || []),
+        ] as const)
         const activities = activityEntries.flatMap(([, areaActivities]) => areaActivities)
-        const activityStandardEntries = await Promise.all(
-          activities.map(async (activity) => {
-            const links = await getGapActivityStandardsByActivity(activity.id, user.id)
-            return [activity.id, links] as const
-          }),
+        const activityStandardLinks = await getGapActivityStandardsForActivities(
+          activities.map((activity) => activity.id),
+          user.id,
         )
+        const standardLinksByActivity = activityStandardLinks.reduce<Record<string, GapActivityStandard[]>>((acc, link) => {
+          if (!acc[link.activity_id]) {
+            acc[link.activity_id] = []
+          }
+          acc[link.activity_id].push(link)
+          return acc
+        }, {})
+        const activityStandardEntries = activities.map((activity) => [
+          activity.id,
+          standardLinksByActivity[activity.id] || [],
+        ] as const)
 
         setProcess(processData)
         setAreas(areasData)
@@ -226,6 +251,55 @@ export default function GapProcessDetail() {
 
     fetchProcessData()
   }, [id, user?.id])
+
+  const standardScopes = useMemo(() => {
+    const scopes = standards
+      .map((standard) => standard.application_scope?.trim())
+      .filter((scope): scope is string => Boolean(scope))
+
+    return [...new Set(scopes)].sort((a, b) => a.localeCompare(b, 'it'))
+  }, [standards])
+  const selectedStandardIds = useMemo(
+    () => new Set(standardDraftLinks.map((link) => link.standard_id)),
+    [standardDraftLinks],
+  )
+  const selectedStandards = useMemo(
+    () => standards.filter((standard) => selectedStandardIds.has(standard.id)),
+    [selectedStandardIds, standards],
+  )
+  const filteredStandards = useMemo(() => {
+    const normalizedSearch = standardSearch.trim().toLowerCase()
+
+    return standards
+      .filter((standard) => {
+        const searchableText = [
+          standard.code,
+          standard.name,
+          standard.issuing_body,
+          standard.application_scope,
+          standard.description,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        const matchesSearch = normalizedSearch.length === 0 || searchableText.includes(normalizedSearch)
+        const matchesMandatory =
+          standardMandatoryFilter === 'all' ||
+          (standardMandatoryFilter === 'mandatory' && standard.is_mandatory) ||
+          (standardMandatoryFilter === 'optional' && !standard.is_mandatory)
+        const matchesScope =
+          standardScopeFilter === 'all' || standard.application_scope === standardScopeFilter
+
+        return matchesSearch && matchesMandatory && matchesScope && !selectedStandardIds.has(standard.id)
+      })
+      .sort((a, b) => a.code.localeCompare(b.code, 'it') || a.name.localeCompare(b.name, 'it'))
+  }, [
+    selectedStandardIds,
+    standardMandatoryFilter,
+    standardScopeFilter,
+    standardSearch,
+    standards,
+  ])
 
   const resetForm = () => {
     setForm(emptyForm)
@@ -253,6 +327,9 @@ export default function GapProcessDetail() {
     setStandardDraftLinks([])
     setShowCreateStandardForm(false)
     setNewStandardForm(emptyStandardForm)
+    setStandardSearch('')
+    setStandardMandatoryFilter('all')
+    setStandardScopeFilter('all')
     setError(null)
   }
 
@@ -490,10 +567,6 @@ export default function GapProcessDetail() {
     }
   }
 
-  const isStandardSelected = (standardId: string) => {
-    return standardDraftLinks.some((link) => link.standard_id === standardId)
-  }
-
   const toggleStandardDraftLink = (standardId: string) => {
     setStandardDraftLinks((current) => {
       if (current.some((link) => link.standard_id === standardId)) {
@@ -511,6 +584,65 @@ export default function GapProcessDetail() {
           ? { ...link, specific_reference: specificReference }
           : link,
       ),
+    )
+  }
+
+  const renderStandardSelectorCard = (standard: GapStandard) => {
+    const selected = selectedStandardIds.has(standard.id)
+    const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
+
+    return (
+      <div
+        key={standard.id}
+        className="rounded-lg border border-slate-200 bg-white p-3"
+      >
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => toggleStandardDraftLink(standard.id)}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-slate-900">
+              {standard.code} - {standard.name}
+            </span>
+            <span className="mt-1 block text-xs text-slate-500">
+              {standard.issuing_body || 'Ente non specificato'}
+              {standard.version ? ` - Versione ${standard.version}` : ''}
+            </span>
+            <span className="mt-2 flex flex-wrap gap-1.5">
+              {standard.is_mandatory && (
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-100">
+                  Cogente
+                </span>
+              )}
+              {standard.application_scope && (
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-sky-100">
+                  {standard.application_scope}
+                </span>
+              )}
+            </span>
+          </span>
+        </label>
+
+        {selected && (
+          <label className="mt-3 block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Riferimento specifico
+            </span>
+            <input
+              type="text"
+              value={draftLink?.specific_reference || ''}
+              onChange={(event) =>
+                updateStandardDraftReference(standard.id, event.target.value)
+              }
+              className="clinical-input py-2 text-sm"
+              placeholder="Es. paragrafo, requisito, procedura interna"
+            />
+          </label>
+        )}
+      </div>
     )
   }
 
@@ -560,6 +692,8 @@ export default function GapProcessDetail() {
         name,
         version: toNullable(newStandardForm.version),
         issuing_body: toNullable(newStandardForm.issuing_body),
+        application_scope: toNullable(newStandardForm.application_scope),
+        is_mandatory: newStandardForm.is_mandatory,
         description: toNullable(newStandardForm.description),
         url: toNullable(newStandardForm.url),
       }
@@ -1127,6 +1261,18 @@ export default function GapProcessDetail() {
                                                 Rif.: {link.specific_reference}
                                               </span>
                                             )}
+                                            <span className="mt-1 flex flex-wrap gap-1.5">
+                                              {link.standard?.is_mandatory && (
+                                                <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800 ring-1 ring-amber-100">
+                                                  Cogente
+                                                </span>
+                                              )}
+                                              {link.standard?.application_scope && (
+                                                <span className="rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700 ring-1 ring-sky-100">
+                                                  {link.standard.application_scope}
+                                                </span>
+                                              )}
+                                            </span>
                                           </span>
                                         ))}
                                       </div>
@@ -1170,52 +1316,58 @@ export default function GapProcessDetail() {
                                             </Button>
                                           </div>
 
-                                        {standards.map((standard) => {
-                                          const selected = isStandardSelected(standard.id)
-                                          const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
-
-                                          return (
-                                            <div
-                                              key={standard.id}
-                                              className="rounded-lg border border-slate-200 bg-white p-3"
+                                          <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_180px_180px]">
+                                            <input
+                                              type="text"
+                                              value={standardSearch}
+                                              onChange={(event) => setStandardSearch(event.target.value)}
+                                              className="clinical-input py-2 text-sm"
+                                              placeholder="Cerca per codice, nome, ente, ambito..."
+                                            />
+                                            <select
+                                              value={standardMandatoryFilter}
+                                              onChange={(event) => setStandardMandatoryFilter(event.target.value as StandardMandatoryFilter)}
+                                              className="clinical-input py-2 text-sm"
                                             >
-                                              <label className="flex items-start gap-3">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={selected}
-                                                  onChange={() => toggleStandardDraftLink(standard.id)}
-                                                  className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
-                                                />
-                                                <span className="min-w-0 flex-1">
-                                                  <span className="block text-sm font-semibold text-slate-900">
-                                                    {standard.code} - {standard.name}
-                                                  </span>
-                                                  <span className="mt-1 block text-xs text-slate-500">
-                                                    {standard.issuing_body || 'Ente non specificato'}
-                                                    {standard.version ? ` - Versione ${standard.version}` : ''}
-                                                  </span>
-                                                </span>
-                                              </label>
+                                              <option value="all">Tutte</option>
+                                              <option value="mandatory">Solo cogenti</option>
+                                              <option value="optional">Solo non cogenti</option>
+                                            </select>
+                                            <select
+                                              value={standardScopeFilter}
+                                              onChange={(event) => setStandardScopeFilter(event.target.value)}
+                                              className="clinical-input py-2 text-sm"
+                                            >
+                                              <option value="all">Tutti gli ambiti</option>
+                                              {standardScopes.map((scope) => (
+                                                <option key={scope} value={scope}>
+                                                  {scope}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
 
-                                              {selected && (
-                                                <label className="mt-3 block">
-                                                  <span className="mb-1 block text-xs font-medium text-slate-600">
-                                                    Riferimento specifico
-                                                  </span>
-                                                  <input
-                                                    type="text"
-                                                    value={draftLink?.specific_reference || ''}
-                                                    onChange={(event) =>
-                                                      updateStandardDraftReference(standard.id, event.target.value)
-                                                    }
-                                                    className="clinical-input py-2 text-sm"
-                                                    placeholder="Es. paragrafo, requisito, procedura interna"
-                                                  />
-                                                </label>
-                                              )}
+                                          {selectedStandards.length > 0 && (
+                                            <div className="space-y-2 rounded-lg border border-teal-100 bg-teal-50/50 p-3">
+                                              <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
+                                                Norme selezionate
+                                              </p>
+                                              {selectedStandards.map(renderStandardSelectorCard)}
                                             </div>
-                                          )
-                                        })}
+                                          )}
+
+                                          <div className="space-y-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                              Risultati ricerca
+                                            </p>
+                                            {filteredStandards.length === 0 ? (
+                                              <div className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+                                                Nessuna norma corrisponde alla ricerca o ai filtri selezionati.
+                                              </div>
+                                            ) : (
+                                              filteredStandards.map(renderStandardSelectorCard)
+                                            )}
+                                          </div>
                                         </div>
                                       )}
 
@@ -1273,6 +1425,27 @@ export default function GapProcessDetail() {
                                                 className="clinical-input py-2 text-sm"
                                                 placeholder="Es. Ministero, ISO, Regione"
                                               />
+                                            </label>
+
+                                            <label className="block">
+                                              <span className="mb-1 block text-xs font-medium text-slate-600">Ambito di applicazione</span>
+                                              <input
+                                                type="text"
+                                                value={newStandardForm.application_scope}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, application_scope: event.target.value }))}
+                                                className="clinical-input py-2 text-sm"
+                                                placeholder="Es. Allestimento, Sperimentazioni"
+                                              />
+                                            </label>
+
+                                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                              <input
+                                                type="checkbox"
+                                                checked={newStandardForm.is_mandatory}
+                                                onChange={(event) => setNewStandardForm((current) => ({ ...current, is_mandatory: event.target.checked }))}
+                                                className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                                              />
+                                              <span className="text-xs font-medium text-slate-700">Norma cogente</span>
                                             </label>
 
                                             <label className="block md:col-span-2">
