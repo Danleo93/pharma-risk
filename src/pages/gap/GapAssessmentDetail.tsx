@@ -25,6 +25,7 @@ import {
   getGapAssessmentById,
   getGapAssessmentProcessesWithStructure,
   getGapActivityStandardsForActivities,
+  getGapActionRefsByAssessment,
   getGapActionsByAssessment,
   getGapEvaluationsByAssessment,
   getGapStandards,
@@ -33,6 +34,7 @@ import {
   updateGapAssessmentStatus,
   updateGapAssessmentStats,
   type GapActivityStandardLinkInput,
+  type GapActionRef,
   type GapStandardInput,
   type GapAreaWithActivities,
   type GapProcessWithStructure,
@@ -104,6 +106,9 @@ interface StandardFormState {
   name: string
   version: string
   issuing_body: string
+  application_scope: string
+  is_mandatory: boolean
+  add_to_library: boolean
   description: string
   url: string
 }
@@ -112,7 +117,7 @@ type StandardsByActivityId = Record<string, GapActivityStandard[]>
 
 type DetailTab = 'evaluation' | 'findings' | 'actions' | 'report'
 type ActionCreateRequest = { evaluationId: string; requestId: number }
-type EvaluationQuickFilter = 'all' | 'not_evaluated' | 'with_gap' | 'high_priority' | 'non_compliant'
+type EvaluationQuickFilter = 'all' | 'not_evaluated' | 'with_gap' | 'high_priority' | 'non_compliant' | 'mandatory_standards'
 type FindingComplianceFilter = 'all' | 'non_compliant' | 'partially_compliant'
 type FindingPriorityFilter = 'all' | RiskPriority
 
@@ -123,6 +128,9 @@ const emptyStandardForm: StandardFormState = {
   name: '',
   version: '',
   issuing_body: '',
+  application_scope: '',
+  is_mandatory: false,
+  add_to_library: true,
   description: '',
   url: '',
 }
@@ -133,6 +141,7 @@ const evaluationQuickFilters: Array<{ value: EvaluationQuickFilter; label: strin
   { value: 'with_gap', label: 'Con gap' },
   { value: 'high_priority', label: 'Alta priorità' },
   { value: 'non_compliant', label: 'Non conformi' },
+  { value: 'mandatory_standards', label: 'Con norme cogenti' },
 ]
 
 const priorityOrder: Record<RiskPriority, number> = {
@@ -242,7 +251,12 @@ export default function GapAssessmentDetail() {
   const [evaluations, setEvaluations] = useState<GapActivityEvaluation[]>([])
   const [assessmentProcesses, setAssessmentProcesses] = useState<GapProcessWithStructure[]>([])
   const [gapActions, setGapActions] = useState<GapAction[]>([])
+  const [actionRefs, setActionRefs] = useState<GapActionRef[]>([])
+  const [actionsLoaded, setActionsLoaded] = useState(false)
+  const [loadingActions, setLoadingActions] = useState(false)
   const [standards, setStandards] = useState<GapStandard[]>([])
+  const [standardsCatalogLoaded, setStandardsCatalogLoaded] = useState(false)
+  const [loadingStandardsCatalog, setLoadingStandardsCatalog] = useState(false)
   const [standardsByActivityId, setStandardsByActivityId] = useState<StandardsByActivityId>({})
   const [drafts, setDrafts] = useState<Record<string, EvaluationDraft>>({})
   const [loading, setLoading] = useState(true)
@@ -252,6 +266,7 @@ export default function GapAssessmentDetail() {
   const [deletingEvaluationId, setDeletingEvaluationId] = useState<string | null>(null)
   const [exportingPDF, setExportingPDF] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
+  const [renderPdfCapture, setRenderPdfCapture] = useState(false)
   const [activeTab, setActiveTab] = useState<DetailTab>('evaluation')
   const [actionCreateRequest, setActionCreateRequest] = useState<ActionCreateRequest | null>(null)
   const [evaluationQuickFilter, setEvaluationQuickFilter] = useState<EvaluationQuickFilter>('all')
@@ -293,12 +308,11 @@ export default function GapAssessmentDetail() {
       setError(null)
 
       try {
-        const [assessmentData, evaluationData, actionsData, processData, standardsData] = await Promise.all([
+        const [assessmentData, evaluationData, actionRefsData, processData] = await Promise.all([
           getGapAssessmentById(id, user.id),
           getGapEvaluationsByAssessment(id, user.id),
-          getGapActionsByAssessment(id, user.id),
+          getGapActionRefsByAssessment(id, user.id),
           getGapAssessmentProcessesWithStructure(id, user.id),
-          getGapStandards(user.id),
         ])
 
         if (!active) return
@@ -309,8 +323,13 @@ export default function GapAssessmentDetail() {
         setSelectedProcessForDomain(processData[0]?.id || '')
         setSelectedProcessForActivity(processData[0]?.id || '')
         setSelectedAreaForActivity(processData[0]?.areas[0]?.id || '')
-        setGapActions(actionsData)
-        setStandards(standardsData)
+        setGapActions([])
+        setActionRefs(actionRefsData)
+        setActionsLoaded(false)
+        setLoadingActions(false)
+        setStandards([])
+        setStandardsCatalogLoaded(false)
+        setLoadingStandardsCatalog(false)
         setStandardsByActivityId({})
         setEditingStandardsEvaluationId(null)
         setStandardDraftLinks([])
@@ -348,6 +367,59 @@ export default function GapAssessmentDetail() {
     }
   }, [id, user?.id])
 
+  const ensureActionsLoaded = async (): Promise<GapAction[]> => {
+    if (actionsLoaded) return gapActions
+    if (!id || !user?.id) return []
+
+    setLoadingActions(true)
+    setError(null)
+
+    try {
+      const actionsData = await getGapActionsByAssessment(id, user.id)
+      setGapActions(actionsData)
+      setActionRefs(actionsData.map((action) => ({
+        id: action.id,
+        evaluation_id: action.evaluation_id,
+      })))
+      setActionsLoaded(true)
+      return actionsData
+    } catch (loadError) {
+      console.error('Errore caricamento azioni Gap:', loadError)
+      setError('Impossibile caricare le azioni correttive Gap.')
+      throw loadError
+    } finally {
+      setLoadingActions(false)
+    }
+  }
+
+  const ensureStandardsCatalogLoaded = async (): Promise<GapStandard[]> => {
+    if (standardsCatalogLoaded) return standards
+    if (!user?.id) return []
+
+    setLoadingStandardsCatalog(true)
+    setError(null)
+
+    try {
+      const standardsData = await getGapStandards(user.id)
+      setStandards(standardsData)
+      setStandardsCatalogLoaded(true)
+      return standardsData
+    } catch (loadError) {
+      console.error('Errore caricamento catalogo norme Gap:', loadError)
+      setError('Impossibile caricare il catalogo norme Gap.')
+      throw loadError
+    } finally {
+      setLoadingStandardsCatalog(false)
+    }
+  }
+
+  const changeTab = (nextTab: DetailTab) => {
+    setActiveTab(nextTab)
+    if (nextTab === 'actions' || nextTab === 'report') {
+      void ensureActionsLoaded().catch(() => undefined)
+    }
+  }
+
   const stats = useMemo(() => aggregateAssessmentStats(evaluations), [evaluations])
   const filteredEvaluations = useMemo(() => {
     return evaluations.filter((evaluation) => {
@@ -360,12 +432,16 @@ export default function GapAssessmentDetail() {
           return evaluation.risk_priority === 'high'
         case 'with_gap':
           return Boolean(evaluation.gap_description?.trim())
+        case 'mandatory_standards':
+          return Boolean(
+            standardsByActivityId[evaluation.activity_id]?.some((link) => link.standard?.is_mandatory),
+          )
         case 'all':
         default:
           return true
       }
     })
-  }, [evaluationQuickFilter, evaluations])
+  }, [evaluationQuickFilter, evaluations, standardsByActivityId])
   const groupedEvaluations = useMemo(() => groupEvaluations(filteredEvaluations), [filteredEvaluations])
   const gapFindings = useMemo(() => {
     return evaluations
@@ -417,11 +493,13 @@ export default function GapAssessmentDetail() {
     gapFindings,
   ])
   const actionCountByEvaluationId = useMemo(() => {
-    return gapActions.reduce<Record<string, number>>((acc, action) => ({
+    const actionSource = actionsLoaded ? gapActions : actionRefs
+
+    return actionSource.reduce<Record<string, number>>((acc, action) => ({
       ...acc,
       [action.evaluation_id]: (acc[action.evaluation_id] || 0) + 1,
     }), {})
-  }, [gapActions])
+  }, [actionRefs, actionsLoaded, gapActions])
   const selectedActivityProcess = useMemo(() => {
     return assessmentProcesses.find((process) => process.id === selectedProcessForActivity) || null
   }, [assessmentProcesses, selectedProcessForActivity])
@@ -468,7 +546,13 @@ export default function GapAssessmentDetail() {
     setError(null)
   }
 
-  const startEditStandards = (evaluation: GapActivityEvaluation) => {
+  const startEditStandards = async (evaluation: GapActivityEvaluation) => {
+    try {
+      await ensureStandardsCatalogLoaded()
+    } catch {
+      return
+    }
+
     const existingLinks = standardsByActivityId[evaluation.activity_id] || []
 
     setExpandedEvaluationId(evaluation.id)
@@ -532,6 +616,7 @@ export default function GapAssessmentDetail() {
 
   const createStandardAndLinkToActivity = async (evaluation: GapActivityEvaluation) => {
     if (!user?.id) return
+    if (!assessment?.id) return
 
     const code = newStandardForm.code.trim()
     const name = newStandardForm.name.trim()
@@ -550,8 +635,12 @@ export default function GapAssessmentDetail() {
         name,
         version: toNullable(newStandardForm.version),
         issuing_body: toNullable(newStandardForm.issuing_body),
+        application_scope: toNullable(newStandardForm.application_scope),
+        is_mandatory: newStandardForm.is_mandatory,
         description: toNullable(newStandardForm.description),
         url: toNullable(newStandardForm.url),
+        source_type: newStandardForm.add_to_library ? 'library' : 'assessment_only',
+        created_in_assessment_id: newStandardForm.add_to_library ? null : assessment?.id || null,
       }
       const createdStandard = await createGapStandard(user.id, payload)
       const nextDraftLinks = [
@@ -567,9 +656,12 @@ export default function GapAssessmentDetail() {
         })),
       )
 
-      setStandards((current) => [...current, createdStandard].sort((a, b) =>
-        a.code.localeCompare(b.code) || a.name.localeCompare(b.name),
-      ))
+      if (newStandardForm.add_to_library) {
+        setStandards((current) => [...current, createdStandard].sort((a, b) =>
+          a.code.localeCompare(b.code) || a.name.localeCompare(b.name),
+        ))
+      }
+      setStandardsCatalogLoaded(true)
       setStandardDraftLinks(
         updatedLinks.map((link) => ({
           standard_id: link.standard_id,
@@ -808,6 +900,7 @@ export default function GapAssessmentDetail() {
 
       setEvaluations(nextEvaluations)
       setGapActions((current) => current.filter((action) => action.evaluation_id !== evaluation.id))
+      setActionRefs((current) => current.filter((action) => action.evaluation_id !== evaluation.id))
       setDrafts((current) => {
         const next = { ...current }
         delete next[evaluation.id]
@@ -848,17 +941,18 @@ export default function GapAssessmentDetail() {
     }
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!assessment) return
 
     setExportingExcel(true)
     setError(null)
 
     try {
+      const actionsForExport = await ensureActionsLoaded()
       exportGapAssessmentToExcel({
         assessment,
         evaluations,
-        actions: gapActions,
+        actions: actionsForExport,
         standardsByActivityId,
         targetStateByActivityId,
       })
@@ -872,7 +966,9 @@ export default function GapAssessmentDetail() {
 
   const captureReportChartImages = async (): Promise<GapAssessmentPDFChartImages> => {
     await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve())
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve())
+      })
     })
 
     const capture = async (element: HTMLElement | null, label: string) => {
@@ -917,11 +1013,13 @@ export default function GapAssessmentDetail() {
     setError(null)
 
     try {
+      const actionsForExport = await ensureActionsLoaded()
+      setRenderPdfCapture(true)
       const chartImages = await captureReportChartImages()
       exportGapAssessmentToPDF({
         assessment,
         evaluations,
-        actions: gapActions,
+        actions: actionsForExport,
         standardsByActivityId,
         targetStateByActivityId,
         chartImages,
@@ -930,11 +1028,12 @@ export default function GapAssessmentDetail() {
       console.error('Errore export PDF Gap:', exportError)
       setError('Impossibile esportare il file PDF Gap. Riprova tra qualche istante.')
     } finally {
+      setRenderPdfCapture(false)
       setExportingPDF(false)
     }
   }
 
-  const openActionFormForEvaluation = (evaluation: GapActivityEvaluation) => {
+  const openActionFormForEvaluation = async (evaluation: GapActivityEvaluation) => {
     if (!findingStatuses.includes(evaluation.compliance_status)) {
       setError('Le azioni correttive possono essere create solo da valutazioni non conformi o parzialmente conformi.')
       return
@@ -942,6 +1041,7 @@ export default function GapAssessmentDetail() {
 
     setError(null)
     setActiveTab('actions')
+    void ensureActionsLoaded().catch(() => undefined)
     setExpandedEvaluationId(null)
     setActionCreateRequest((current) => ({
       evaluationId: evaluation.id,
@@ -1316,7 +1416,7 @@ export default function GapAssessmentDetail() {
       <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
         <button
           type="button"
-          onClick={() => setActiveTab('evaluation')}
+          onClick={() => changeTab('evaluation')}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
             activeTab === 'evaluation'
               ? 'bg-teal-50 text-teal-700 ring-1 ring-teal-200'
@@ -1327,7 +1427,7 @@ export default function GapAssessmentDetail() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('findings')}
+          onClick={() => changeTab('findings')}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
             activeTab === 'findings'
               ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
@@ -1341,7 +1441,7 @@ export default function GapAssessmentDetail() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('actions')}
+          onClick={() => changeTab('actions')}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
             activeTab === 'actions'
               ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
@@ -1350,12 +1450,12 @@ export default function GapAssessmentDetail() {
         >
           Azioni correttive
           <span className="ml-2 rounded-full bg-white/80 px-2 py-0.5 text-xs">
-            {gapActions.length}
+            {actionsLoaded ? gapActions.length : actionRefs.length}
           </span>
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('report')}
+          onClick={() => changeTab('report')}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
             activeTab === 'report'
               ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200'
@@ -1470,7 +1570,7 @@ export default function GapAssessmentDetail() {
                             standardsCatalog={standards}
                             standardsEditorOpen={editingStandardsEvaluationId === evaluation.id}
                             standardDraftLinks={standardDraftLinks}
-                            savingStandards={savingStandards}
+                            savingStandards={savingStandards || loadingStandardsCatalog}
                             showCreateStandardForm={showCreateStandardForm}
                             newStandardForm={newStandardForm}
                             savingNewStandard={savingNewStandard}
@@ -1484,7 +1584,7 @@ export default function GapAssessmentDetail() {
                             onManageStandards={() => (
                               editingStandardsEvaluationId === evaluation.id
                                 ? resetStandardEditor()
-                                : startEditStandards(evaluation)
+                                : void startEditStandards(evaluation)
                             )}
                             onCancelStandards={resetStandardEditor}
                             onToggleStandard={toggleStandardDraftLink}
@@ -1769,39 +1869,65 @@ export default function GapAssessmentDetail() {
       )}
 
       {activeTab === 'actions' && user?.id && (
-        <GapActionPlanTab
-          assessment={assessment}
-          evaluations={gapFindings}
-          actions={gapActions}
-          userId={user.id}
-          createRequest={actionCreateRequest}
-          onActionsChange={setGapActions}
-        />
+        loadingActions && !actionsLoaded ? (
+          <Card>
+            <CardContent className="flex items-center gap-3 p-6 text-sm text-slate-600">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
+              Caricamento azioni correttive...
+            </CardContent>
+          </Card>
+        ) : (
+          <GapActionPlanTab
+            assessment={assessment}
+            evaluations={gapFindings}
+            actions={gapActions}
+            userId={user.id}
+            createRequest={actionCreateRequest}
+            onActionsChange={(nextActions) => {
+              setGapActions(nextActions)
+              setActionRefs(nextActions.map((action) => ({
+                id: action.id,
+                evaluation_id: action.evaluation_id,
+              })))
+            }}
+          />
+        )
       )}
 
       {activeTab === 'report' && (
-        <GapAssessmentStatsReport
-          assessment={assessment}
-          evaluations={evaluations}
-          actions={gapActions}
-          standardsByActivityId={standardsByActivityId}
-          targetStateByActivityId={targetStateByActivityId}
-        />
+        loadingActions && !actionsLoaded ? (
+          <Card>
+            <CardContent className="flex items-center gap-3 p-6 text-sm text-slate-600">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-sky-600 border-t-transparent" />
+              Caricamento dati azioni per statistiche e report...
+            </CardContent>
+          </Card>
+        ) : (
+          <GapAssessmentStatsReport
+            assessment={assessment}
+            evaluations={evaluations}
+            actions={gapActions}
+            standardsByActivityId={standardsByActivityId}
+            targetStateByActivityId={targetStateByActivityId}
+          />
+        )
       )}
 
-      <div
-        className="pointer-events-none fixed -left-[10000px] top-0 w-[1180px] bg-white p-6"
-        aria-hidden="true"
-      >
-        <GapAssessmentStatsReport
-          assessment={assessment}
-          evaluations={evaluations}
-          actions={gapActions}
-          standardsByActivityId={standardsByActivityId}
-          targetStateByActivityId={targetStateByActivityId}
-          chartRefs={pdfChartRefs}
-        />
-      </div>
+      {renderPdfCapture && (
+        <div
+          className="pointer-events-none fixed -left-[10000px] top-0 w-[1180px] bg-white p-6"
+          aria-hidden="true"
+        >
+          <GapAssessmentStatsReport
+            assessment={assessment}
+            evaluations={evaluations}
+            actions={gapActions}
+            standardsByActivityId={standardsByActivityId}
+            targetStateByActivityId={targetStateByActivityId}
+            chartRefs={pdfChartRefs}
+          />
+        </div>
+      )}
 
     </div>
   )

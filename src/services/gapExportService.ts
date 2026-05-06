@@ -74,6 +74,10 @@ const getPhaseLabel = (phase: string | null | undefined) => {
   return GAP_ACTION_PHASE_OPTIONS.find((option) => option.value === phase)?.label || phase
 }
 
+const getStandardOriginLabel = (sourceType: string | null | undefined) => (
+  sourceType === 'assessment_only' ? 'Solo assessment' : 'Libreria'
+)
+
 const appendSheet = (workbook: XLSX.WorkBook, name: string, rows: unknown[][], widths: number[]) => {
   const sheet = XLSX.utils.aoa_to_sheet(rows)
   sheet['!cols'] = widths.map((wch) => ({ wch }))
@@ -361,9 +365,17 @@ export const exportGapAssessmentToExcel = ({
       'Data valutazione',
       'Azioni collegate',
       'Norme collegate',
+      'Norme cogenti',
+      'Ambiti norme',
     ],
     ...evaluations.map((evaluation) => {
       const linkedStandards = standardsByActivityId[evaluation.activity_id] || []
+      const mandatoryStandards = linkedStandards.filter((link) => link.standard?.is_mandatory)
+      const standardScopes = Array.from(new Set(
+        linkedStandards
+          .map((link) => link.standard?.application_scope)
+          .filter((value): value is string => Boolean(value)),
+      ))
       return [
         safeValue(evaluation.process_name_snapshot),
         safeValue(evaluation.area_name_snapshot),
@@ -379,9 +391,11 @@ export const exportGapAssessmentToExcel = ({
         formatDateTime(evaluation.evaluated_at),
         actionsByEvaluationId[evaluation.id]?.length || 0,
         linkedStandards.length,
+        mandatoryStandards.length,
+        standardScopes.length > 0 ? standardScopes.join(', ') : 'N/D',
       ]
     }),
-  ], [26, 26, 18, 34, 45, 45, 45, 24, 18, 38, 20, 22, 16, 16])
+  ], [26, 26, 18, 34, 45, 45, 45, 24, 18, 38, 20, 22, 16, 16, 16, 28])
 
   appendSheet(workbook, 'Gap rilevati', [
     [
@@ -473,6 +487,9 @@ export const exportGapAssessmentToExcel = ({
       safeValue(evaluation?.activity_name_snapshot),
       safeValue(link.standard?.code),
       safeValue(link.standard?.name),
+      link.standard?.is_mandatory ? 'Sì' : 'No',
+      safeValue(link.standard?.application_scope),
+      getStandardOriginLabel(link.standard?.source_type),
       safeValue(link.standard?.version),
       safeValue(link.standard?.issuing_body),
       safeValue(link.specific_reference),
@@ -488,13 +505,16 @@ export const exportGapAssessmentToExcel = ({
       'Attività/Requisito',
       'Codice norma',
       'Nome norma',
+      'Cogente',
+      'Ambito di applicazione',
+      'Origine',
       'Versione',
       'Ente emittente',
       'Riferimento specifico',
       'URL',
     ],
     ...standardsRows,
-  ], [26, 26, 18, 34, 18, 34, 16, 24, 34, 40])
+  ], [26, 26, 18, 34, 18, 34, 14, 28, 18, 16, 24, 34, 40])
 
   XLSX.writeFile(workbook, createFileName(assessment, 'xlsx'))
 }
@@ -769,6 +789,9 @@ export const exportGapAssessmentToPDF = ({
       safeValue(evaluation?.area_name_snapshot),
       safeValue(link.standard?.code),
       safeValue(link.standard?.name),
+      link.standard?.is_mandatory ? 'Sì' : 'No',
+      safeValue(link.standard?.application_scope),
+      getStandardOriginLabel(link.standard?.source_type),
       safeValue(link.standard?.version),
       safeValue(link.standard?.issuing_body),
       safeValue(link.specific_reference),
@@ -784,20 +807,26 @@ export const exportGapAssessmentToPDF = ({
     autoTable(doc, {
       startY: y,
       theme: 'striped',
-      head: [['Codice attività', 'Attività/Requisito', 'Dominio/Sezione', 'Codice norma', 'Norma', 'Versione', 'Ente', 'Riferimento', 'URL']],
-      body: standardsRows,
+      head: [['Codice attività', 'Attività/Requisito', 'Dominio/Sezione', 'Codice norma', 'Norma', 'Cogente', 'Ambito / Origine', 'Versione', 'Ente', 'Riferimento', 'URL']],
+      body: standardsRows.map((row) => [
+        ...row.slice(0, 6),
+        `${safeValue(row[6] as string)} / ${safeValue(row[7] as string)}`,
+        ...row.slice(8),
+      ]),
       styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', valign: 'top' },
       headStyles: { fillColor: [15, 118, 110], textColor: 255 },
       columnStyles: {
-        0: { cellWidth: 23 },
-        1: { cellWidth: 42 },
-        2: { cellWidth: 34 },
-        3: { cellWidth: 24 },
-        4: { cellWidth: 46 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 30 },
-        7: { cellWidth: 38 },
-        8: { cellWidth: 22 },
+        0: { cellWidth: 21 },
+        1: { cellWidth: 34 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 38 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 26 },
+        7: { cellWidth: 16 },
+        8: { cellWidth: 24 },
+        9: { cellWidth: 30 },
+        10: { cellWidth: 15 },
       },
       margin: { left: landscapeMargin, right: landscapeMargin, bottom: 18, top: 18 },
     })

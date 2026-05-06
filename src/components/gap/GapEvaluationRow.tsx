@@ -1,4 +1,5 @@
-import { BookMarked, ChevronDown, ClipboardCheck, ExternalLink, Plus, Save, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, BookMarked, ChevronDown, ClipboardCheck, ExternalLink, Plus, Save, Trash2 } from 'lucide-react'
 import type {
   ComplianceStatus,
   GapActivityEvaluation,
@@ -36,9 +37,14 @@ interface StandardFormState {
   name: string
   version: string
   issuing_body: string
+  application_scope: string
+  is_mandatory: boolean
+  add_to_library: boolean
   description: string
   url: string
 }
+
+type StandardMandatoryFilter = 'all' | 'mandatory' | 'optional'
 
 interface GapEvaluationRowProps {
   evaluation: GapActivityEvaluation
@@ -78,6 +84,10 @@ const formatDateTime = (value: string | null) => {
   return value ? new Date(value).toLocaleString('it-IT') : 'N/D'
 }
 
+const getStandardOriginLabel = (standard?: GapStandard | null) => (
+  standard?.source_type === 'assessment_only' ? 'Solo assessment' : 'Libreria'
+)
+
 function NormativeReferences({ standards }: { standards: GapActivityStandard[] }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
@@ -103,9 +113,25 @@ function NormativeReferences({ standards }: { standards: GapActivityStandard[] }
                       <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 ring-1 ring-teal-100">
                         {standard?.code || 'Norma'}
                       </span>
+                      {standard?.is_mandatory && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
+                          <AlertTriangle className="h-3 w-3" />
+                          Cogente
+                        </span>
+                      )}
+                      {standard?.application_scope && (
+                        <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-100">
+                          {standard.application_scope}
+                        </span>
+                      )}
                       {standard?.version && (
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
                           Versione {standard.version}
+                        </span>
+                      )}
+                      {standard && (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          {getStandardOriginLabel(standard)}
                         </span>
                       )}
                       {standard?.issuing_body && (
@@ -178,8 +204,127 @@ export function GapEvaluationRow({
   onCreateAction,
   onDelete,
 }: GapEvaluationRowProps) {
+  const [standardSearch, setStandardSearch] = useState('')
+  const [standardMandatoryFilter, setStandardMandatoryFilter] = useState<StandardMandatoryFilter>('all')
+  const [standardScopeFilter, setStandardScopeFilter] = useState('all')
   const hasGap = Boolean(evaluation.gap_description?.trim())
   const isFinding = evaluation.compliance_status === 'non_compliant' || evaluation.compliance_status === 'partially_compliant'
+  const mandatoryStandardsCount = standards.filter((link) => link.standard?.is_mandatory).length
+  const hasMandatoryStandards = mandatoryStandardsCount > 0
+  const selectedStandardIds = useMemo(
+    () => new Set(standardDraftLinks.map((link) => link.standard_id)),
+    [standardDraftLinks],
+  )
+  const allKnownStandards = useMemo(() => {
+    const byId = new Map<string, GapStandard>()
+    standardsCatalog.forEach((standard) => byId.set(standard.id, standard))
+    standards.forEach((link) => {
+      if (link.standard) byId.set(link.standard.id, link.standard)
+    })
+
+    return Array.from(byId.values())
+  }, [standards, standardsCatalog])
+  const standardScopes = useMemo(() => {
+    const scopes = standardsCatalog
+      .map((standard) => standard.application_scope?.trim())
+      .filter((scope): scope is string => Boolean(scope))
+
+    return [...new Set(scopes)].sort((a, b) => a.localeCompare(b, 'it'))
+  }, [standardsCatalog])
+  const selectedStandards = useMemo(
+    () => allKnownStandards.filter((standard) => selectedStandardIds.has(standard.id)),
+    [allKnownStandards, selectedStandardIds],
+  )
+  const filteredStandards = useMemo(() => {
+    const normalizedSearch = standardSearch.trim().toLowerCase()
+
+    return standardsCatalog
+      .filter((standard) => {
+        const searchableText = [
+          standard.code,
+          standard.name,
+          standard.issuing_body,
+          standard.application_scope,
+          standard.description,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        const matchesSearch = normalizedSearch.length === 0 || searchableText.includes(normalizedSearch)
+        const matchesMandatory =
+          standardMandatoryFilter === 'all' ||
+          (standardMandatoryFilter === 'mandatory' && standard.is_mandatory) ||
+          (standardMandatoryFilter === 'optional' && !standard.is_mandatory)
+        const matchesScope =
+          standardScopeFilter === 'all' || standard.application_scope === standardScopeFilter
+
+        return matchesSearch && matchesMandatory && matchesScope && !selectedStandardIds.has(standard.id)
+      })
+      .sort((a, b) => a.code.localeCompare(b.code, 'it') || a.name.localeCompare(b.name, 'it'))
+  }, [
+    selectedStandardIds,
+    standardMandatoryFilter,
+    standardScopeFilter,
+    standardSearch,
+    standardsCatalog,
+  ])
+
+  const renderStandardSelectorCard = (standard: GapStandard) => {
+    const selected = selectedStandardIds.has(standard.id)
+    const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
+
+    return (
+      <div key={standard.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleStandard(standard.id)}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-slate-900">
+              {standard.code} - {standard.name}
+            </span>
+            <span className="mt-1 block text-xs text-slate-500">
+              {standard.issuing_body || 'Ente non specificato'}
+              {standard.version ? ` - Versione ${standard.version}` : ''}
+            </span>
+            <span className="mt-2 flex flex-wrap gap-1.5">
+              {standard.is_mandatory && (
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-100">
+                  Cogente
+                </span>
+              )}
+              {standard.application_scope && (
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-sky-100">
+                  {standard.application_scope}
+                </span>
+              )}
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                {getStandardOriginLabel(standard)}
+              </span>
+            </span>
+          </span>
+        </label>
+
+        {selected && (
+          <label className="mt-3 block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Riferimento specifico
+            </span>
+            <input
+              type="text"
+              value={draftLink?.specific_reference || ''}
+              onChange={(event) => onUpdateStandardReference(standard.id, event.target.value)}
+              className="clinical-input py-2 text-sm"
+              placeholder="Es. paragrafo, requisito, procedura interna"
+            />
+          </label>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={cn(
@@ -244,8 +389,16 @@ export function GapEvaluationRow({
           <div className="text-sm text-slate-600">
             <span className="font-medium text-slate-700 xl:hidden">Norme: </span>
             {standards.length > 0 ? (
-              <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 ring-1 ring-teal-100">
-                {standards.length === 1 ? '1 norma' : `${standards.length} norme`}
+              <span className="inline-flex flex-wrap gap-1.5">
+                <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 ring-1 ring-teal-100">
+                  {standards.length === 1 ? '1 norma' : `${standards.length} norme`}
+                  {hasMandatoryStandards ? ` · ${mandatoryStandardsCount} ${mandatoryStandardsCount === 1 ? 'cogente' : 'cogenti'}` : ''}
+                </span>
+                {hasMandatoryStandards && (
+                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
+                    Norma cogente
+                  </span>
+                )}
               </span>
             ) : (
               <span className="text-slate-400">0 norme</span>
@@ -309,7 +462,7 @@ export function GapEvaluationRow({
               <div className="mt-4 rounded-lg border border-teal-100 bg-white p-4">
                 <div className="space-y-4">
                   <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-3 text-sm text-sky-800">
-                    Le norme create qui saranno salvate nel Catalogo Norme personale e riutilizzabili nei futuri assessment.
+                    Le norme create qui possono essere salvate nel Catalogo Norme personale se vuoi riutilizzarle nei futuri assessment.
                     Le norme sono collegate all'Attività/Requisito di libreria, non solo alla valutazione corrente.
                   </div>
 
@@ -330,47 +483,58 @@ export function GapEvaluationRow({
                         </Button>
                       </div>
 
-                    {standardsCatalog.map((standard) => {
-                      const selected = standardDraftLinks.some((link) => link.standard_id === standard.id)
-                      const draftLink = standardDraftLinks.find((link) => link.standard_id === standard.id)
+                      <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_180px_180px]">
+                        <input
+                          type="text"
+                          value={standardSearch}
+                          onChange={(event) => setStandardSearch(event.target.value)}
+                          className="clinical-input py-2 text-sm"
+                          placeholder="Cerca per codice, nome, ente, ambito..."
+                        />
+                        <select
+                          value={standardMandatoryFilter}
+                          onChange={(event) => setStandardMandatoryFilter(event.target.value as StandardMandatoryFilter)}
+                          className="clinical-input py-2 text-sm"
+                        >
+                          <option value="all">Tutte</option>
+                          <option value="mandatory">Solo cogenti</option>
+                          <option value="optional">Solo non cogenti</option>
+                        </select>
+                        <select
+                          value={standardScopeFilter}
+                          onChange={(event) => setStandardScopeFilter(event.target.value)}
+                          className="clinical-input py-2 text-sm"
+                        >
+                          <option value="all">Tutti gli ambiti</option>
+                          {standardScopes.map((scope) => (
+                            <option key={scope} value={scope}>
+                              {scope}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                      return (
-                        <div key={standard.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <label className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={() => onToggleStandard(standard.id)}
-                              className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold text-slate-900">
-                                {standard.code} - {standard.name}
-                              </span>
-                              <span className="mt-1 block text-xs text-slate-500">
-                                {standard.issuing_body || 'Ente non specificato'}
-                                {standard.version ? ` - Versione ${standard.version}` : ''}
-                              </span>
-                            </span>
-                          </label>
-
-                          {selected && (
-                            <label className="mt-3 block">
-                              <span className="mb-1 block text-xs font-medium text-slate-600">
-                                Riferimento specifico
-                              </span>
-                              <input
-                                type="text"
-                                value={draftLink?.specific_reference || ''}
-                                onChange={(event) => onUpdateStandardReference(standard.id, event.target.value)}
-                                className="clinical-input py-2 text-sm"
-                                placeholder="Es. paragrafo, requisito, procedura interna"
-                              />
-                            </label>
-                          )}
+                      {selectedStandards.length > 0 && (
+                        <div className="space-y-2 rounded-lg border border-teal-100 bg-teal-50/50 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
+                            Norme selezionate
+                          </p>
+                          {selectedStandards.map(renderStandardSelectorCard)}
                         </div>
-                      )
-                    })}
+                      )}
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Risultati ricerca
+                        </p>
+                        {filteredStandards.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+                            Nessuna norma corrisponde alla ricerca o ai filtri selezionati.
+                          </div>
+                        ) : (
+                          filteredStandards.map(renderStandardSelectorCard)
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -379,7 +543,7 @@ export function GapEvaluationRow({
                       <div className="mb-3">
                         <p className="text-sm font-semibold text-slate-900">Crea nuova norma</p>
                         <p className="mt-1 text-xs leading-5 text-slate-500">
-                          La norma verrà salvata nel Catalogo Norme personale e collegata subito a questa Attività/Requisito.
+                          La norma verrà collegata subito a questa Attività/Requisito. Puoi salvarla nel Catalogo Norme personale per riutilizzarla nei futuri assessment.
                         </p>
                       </div>
 
@@ -426,6 +590,44 @@ export function GapEvaluationRow({
                             className="clinical-input py-2 text-sm"
                             placeholder="Es. Ministero, ISO, Regione"
                           />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-600">Ambito di applicazione</span>
+                          <input
+                            type="text"
+                            value={newStandardForm.application_scope}
+                            onChange={(event) => onNewStandardFormChange({ application_scope: event.target.value })}
+                            className="clinical-input py-2 text-sm"
+                            placeholder="Es. Allestimento, Sperimentazioni"
+                          />
+                        </label>
+
+                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={newStandardForm.is_mandatory}
+                            onChange={(event) => onNewStandardFormChange({ is_mandatory: event.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                          />
+                          <span className="text-xs font-medium text-slate-700">Norma cogente</span>
+                        </label>
+
+                        <label className="flex items-start gap-2 rounded-lg border border-teal-100 bg-teal-50/70 px-3 py-2 md:col-span-2">
+                          <input
+                            type="checkbox"
+                            checked={newStandardForm.add_to_library}
+                            onChange={(event) => onNewStandardFormChange({ add_to_library: event.target.checked })}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                          />
+                          <span>
+                            <span className="block text-xs font-semibold text-teal-800">
+                              Aggiungi al Catalogo Norme personale
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-5 text-teal-700">
+                              Se non selezionato, la norma resterà disponibile solo in questo assessment.
+                            </span>
+                          </span>
                         </label>
 
                         <label className="block md:col-span-2">

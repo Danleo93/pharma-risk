@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   AlertCircle,
   BookMarked,
+  ChevronDown,
+  ChevronRight,
   Edit3,
   ExternalLink,
+  Layers3,
+  ListFilter,
   Plus,
   Search,
   Trash2,
@@ -29,15 +33,22 @@ interface StandardFormState {
   name: string
   version: string
   issuing_body: string
+  application_scope: string
+  is_mandatory: boolean
   description: string
   url: string
 }
+
+type CatalogView = 'scope' | 'list'
+type MandatoryFilter = 'all' | 'mandatory' | 'optional'
 
 const emptyForm: StandardFormState = {
   code: '',
   name: '',
   version: '',
   issuing_body: '',
+  application_scope: '',
+  is_mandatory: false,
   description: '',
   url: '',
 }
@@ -47,13 +58,20 @@ const toNullable = (value: string) => {
   return trimmed.length > 0 ? trimmed : null
 }
 
+const getScopeLabel = (standard: GapStandard) =>
+  standard.application_scope?.trim() || 'Ambito non specificato'
+
 const buildPayload = (form: StandardFormState): GapStandardInput => ({
   code: form.code.trim(),
   name: form.name.trim(),
   version: toNullable(form.version),
   issuing_body: toNullable(form.issuing_body),
+  application_scope: toNullable(form.application_scope),
+  is_mandatory: form.is_mandatory,
   description: toNullable(form.description),
   url: toNullable(form.url),
+  source_type: 'library',
+  created_in_assessment_id: null,
 })
 
 const formatDate = (date: string | null) => {
@@ -68,6 +86,10 @@ export default function GapStandards() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [issuingBodyFilter, setIssuingBodyFilter] = useState('all')
+  const [scopeFilter, setScopeFilter] = useState('all')
+  const [mandatoryFilter, setMandatoryFilter] = useState<MandatoryFilter>('all')
+  const [catalogView, setCatalogView] = useState<CatalogView>('scope')
+  const [expandedScopes, setExpandedScopes] = useState<Record<string, boolean>>({})
   const [showForm, setShowForm] = useState(false)
   const [editingStandard, setEditingStandard] = useState<GapStandard | null>(null)
   const [form, setForm] = useState<StandardFormState>(emptyForm)
@@ -101,20 +123,50 @@ export default function GapStandards() {
     return [...new Set(values)].sort((a, b) => a.localeCompare(b, 'it'))
   }, [standards])
 
+  const applicationScopes = useMemo(() => {
+    const values = standards.map(getScopeLabel)
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b, 'it'))
+  }, [standards])
+
   const filteredStandards = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
 
     return standards.filter((standard) => {
       const matchesSearch =
         !normalizedSearch ||
-        standard.code.toLowerCase().includes(normalizedSearch) ||
-        standard.name.toLowerCase().includes(normalizedSearch)
+        [
+          standard.code,
+          standard.name,
+          standard.description,
+          standard.issuing_body,
+          standard.application_scope,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedSearch)
       const matchesIssuingBody =
         issuingBodyFilter === 'all' || standard.issuing_body === issuingBodyFilter
+      const matchesScope =
+        scopeFilter === 'all' || getScopeLabel(standard) === scopeFilter
+      const matchesMandatory =
+        mandatoryFilter === 'all' ||
+        (mandatoryFilter === 'mandatory' && standard.is_mandatory) ||
+        (mandatoryFilter === 'optional' && !standard.is_mandatory)
 
-      return matchesSearch && matchesIssuingBody
+      return matchesSearch && matchesIssuingBody && matchesScope && matchesMandatory
     })
-  }, [issuingBodyFilter, searchTerm, standards])
+  }, [issuingBodyFilter, mandatoryFilter, scopeFilter, searchTerm, standards])
+
+  const standardsByScope = useMemo(() => {
+    return filteredStandards.reduce<Record<string, GapStandard[]>>((acc, standard) => {
+      const scope = getScopeLabel(standard)
+      return {
+        ...acc,
+        [scope]: [...(acc[scope] || []), standard],
+      }
+    }, {})
+  }, [filteredStandards])
 
   const resetForm = () => {
     setForm(emptyForm)
@@ -136,6 +188,8 @@ export default function GapStandards() {
       name: standard.name,
       version: standard.version || '',
       issuing_body: standard.issuing_body || '',
+      application_scope: standard.application_scope || '',
+      is_mandatory: standard.is_mandatory,
       description: standard.description || '',
       url: standard.url || '',
     })
@@ -193,6 +247,77 @@ export default function GapStandards() {
     }
   }
 
+  const toggleScope = (scope: string) => {
+    setExpandedScopes((current) => ({
+      ...current,
+      [scope]: !current[scope],
+    }))
+  }
+
+  const renderStandardCard = (standard: GapStandard) => (
+    <Card key={standard.id} className="transition hover:shadow-clinical">
+      <CardContent className="p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="success">{standard.code}</Badge>
+              {standard.is_mandatory ? (
+                <Badge variant="warning">Cogente</Badge>
+              ) : (
+                <Badge variant="neutral">Non cogente</Badge>
+              )}
+              <Badge variant="info">{getScopeLabel(standard)}</Badge>
+              {standard.version && <Badge variant="neutral">Versione {standard.version}</Badge>}
+              <Badge variant="neutral">Libreria personale</Badge>
+            </div>
+            <h2 className="mt-3 text-base font-semibold text-slate-900">{standard.name}</h2>
+            {standard.description && (
+              <p className="mt-2 text-sm leading-6 text-slate-500">{standard.description}</p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              <span>Ente: {standard.issuing_body || 'N/D'}</span>
+              <span>Aggiornata il {formatDate(standard.updated_at)}</span>
+            </div>
+            {standard.url && (
+              <a
+                href={standard.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:text-teal-800"
+              >
+                Apri riferimento
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            )}
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              tone="neutral"
+              size="sm"
+              icon={<Edit3 className="h-4 w-4" />}
+              onClick={() => startEdit(standard)}
+            >
+              Modifica
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              tone="risk"
+              size="sm"
+              icon={<Trash2 className="h-4 w-4" />}
+              onClick={() => removeStandard(standard)}
+            >
+              Elimina
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
   return (
     <div className="clinical-page">
       <PageHeader
@@ -237,8 +362,7 @@ export default function GapStandards() {
           >
             <CardTitle>{editingStandard ? 'Modifica norma' : 'Nuova norma'}</CardTitle>
             <CardDescription>
-              Inserisci un riferimento normativo o procedurale locale. I template globali non sono
-              attivi in questa fase.
+              Indica cogenza e ambito per rendere i riferimenti più leggibili e filtrabili negli assessment.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -289,6 +413,30 @@ export default function GapStandards() {
                     placeholder="Es. Ministero, Regione, Azienda"
                   />
                 </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Ambito di applicazione</span>
+                  <input
+                    type="text"
+                    value={form.application_scope}
+                    onChange={(event) => setForm((current) => ({ ...current, application_scope: event.target.value }))}
+                    className="clinical-input"
+                    placeholder="Es. Allestimento, Sperimentazioni cliniche"
+                  />
+                </label>
+
+                <label className="flex min-h-[44px] items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={form.is_mandatory}
+                    onChange={(event) => setForm((current) => ({ ...current, is_mandatory: event.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-slate-700">Norma cogente</span>
+                    <span className="block text-xs text-slate-500">Riferimento obbligatorio per l'ambito indicato.</span>
+                  </span>
+                </label>
               </div>
 
               <label className="block">
@@ -308,7 +456,7 @@ export default function GapStandards() {
                   value={form.description}
                   onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
                   className="clinical-input min-h-28 resize-y"
-                  placeholder="Ambito di applicazione, note operative o riferimenti specifici."
+                  placeholder="Note operative, riferimenti specifici o criteri applicativi."
                 />
               </label>
 
@@ -326,28 +474,83 @@ export default function GapStandards() {
       )}
 
       <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 lg:flex-row">
-            <div className="relative flex-1">
+        <CardContent className="space-y-4 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+              <button
+                type="button"
+                onClick={() => setCatalogView('scope')}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  catalogView === 'scope'
+                    ? 'bg-white text-teal-800 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Layers3 className="h-4 w-4" />
+                Per ambito
+              </button>
+              <button
+                type="button"
+                onClick={() => setCatalogView('list')}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  catalogView === 'list'
+                    ? 'bg-white text-teal-800 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ListFilter className="h-4 w-4" />
+                Lista completa
+              </button>
+            </div>
+            <p className="text-sm text-slate-500">
+              {filteredStandards.length} norme visualizzate su {standards.length}
+            </p>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(220px,1fr)_220px_220px_220px]">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 className="clinical-input py-2 pl-10 pr-4"
-                placeholder="Cerca per codice o nome..."
+                placeholder="Cerca per codice, nome, ambito..."
               />
             </div>
 
             <select
               value={issuingBodyFilter}
               onChange={(event) => setIssuingBodyFilter(event.target.value)}
-              className="clinical-input px-4 py-2 lg:w-64"
+              className="clinical-input px-4 py-2"
             >
               <option value="all">Tutti gli enti</option>
               {issuingBodies.map((body) => (
                 <option key={body} value={body}>
                   {body}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={mandatoryFilter}
+              onChange={(event) => setMandatoryFilter(event.target.value as MandatoryFilter)}
+              className="clinical-input px-4 py-2"
+            >
+              <option value="all">Tutte</option>
+              <option value="mandatory">Solo cogenti</option>
+              <option value="optional">Solo non cogenti</option>
+            </select>
+
+            <select
+              value={scopeFilter}
+              onChange={(event) => setScopeFilter(event.target.value)}
+              className="clinical-input px-4 py-2"
+            >
+              <option value="all">Tutti gli ambiti</option>
+              {applicationScopes.map((scope) => (
+                <option key={scope} value={scope}>
+                  {scope}
                 </option>
               ))}
             </select>
@@ -377,67 +580,53 @@ export default function GapStandards() {
         <EmptyState
           icon={<AlertCircle className="h-6 w-6" />}
           title="Nessuna norma trovata"
-          description="Modifica ricerca o filtro ente per visualizzare altri riferimenti."
+          description="Modifica ricerca, ente, cogenza o ambito per visualizzare altri riferimenti."
         />
+      ) : catalogView === 'scope' ? (
+        <div className="grid gap-4">
+          {Object.entries(standardsByScope)
+            .sort(([a], [b]) => a.localeCompare(b, 'it'))
+            .map(([scope, scopeStandards]) => {
+              const expanded = Boolean(expandedScopes[scope])
+              const mandatoryCount = scopeStandards.filter((standard) => standard.is_mandatory).length
+
+              return (
+                <Card key={scope}>
+                  <button
+                    type="button"
+                    onClick={() => toggleScope(scope)}
+                    className="flex w-full flex-col gap-3 p-5 text-left transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+                        {expanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                      </span>
+                      <div>
+                        <h2 className="text-base font-semibold text-slate-900">{scope}</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {scopeStandards.length} norme, {mandatoryCount} cogenti.
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant={mandatoryCount > 0 ? 'warning' : 'neutral'}>
+                      {mandatoryCount > 0 ? `${mandatoryCount} cogenti` : 'Nessuna cogente'}
+                    </Badge>
+                  </button>
+
+                  {expanded && (
+                    <CardContent className="border-t border-slate-100 p-5">
+                      <div className="grid gap-4">
+                        {scopeStandards.map(renderStandardCard)}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              )
+            })}
+        </div>
       ) : (
         <div className="grid gap-4">
-          {filteredStandards.map((standard) => (
-            <Card key={standard.id} className="transition hover:shadow-clinical">
-              <CardContent className="p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="success">{standard.code}</Badge>
-                      <Badge variant="neutral">Locale</Badge>
-                      {standard.version && <Badge variant="info">Versione {standard.version}</Badge>}
-                    </div>
-                    <h2 className="mt-3 text-base font-semibold text-slate-900">{standard.name}</h2>
-                    {standard.description && (
-                      <p className="mt-2 text-sm leading-6 text-slate-500">{standard.description}</p>
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                      <span>Ente: {standard.issuing_body || 'N/D'}</span>
-                      <span>Aggiornata il {formatDate(standard.updated_at)}</span>
-                    </div>
-                    {standard.url && (
-                      <a
-                        href={standard.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:text-teal-800"
-                      >
-                        Apri riferimento
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      tone="neutral"
-                      size="sm"
-                      icon={<Edit3 className="h-4 w-4" />}
-                      onClick={() => startEdit(standard)}
-                    >
-                      Modifica
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      tone="risk"
-                      size="sm"
-                      icon={<Trash2 className="h-4 w-4" />}
-                      onClick={() => removeStandard(standard)}
-                    >
-                      Elimina
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {filteredStandards.map(renderStandardCard)}
         </div>
       )}
     </div>
