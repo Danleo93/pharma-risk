@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookMarked,
+  ChevronDown,
   CheckCircle2,
   CircleDashed,
   ClipboardList,
@@ -63,6 +64,7 @@ import { GapEvaluationRow } from '../../components/gap/GapEvaluationRow'
 import { GapInlineActivityForm, type GapInlineActivityFormPayload } from '../../components/gap/GapInlineActivityForm'
 import { GapInlineDomainForm, type GapInlineDomainFormPayload } from '../../components/gap/GapInlineDomainForm'
 import { aggregateAssessmentStats } from '../../lib/gapScoring'
+import { cn } from '../../lib/ui'
 import {
   GAP_ASSESSMENT_STATUS_OPTIONS,
   COMPLIANCE_STATUS_OPTIONS,
@@ -304,6 +306,7 @@ export default function GapAssessmentDetail() {
   const [findingPriorityFilter, setFindingPriorityFilter] = useState<FindingPriorityFilter>('all')
   const [findingProcessFilter, setFindingProcessFilter] = useState('all')
   const [findingSearch, setFindingSearch] = useState('')
+  const [expandedFindingId, setExpandedFindingId] = useState<string | null>(null)
   const [expandedEvaluationId, setExpandedEvaluationId] = useState<string | null>(null)
   const [showDomainForm, setShowDomainForm] = useState(false)
   const [showActivityForm, setShowActivityForm] = useState(false)
@@ -1550,7 +1553,7 @@ export default function GapAssessmentDetail() {
         </CardContent>
       </Card>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
         <StatCard
           label="Attività/Requisiti"
           value={stats.total_activities}
@@ -1739,7 +1742,7 @@ export default function GapAssessmentDetail() {
                     </div>
 
                     <div className="grid gap-4">
-                      <div className="hidden rounded-lg border border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:grid xl:grid-cols-[120px_minmax(150px,1.2fr)_minmax(150px,1fr)_120px_120px_100px_90px_150px_44px] xl:items-center">
+                      <div className="hidden rounded-lg border border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 2xl:grid 2xl:grid-cols-[120px_minmax(150px,1.2fr)_minmax(150px,1fr)_120px_120px_100px_90px_150px_44px] 2xl:items-center">
                         <span>Codice</span>
                         <span>Attività/Requisito</span>
                         <span>Dominio/Sezione</span>
@@ -1920,11 +1923,16 @@ export default function GapAssessmentDetail() {
                 const draft = drafts[evaluation.id]
                 const changed = hasDraftChanges(evaluation, draft)
                 const saving = savingEvaluationId === evaluation.id
+                const expanded = expandedFindingId === evaluation.id
 
                 return (
-                  <Card key={evaluation.id} className="border-red-100">
-                    <CardContent className="p-5">
-                      <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <Card key={evaluation.id} className={cn('overflow-hidden', expanded ? 'border-red-100' : 'border-slate-200')}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedFindingId((current) => (current === evaluation.id ? null : evaluation.id))}
+                      className="group w-full px-5 py-4 text-left transition hover:bg-red-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+                    >
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -1944,17 +1952,34 @@ export default function GapAssessmentDetail() {
                             <span>Processo: {evaluation.process_name_snapshot || 'N/D'}</span>
                             <span>Dominio/Sezione: {evaluation.area_name_snapshot || 'N/D'}</span>
                           </div>
+                          {evaluation.gap_description && (
+                            <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
+                              {evaluation.gap_description}
+                            </p>
+                          )}
                         </div>
 
-                        {evaluation.evaluated_at && (
-                          <div className="text-xs text-slate-400 xl:text-right">
-                            <p>Ultima valutazione</p>
-                            <p className="font-medium text-slate-600">
-                              {new Date(evaluation.evaluated_at).toLocaleString('it-IT')}
-                            </p>
-                          </div>
-                        )}
+                        <div className="flex shrink-0 items-center justify-between gap-3 xl:justify-end">
+                          {evaluation.evaluated_at && (
+                            <div className="text-xs text-slate-400 xl:text-right">
+                              <p>Ultima valutazione</p>
+                              <p className="font-medium text-slate-600">
+                                {new Date(evaluation.evaluated_at).toLocaleString('it-IT')}
+                              </p>
+                            </div>
+                          )}
+                          <span
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 bg-white text-red-700 transition group-hover:bg-red-50"
+                            aria-hidden="true"
+                          >
+                            {expanded ? <ChevronDown className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                          </span>
+                        </div>
                       </div>
+                    </button>
+
+                    {expanded && (
+                    <CardContent className="border-t border-slate-100 p-5">
 
                       <div className="mb-4">
                         {renderNormativeReferences(evaluation)}
@@ -2079,6 +2104,7 @@ export default function GapAssessmentDetail() {
                         </div>
                       )}
                     </CardContent>
+                    )}
                   </Card>
                 )
               })}
