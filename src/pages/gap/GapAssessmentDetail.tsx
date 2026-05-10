@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookMarked,
-  ChevronDown,
   CheckCircle2,
   CircleDashed,
   ClipboardList,
@@ -14,7 +13,6 @@ import {
   FileText,
   Percent,
   Plus,
-  Save,
   Search,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -65,16 +63,9 @@ import { GapEvaluationRow } from '../../components/gap/GapEvaluationRow'
 import { GapInlineActivityForm, type GapInlineActivityFormPayload } from '../../components/gap/GapInlineActivityForm'
 import { GapInlineDomainForm, type GapInlineDomainFormPayload } from '../../components/gap/GapInlineDomainForm'
 import { aggregateAssessmentStats, isGapFinding } from '../../lib/gapScoring'
-import { cn } from '../../lib/ui'
 import {
   GAP_ASSESSMENT_STATUS_OPTIONS,
-  COMPLIANCE_STATUS_OPTIONS,
-  RISK_PRIORITY_OPTIONS,
-  getComplianceStatusColor,
-  getComplianceStatusLabel,
   getGapAssessmentStatusColor,
-  getGapRiskPriorityColor,
-  getGapRiskPriorityLabel,
 } from '../../lib/labels'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
@@ -137,11 +128,9 @@ interface QuickActionDraft {
 
 type StandardsByActivityId = Record<string, GapActivityStandard[]>
 
-type DetailTab = 'evaluation' | 'findings' | 'actions' | 'report'
+type DetailTab = 'evaluation' | 'actions' | 'report'
 type ActionCreateRequest = { evaluationId: string; requestId: number }
-type EvaluationQuickFilter = 'all' | 'not_evaluated' | 'with_gap' | 'high_priority' | 'non_compliant' | 'mandatory_standards'
-type FindingComplianceFilter = 'all' | 'non_compliant' | 'partially_compliant'
-type FindingPriorityFilter = 'all' | RiskPriority
+type EvaluationQuickFilter = 'all' | 'not_evaluated' | 'critical' | 'high_priority' | 'with_actions' | 'mandatory_standards' | 'assessment_only'
 
 const emptyStandardForm: StandardFormState = {
   code: '',
@@ -167,10 +156,11 @@ const emptyQuickActionDraft: QuickActionDraft = {
 const evaluationQuickFilters: Array<{ value: EvaluationQuickFilter; label: string }> = [
   { value: 'all', label: 'Tutte' },
   { value: 'not_evaluated', label: 'Da valutare' },
-  { value: 'with_gap', label: 'Gap rilevati' },
+  { value: 'critical', label: 'Criticità' },
   { value: 'high_priority', label: 'Alta priorità' },
-  { value: 'non_compliant', label: 'Non conformi' },
+  { value: 'with_actions', label: 'Con azioni' },
   { value: 'mandatory_standards', label: 'Con norme cogenti' },
+  { value: 'assessment_only', label: 'Solo assessment' },
 ]
 
 const priorityOrder: Record<RiskPriority, number> = {
@@ -305,11 +295,6 @@ export default function GapAssessmentDetail() {
   const [activeTab, setActiveTab] = useState<DetailTab>('evaluation')
   const [actionCreateRequest, setActionCreateRequest] = useState<ActionCreateRequest | null>(null)
   const [evaluationQuickFilter, setEvaluationQuickFilter] = useState<EvaluationQuickFilter>('all')
-  const [findingComplianceFilter, setFindingComplianceFilter] = useState<FindingComplianceFilter>('all')
-  const [findingPriorityFilter, setFindingPriorityFilter] = useState<FindingPriorityFilter>('all')
-  const [findingProcessFilter, setFindingProcessFilter] = useState('all')
-  const [findingSearch, setFindingSearch] = useState('')
-  const [expandedFindingId, setExpandedFindingId] = useState<string | null>(null)
   const [expandedEvaluationId, setExpandedEvaluationId] = useState<string | null>(null)
   const [showDomainForm, setShowDomainForm] = useState(false)
   const [showActivityForm, setShowActivityForm] = useState(false)
@@ -463,32 +448,11 @@ export default function GapAssessmentDetail() {
   }
 
   const stats = useMemo(() => aggregateAssessmentStats(evaluations), [evaluations])
+  const criticalCount = stats.partial_count + stats.non_compliant_count
   const evaluationVolumeWarning = isGapWarningLimitReached(
     evaluations.length,
     GAP_PDF_EXPORT_WARNING_EVALUATIONS,
   )
-  const filteredEvaluations = useMemo(() => {
-    return evaluations.filter((evaluation) => {
-      switch (evaluationQuickFilter) {
-        case 'not_evaluated':
-          return evaluation.compliance_status === 'not_evaluated'
-        case 'non_compliant':
-          return evaluation.compliance_status === 'non_compliant'
-        case 'high_priority':
-          return evaluation.risk_priority === 'high'
-        case 'with_gap':
-          return isGapFinding(evaluation)
-        case 'mandatory_standards':
-          return Boolean(
-            standardsByActivityId[evaluation.activity_id]?.some((link) => link.standard?.is_mandatory),
-          )
-        case 'all':
-        default:
-          return true
-      }
-    })
-  }, [evaluationQuickFilter, evaluations, standardsByActivityId])
-  const groupedEvaluations = useMemo(() => groupEvaluations(filteredEvaluations), [filteredEvaluations])
   const gapFindings = useMemo(() => {
     return evaluations
       .filter(isGapFinding)
@@ -502,42 +466,6 @@ export default function GapAssessmentDetail() {
         return (a.activity_code_snapshot || '').localeCompare(b.activity_code_snapshot || '')
       })
   }, [evaluations])
-  const findingProcesses = useMemo(() => {
-    return Array.from(new Set(
-      gapFindings.map((evaluation) => evaluation.process_name_snapshot || 'Processo non specificato'),
-    )).sort((a, b) => a.localeCompare(b))
-  }, [gapFindings])
-  const filteredGapFindings = useMemo(() => {
-    const normalizedSearch = findingSearch.trim().toLowerCase()
-
-    return gapFindings.filter((evaluation) => {
-      const processName = evaluation.process_name_snapshot || 'Processo non specificato'
-      const matchesCompliance = findingComplianceFilter === 'all' || evaluation.compliance_status === findingComplianceFilter
-      const matchesPriority = findingPriorityFilter === 'all' || evaluation.risk_priority === findingPriorityFilter
-      const matchesProcess = findingProcessFilter === 'all' || processName === findingProcessFilter
-      const searchableText = [
-        evaluation.activity_code_snapshot,
-        evaluation.activity_name_snapshot,
-        evaluation.gap_description,
-        evaluation.current_state,
-        evaluation.target_state_override,
-        evaluation.notes,
-      ].filter(Boolean).join(' ').toLowerCase()
-
-      return (
-        matchesCompliance &&
-        matchesPriority &&
-        matchesProcess &&
-        (normalizedSearch.length === 0 || searchableText.includes(normalizedSearch))
-      )
-    })
-  }, [
-    findingComplianceFilter,
-    findingPriorityFilter,
-    findingProcessFilter,
-    findingSearch,
-    gapFindings,
-  ])
   const actionCountByEvaluationId = useMemo(() => {
     const actionSource = actionsLoaded ? gapActions : actionRefs
 
@@ -546,6 +474,11 @@ export default function GapAssessmentDetail() {
       [action.evaluation_id]: (acc[action.evaluation_id] || 0) + 1,
     }), {})
   }, [actionRefs, actionsLoaded, gapActions])
+  const openActionsCount = useMemo(() => {
+    if (!actionsLoaded) return actionRefs.length
+
+    return gapActions.filter((action) => !['completed', 'verified', 'closed'].includes(action.status)).length
+  }, [actionRefs.length, actionsLoaded, gapActions])
   const actionsByEvaluationId = useMemo(() => {
     return gapActions.reduce<Record<string, GapAction[]>>((acc, action) => ({
       ...acc,
@@ -591,6 +524,40 @@ export default function GapAssessmentDetail() {
       return acc
     }, {})
   }, [assessmentProcesses])
+  const filteredEvaluations = useMemo(() => {
+    return evaluations.filter((evaluation) => {
+      switch (evaluationQuickFilter) {
+        case 'not_evaluated':
+          return evaluation.compliance_status === 'not_evaluated'
+        case 'critical':
+          return isGapFinding(evaluation)
+        case 'high_priority':
+          return evaluation.risk_priority === 'high'
+        case 'with_actions':
+          return (actionCountByEvaluationId[evaluation.id] || 0) > 0
+        case 'mandatory_standards':
+          return Boolean(
+            standardsByActivityId[evaluation.activity_id]?.some((link) => link.standard?.is_mandatory),
+          )
+        case 'assessment_only':
+          return Boolean(
+            activityAssessmentOnlyById[evaluation.activity_id] ||
+            areaAssessmentOnlyByActivityId[evaluation.activity_id],
+          )
+        case 'all':
+        default:
+          return true
+      }
+    })
+  }, [
+    actionCountByEvaluationId,
+    activityAssessmentOnlyById,
+    areaAssessmentOnlyByActivityId,
+    evaluationQuickFilter,
+    evaluations,
+    standardsByActivityId,
+  ])
+  const groupedEvaluations = useMemo(() => groupEvaluations(filteredEvaluations), [filteredEvaluations])
 
   const updateDraft = (
     evaluationId: string,
@@ -1273,10 +1240,10 @@ export default function GapAssessmentDetail() {
 
   const renderAssessmentEnrichment = () => (
     <>
-    <div className="fixed right-4 top-[56vh] z-40 w-[min(11.5rem,calc(100vw-2rem))] -translate-y-1/2 rounded-xl border border-slate-200 bg-white/95 px-2.5 py-3 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-white/90">
+    <div className="fixed right-6 top-[56vh] z-40 w-[min(15rem,calc(100vw-2rem))] -translate-y-1/2 rounded-xl border border-teal-100 bg-white/95 px-3.5 py-4 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-white/90">
       <div className="flex flex-col gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900">Arricchisci assessment</p>
+            <p className="text-sm font-semibold text-slate-900">ARRICCHISCI ASSESSMENT</p>
           <p className="hidden text-xs leading-4 text-slate-500 md:block">
             Aggiungi elementi mentre scorri la valutazione.
           </p>
@@ -1284,7 +1251,7 @@ export default function GapAssessmentDetail() {
         <div className="grid gap-2">
           <Button
             type="button"
-            variant="outline"
+            variant={showDomainForm ? 'primary' : 'outline'}
             size="sm"
             icon={<Plus className="h-4 w-4" />}
             className="w-full"
@@ -1297,7 +1264,7 @@ export default function GapAssessmentDetail() {
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant={showActivityForm ? 'primary' : 'outline'}
             size="sm"
             icon={<Plus className="h-4 w-4" />}
             className="w-full"
@@ -1495,6 +1462,7 @@ export default function GapAssessmentDetail() {
       </div>
     )
   }
+  void renderNormativeReferences
 
   if (loading) {
     return (
@@ -1534,7 +1502,7 @@ export default function GapAssessmentDetail() {
   }
 
   return (
-    <div className="clinical-page">
+    <div className="clinical-page xl:ml-0 xl:mr-auto xl:max-w-[84rem] 2xl:max-w-[86rem]">
       <PageHeader
         title={assessment.title}
         description={assessment.description || 'Valuta conformità, gap e priorità per ogni Attività/Requisito selezionato.'}
@@ -1642,16 +1610,16 @@ export default function GapAssessmentDetail() {
           tone="success"
         />
         <StatCard
-          label="Parziali"
-          value={stats.partial_count}
-          icon={<CircleDashed className="h-6 w-6" />}
-          tone="neutral"
-        />
-        <StatCard
-          label="Non conformi"
-          value={stats.non_compliant_count}
+          label="Criticità"
+          value={criticalCount}
           icon={<AlertTriangle className="h-6 w-6" />}
           tone="risk"
+        />
+        <StatCard
+          label="Azioni aperte"
+          value={openActionsCount}
+          icon={<ClipboardList className="h-6 w-6" />}
+          tone="clinical"
         />
         <StatCard
           label="Non valutate"
@@ -1678,20 +1646,6 @@ export default function GapAssessmentDetail() {
           }`}
         >
           Valutazione
-        </button>
-        <button
-          type="button"
-          onClick={() => changeTab('findings')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-            activeTab === 'findings'
-              ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-          }`}
-        >
-          Gap rilevati
-          <span className="ml-2 rounded-full bg-white/80 px-2 py-0.5 text-xs">
-            {gapFindings.length}
-          </span>
         </button>
         <button
           type="button"
@@ -1901,7 +1855,7 @@ export default function GapAssessmentDetail() {
         </div>
       ))}
 
-      {activeTab === 'findings' && (
+      {/* La vecchia tab "Gap rilevati" è stata rimossa: le criticità sono ora un filtro della Valutazione.
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -2180,7 +2134,7 @@ export default function GapAssessmentDetail() {
             </div>
           )}
         </div>
-      )}
+      */}
 
       {activeTab === 'actions' && user?.id && (
         loadingActions && !actionsLoaded ? (

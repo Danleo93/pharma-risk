@@ -24,6 +24,8 @@ const colors: Record<RiskPriority, string> = {
   low: '#10b981',
 }
 
+const RADIAN = Math.PI / 180
+
 export function GapPriorityChart({ evaluations, captureRef }: GapPriorityChartProps) {
   const exportRef = useRef<HTMLDivElement | null>(null)
   const chartRef = captureRef || exportRef
@@ -35,6 +37,43 @@ export function GapPriorityChart({ evaluations, captureRef }: GapPriorityChartPr
       value: gapEvaluations.filter((evaluation) => evaluation.risk_priority === priority).length,
     }))
     .filter((item) => item.value > 0)
+  const total = data.reduce((sum, item) => sum + item.value, 0)
+  const renderPercentageLabel = (props: {
+    cx?: number
+    cy?: number
+    midAngle?: number
+    innerRadius?: number
+    outerRadius?: number
+    value?: number
+  }) => {
+    const {
+      cx = 0,
+      cy = 0,
+      midAngle = 0,
+      innerRadius = 0,
+      outerRadius = 0,
+      value = 0,
+    } = props
+    if (total === 0 || value === 0) return null
+
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+    const x = cx + radius * Math.cos(-midAngle * RADIAN)
+    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+    const percentage = Math.round((value / total) * 100)
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#ffffff"
+        textAnchor="middle"
+        dominantBaseline="central"
+        className="text-[11px] font-semibold"
+      >
+        {percentage}%
+      </text>
+    )
+  }
 
   return (
     <Card>
@@ -72,6 +111,8 @@ export function GapPriorityChart({ evaluations, captureRef }: GapPriorityChartPr
                   innerRadius={58}
                   outerRadius={92}
                   paddingAngle={3}
+                  label={renderPercentageLabel}
+                  labelLine={false}
                   isAnimationActive={false}
                 >
                   {data.map((entry) => (
