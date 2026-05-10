@@ -5,6 +5,7 @@ import {
   getGapRiskPriorityLabel,
 } from '../../lib/labels'
 import { exportElementToPng } from '../../lib/exportImage'
+import { isGapFinding } from '../../lib/gapScoring'
 import type { GapActivityEvaluation, RiskPriority } from '../../types/gap'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
 import { EmptyState } from '../ui/EmptyState'
@@ -26,9 +27,7 @@ const colors: Record<RiskPriority, string> = {
 export function GapPriorityChart({ evaluations, captureRef }: GapPriorityChartProps) {
   const exportRef = useRef<HTMLDivElement | null>(null)
   const chartRef = captureRef || exportRef
-  const gapEvaluations = evaluations.filter((evaluation) =>
-    ['non_compliant', 'partially_compliant'].includes(evaluation.compliance_status),
-  )
+  const gapEvaluations = evaluations.filter(isGapFinding)
   const data = priorityOrder
     .map((priority) => ({
       priority,
@@ -73,6 +72,7 @@ export function GapPriorityChart({ evaluations, captureRef }: GapPriorityChartPr
                   innerRadius={58}
                   outerRadius={92}
                   paddingAngle={3}
+                  isAnimationActive={false}
                 >
                   {data.map((entry) => (
                     <Cell key={entry.priority} fill={colors[entry.priority]} />

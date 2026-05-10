@@ -78,6 +78,7 @@ export function GapComplianceChart({ evaluations, captureRef }: GapComplianceCha
                   innerRadius={58}
                   outerRadius={92}
                   paddingAngle={3}
+                  isAnimationActive={false}
                 >
                   {data.map((entry) => (
                     <Cell key={entry.status} fill={colors[entry.status]} />

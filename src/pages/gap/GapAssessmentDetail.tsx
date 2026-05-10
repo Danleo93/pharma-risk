@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -63,7 +64,7 @@ import { GapAssessmentStatsReport, type GapReportChartRefs } from '../../compone
 import { GapEvaluationRow } from '../../components/gap/GapEvaluationRow'
 import { GapInlineActivityForm, type GapInlineActivityFormPayload } from '../../components/gap/GapInlineActivityForm'
 import { GapInlineDomainForm, type GapInlineDomainFormPayload } from '../../components/gap/GapInlineDomainForm'
-import { aggregateAssessmentStats } from '../../lib/gapScoring'
+import { aggregateAssessmentStats, isGapFinding } from '../../lib/gapScoring'
 import { cn } from '../../lib/ui'
 import {
   GAP_ASSESSMENT_STATUS_OPTIONS,
@@ -129,6 +130,7 @@ interface QuickActionDraft {
   description: string
   responsible: string
   priority: 'low' | 'medium' | 'high' | 'critical'
+  planned_start_date: string
   planned_end_date: string
   notes: string
 }
@@ -140,8 +142,6 @@ type ActionCreateRequest = { evaluationId: string; requestId: number }
 type EvaluationQuickFilter = 'all' | 'not_evaluated' | 'with_gap' | 'high_priority' | 'non_compliant' | 'mandatory_standards'
 type FindingComplianceFilter = 'all' | 'non_compliant' | 'partially_compliant'
 type FindingPriorityFilter = 'all' | RiskPriority
-
-const findingStatuses: ComplianceStatus[] = ['non_compliant', 'partially_compliant']
 
 const emptyStandardForm: StandardFormState = {
   code: '',
@@ -159,6 +159,7 @@ const emptyQuickActionDraft: QuickActionDraft = {
   description: '',
   responsible: '',
   priority: 'medium',
+  planned_start_date: '',
   planned_end_date: '',
   notes: '',
 }
@@ -166,7 +167,7 @@ const emptyQuickActionDraft: QuickActionDraft = {
 const evaluationQuickFilters: Array<{ value: EvaluationQuickFilter; label: string }> = [
   { value: 'all', label: 'Tutte' },
   { value: 'not_evaluated', label: 'Da valutare' },
-  { value: 'with_gap', label: 'Con gap' },
+  { value: 'with_gap', label: 'Gap rilevati' },
   { value: 'high_priority', label: 'Alta priorità' },
   { value: 'non_compliant', label: 'Non conformi' },
   { value: 'mandatory_standards', label: 'Con norme cogenti' },
@@ -279,6 +280,7 @@ export default function GapAssessmentDetail() {
   const pdfActionStatusRef = useRef<HTMLDivElement | null>(null)
   const pdfVerificationStatusRef = useRef<HTMLDivElement | null>(null)
   const pdfActionGanttRef = useRef<HTMLDivElement | null>(null)
+  const pdfCaptureContainerRef = useRef<HTMLDivElement | null>(null)
   const [assessment, setAssessment] = useState<GapAssessment | null>(null)
   const [evaluations, setEvaluations] = useState<GapActivityEvaluation[]>([])
   const [assessmentProcesses, setAssessmentProcesses] = useState<GapProcessWithStructure[]>([])
@@ -299,6 +301,7 @@ export default function GapAssessmentDetail() {
   const [exportingPDF, setExportingPDF] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [renderPdfCapture, setRenderPdfCapture] = useState(false)
+  const [pdfCaptureActions, setPdfCaptureActions] = useState<GapAction[] | null>(null)
   const [activeTab, setActiveTab] = useState<DetailTab>('evaluation')
   const [actionCreateRequest, setActionCreateRequest] = useState<ActionCreateRequest | null>(null)
   const [evaluationQuickFilter, setEvaluationQuickFilter] = useState<EvaluationQuickFilter>('all')
@@ -474,7 +477,7 @@ export default function GapAssessmentDetail() {
         case 'high_priority':
           return evaluation.risk_priority === 'high'
         case 'with_gap':
-          return Boolean(evaluation.gap_description?.trim())
+          return isGapFinding(evaluation)
         case 'mandatory_standards':
           return Boolean(
             standardsByActivityId[evaluation.activity_id]?.some((link) => link.standard?.is_mandatory),
@@ -488,7 +491,7 @@ export default function GapAssessmentDetail() {
   const groupedEvaluations = useMemo(() => groupEvaluations(filteredEvaluations), [filteredEvaluations])
   const gapFindings = useMemo(() => {
     return evaluations
-      .filter((evaluation) => findingStatuses.includes(evaluation.compliance_status))
+      .filter(isGapFinding)
       .sort((a, b) => {
         const priorityDiff = priorityOrder[a.risk_priority] - priorityOrder[b.risk_priority]
         if (priorityDiff !== 0) return priorityDiff
@@ -1060,7 +1063,27 @@ export default function GapAssessmentDetail() {
     }
   }
 
+  const waitForPdfCaptureRender = async () => {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+
+      if (pdfCaptureContainerRef.current) return
+    }
+
+    console.warn('Export PDF Gap: contenitore grafici non disponibile per la cattura.')
+  }
+
   const captureReportChartImages = async (): Promise<GapAssessmentPDFChartImages> => {
+    await waitForPdfCaptureRender()
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 150)
+    })
+
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => resolve())
@@ -1068,6 +1091,11 @@ export default function GapAssessmentDetail() {
     })
 
     const capture = async (element: HTMLElement | null, label: string) => {
+      if (!element) {
+        console.warn(`Grafico Gap non disponibile per PDF: ref mancante (${label}).`)
+        return null
+      }
+
       try {
         return await elementToPngDataUrl(element)
       } catch (captureError) {
@@ -1119,7 +1147,10 @@ export default function GapAssessmentDetail() {
 
     try {
       const actionsForExport = await ensureActionsLoaded()
-      setRenderPdfCapture(true)
+      flushSync(() => {
+        setPdfCaptureActions(actionsForExport)
+        setRenderPdfCapture(true)
+      })
       const chartImages = await captureReportChartImages()
       exportGapAssessmentToPDF({
         assessment,
@@ -1134,12 +1165,13 @@ export default function GapAssessmentDetail() {
       setError('Impossibile esportare il file PDF Gap. Riprova tra qualche istante.')
     } finally {
       setRenderPdfCapture(false)
+      setPdfCaptureActions(null)
       setExportingPDF(false)
     }
   }
 
   const openQuickActionFormForEvaluation = async (evaluation: GapActivityEvaluation) => {
-    if (!findingStatuses.includes(evaluation.compliance_status)) {
+    if (!isGapFinding(evaluation)) {
       setError('Le azioni correttive possono essere create solo da valutazioni non conformi o parzialmente conformi.')
       return
     }
@@ -1174,6 +1206,15 @@ export default function GapAssessmentDetail() {
       return
     }
 
+    if (
+      quickActionDraft.planned_start_date &&
+      quickActionDraft.planned_end_date &&
+      quickActionDraft.planned_start_date > quickActionDraft.planned_end_date
+    ) {
+      setError('La data di inizio non può essere successiva alla fine pianificata.')
+      return
+    }
+
     setSavingQuickAction(true)
     setError(null)
 
@@ -1193,7 +1234,7 @@ export default function GapAssessmentDetail() {
         status: 'planned',
         progress: 0,
         phase: 'planning',
-        planned_start_date: null,
+        planned_start_date: toNullable(quickActionDraft.planned_start_date),
         planned_end_date: toNullable(quickActionDraft.planned_end_date),
         notes: toNullable(quickActionDraft.notes),
       }
@@ -1222,7 +1263,7 @@ export default function GapAssessmentDetail() {
     setActiveTab('actions')
     void ensureActionsLoaded().catch(() => undefined)
     setExpandedEvaluationId(null)
-    if ((actionCountByEvaluationId[evaluation.id] || 0) === 0 && findingStatuses.includes(evaluation.compliance_status)) {
+    if ((actionCountByEvaluationId[evaluation.id] || 0) === 0 && isGapFinding(evaluation)) {
       setActionCreateRequest((current) => ({
         evaluationId: evaluation.id,
         requestId: (current?.requestId || 0) + 1,
@@ -1231,46 +1272,72 @@ export default function GapAssessmentDetail() {
   }
 
   const renderAssessmentEnrichment = () => (
-    <div className="sticky top-0 z-30 -mx-1 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/85">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <>
+    <div className="fixed right-4 top-[56vh] z-40 w-[min(11.5rem,calc(100vw-2rem))] -translate-y-1/2 rounded-xl border border-slate-200 bg-white/95 px-2.5 py-3 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-white/90">
+      <div className="flex flex-col gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">Arricchisci assessment</p>
-          <p className="hidden text-xs text-slate-500 md:block">
-            Aggiungi elementi alla libreria personale.
+          <p className="hidden text-xs leading-4 text-slate-500 md:block">
+            Aggiungi elementi mentre scorri la valutazione.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="grid gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
             icon={<Plus className="h-4 w-4" />}
-            className="w-full sm:w-auto"
+            className="w-full"
             onClick={() => {
               setShowDomainForm((current) => !current)
               setShowActivityForm(false)
             }}
           >
-            Aggiungi Dominio/Sezione
+            Dominio/Sezione
           </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
             icon={<Plus className="h-4 w-4" />}
-            className="w-full sm:w-auto"
+            className="w-full"
             onClick={() => {
               setShowActivityForm((current) => !current)
               setShowDomainForm(false)
             }}
           >
-            Aggiungi Attività/Requisito
+            Attività/Requisito
           </Button>
         </div>
       </div>
+    </div>
 
       {(showDomainForm || showActivityForm) && (
-        <div className="mt-3 max-h-[68vh] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/95 p-3 shadow-inner">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/20 p-4 backdrop-blur-sm sm:p-6">
+          <div className="mx-auto my-6 w-full max-w-5xl rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <p className="text-base font-semibold text-slate-950">
+                  {showDomainForm ? 'Nuovo Dominio/Sezione' : 'Nuova Attività/Requisito'}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {showDomainForm
+                    ? 'Aggiungi un Dominio/Sezione senza perdere il punto della valutazione.'
+                    : 'Aggiungi una Attività/Requisito senza comprimere la lista dell assessment.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDomainForm(false)
+                  setShowActivityForm(false)
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Chiudi
+              </button>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
           {showDomainForm && (
             <div className="space-y-3">
               <label className="block">
@@ -1299,7 +1366,7 @@ export default function GapAssessmentDetail() {
 
           {showActivityForm && (
             <div className="space-y-3">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4">
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-slate-700">Processo</span>
                   <select
@@ -1353,9 +1420,11 @@ export default function GapAssessmentDetail() {
               )}
             </div>
           )}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   )
 
   const renderNormativeReferences = (evaluation: GapActivityEvaluation) => {
@@ -2160,13 +2229,14 @@ export default function GapAssessmentDetail() {
 
       {renderPdfCapture && (
         <div
+          ref={pdfCaptureContainerRef}
           className="pointer-events-none fixed -left-[10000px] top-0 w-[1180px] bg-white p-6"
           aria-hidden="true"
         >
           <GapAssessmentStatsReport
             assessment={assessment}
             evaluations={evaluations}
-            actions={gapActions}
+            actions={pdfCaptureActions ?? gapActions}
             standardsByActivityId={standardsByActivityId}
             targetStateByActivityId={targetStateByActivityId}
             chartRefs={pdfChartRefs}
