@@ -16,6 +16,7 @@ import {
   getGapRiskPriorityLabel,
   getGapVerificationResultLabel,
 } from '../lib/labels'
+import { isGapFinding } from '../lib/gapScoring'
 
 type StandardsByActivityId = Record<string, GapActivityStandard[]>
 type TargetStateByActivityId = Record<string, string | null>
@@ -300,10 +301,7 @@ const addDocumentFooter = (doc: jsPDF, title: string) => {
 }
 
 const gapFindingsFromEvaluations = (evaluations: GapActivityEvaluation[]) => (
-  evaluations.filter((evaluation) => (
-    evaluation.compliance_status === 'non_compliant' ||
-    evaluation.compliance_status === 'partially_compliant'
-  ))
+  evaluations.filter(isGapFinding)
 )
 
 export const exportGapAssessmentToExcel = ({

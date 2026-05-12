@@ -15,6 +15,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  SearchCheck,
   Settings,
   ShieldCheck,
   X,
@@ -177,6 +178,7 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   const getSectionIcon = (section: NavSection) => {
+    if (section.key === 'fmea') return SearchCheck
     if (section.key === 'rca') return AlertTriangle
     if (section.key === 'gap') return ClipboardList
     return LayoutDashboard

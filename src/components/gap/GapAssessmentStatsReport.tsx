@@ -1,6 +1,6 @@
 ﻿import type { ReactNode, RefObject } from 'react'
 import { BarChart3, CheckSquare, FileText, ShieldAlert } from 'lucide-react'
-import { isGapActionOverdue } from '../../lib/gapScoring'
+import { isGapActionOverdue, isGapFinding } from '../../lib/gapScoring'
 import {
   getGapAssessmentStatusColor,
   getGapAssessmentStatusLabel,
@@ -39,10 +39,6 @@ interface GapAssessmentStatsReportProps {
   targetStateByActivityId: TargetStateByActivityId
   chartRefs?: GapReportChartRefs
 }
-
-const isGapFinding = (evaluation: GapActivityEvaluation) =>
-  evaluation.compliance_status === 'non_compliant' ||
-  evaluation.compliance_status === 'partially_compliant'
 
 function FocusBox({
   icon,

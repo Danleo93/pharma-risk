@@ -10,7 +10,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { calculateCompliancePercentage, isGapActionOverdue } from '../../lib/gapScoring'
+import { calculateCompliancePercentage, isGapActionOverdue, isGapFinding } from '../../lib/gapScoring'
 import {
   getComplianceStatusColor,
   getComplianceStatusLabel,
@@ -37,10 +37,6 @@ const formatDate = (date: string | null) => {
 
 const formatCompliance = (value: number | null | undefined) => {
   return `${Math.round(value || 0)}%`
-}
-
-const isGapFinding = (evaluation: GapActivityEvaluation) => {
-  return ['non_compliant', 'partially_compliant'].includes(evaluation.compliance_status)
 }
 
 const dashboardLinkClass = 'text-sm font-medium text-teal-700 transition hover:text-teal-800'

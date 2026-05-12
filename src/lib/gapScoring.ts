@@ -95,6 +95,14 @@ export const aggregateAssessmentStats = (
   }
 }
 
+export const isGapFindingStatus = (status: ComplianceStatus | string | null | undefined) => (
+  status === 'non_compliant' || status === 'partially_compliant'
+)
+
+export const isGapFinding = (
+  evaluation: Pick<GapActivityEvaluation, 'compliance_status'>,
+) => isGapFindingStatus(evaluation.compliance_status)
+
 export const calculateProcessCompliance = (
   evaluations: EvaluationLike[],
 ): GapProcessCompliance[] => {

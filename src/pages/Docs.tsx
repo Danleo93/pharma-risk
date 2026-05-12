@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
+  BookMarked,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -24,7 +25,7 @@ import {
 import { Card, CardContent } from '../components/ui/Card'
 import { PageHeader } from '../components/ui/PageHeader'
 
-type GuideModuleId = 'general' | 'fmea' | 'rca'
+type GuideModuleId = 'general' | 'fmea' | 'rca' | 'gap'
 type BoxVariant = 'info' | 'tip' | 'warning'
 
 interface GuideSection {
@@ -39,7 +40,7 @@ interface GuideModule {
   id: GuideModuleId
   title: string
   subtitle: string
-  color: 'sky' | 'amber' | 'slate'
+  color: 'sky' | 'amber' | 'teal' | 'slate'
   sections: GuideSection[]
 }
 
@@ -223,12 +224,41 @@ const rcaFaqs: FaqItem[] = [
   },
 ]
 
+const gapFaqs: FaqItem[] = [
+  {
+    id: 'gap-faq-1',
+    q: 'Qual e la differenza tra libreria e assessment Gap?',
+    a: 'La libreria contiene macro-processi, Domini/Sezioni, Attivita/Requisiti, target attesi e norme riutilizzabili. L assessment contiene invece la valutazione specifica: stato attuale, gap, conformita, priorita, note e azioni correttive.',
+  },
+  {
+    id: 'gap-faq-2',
+    q: 'Posso aggiungere un requisito durante un assessment?',
+    a: 'Si. Dal dettaglio assessment puoi aggiungere un Dominio/Sezione o una Attivita/Requisito. Puoi decidere se salvarli nella libreria personale oppure mantenerli solo nello specifico assessment.',
+  },
+  {
+    id: 'gap-faq-3',
+    q: 'Quando una valutazione diventa una criticita?',
+    a: 'Una valutazione viene considerata criticita quando lo stato di conformita e non conforme o parzialmente conforme. Il testo libero del gap aiuta a descrivere lo scostamento, ma non determina da solo la criticita.',
+  },
+  {
+    id: 'gap-faq-4',
+    q: 'Posso collegare norme cogenti a un requisito?',
+    a: 'Si. Le norme possono essere collegate all Attivita/Requisito, possono essere marcate come cogenti e possono avere un ambito di applicazione. Nell assessment le norme cogenti sono evidenziate per facilitare la lettura.',
+  },
+  {
+    id: 'gap-faq-5',
+    q: 'Come si verifica l efficacia di un azione correttiva?',
+    a: 'Dopo il completamento dell azione, puoi registrare metodo di verifica, esito, note e verificatore. Gli esiti previsti sono efficace, parzialmente efficace o inefficace.',
+  },
+]
+
 export default function Docs() {
   const [activeSection, setActiveSection] = useState('intro')
   const [expandedModules, setExpandedModules] = useState<Record<GuideModuleId, boolean>>({
     general: true,
     fmea: true,
     rca: true,
+    gap: true,
   })
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null)
 
@@ -269,7 +299,8 @@ export default function Docs() {
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
               <strong>PhaRMA T</strong> e una web app professionale per la gestione del rischio in ambito sanitario e farmaceutico.
-              La guida e organizzata in moduli per separare chiaramente l analisi proattiva FMEA dall analisi reattiva RCA.
+              La guida e organizzata in moduli per separare chiaramente l analisi proattiva FMEA, l analisi reattiva RCA
+              e la Gap Analysis per la verifica di conformita rispetto a requisiti e standard.
             </p>
 
             <InfoBox title="Struttura della guida">
@@ -277,7 +308,7 @@ export default function Docs() {
               essere aggiunti alla sidebar mantenendo la stessa struttura di navigazione.
             </InfoBox>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <ShieldCheck className="w-5 h-5 text-sky-600" />
@@ -296,13 +327,22 @@ export default function Docs() {
                   Il modulo RCA supporta l analisi di eventi gia accaduti, near miss e non conformita, fino alla definizione di azioni correttive.
                 </p>
               </div>
+              <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <ClipboardCheck className="w-5 h-5 text-teal-600" />
+                  <h3 className="font-semibold text-teal-900">Verifica di conformita</h3>
+                </div>
+                <p className="text-sm text-teal-800 leading-relaxed">
+                  Il modulo Gap Analysis confronta lo stato attuale con target, requisiti e norme, generando criticita e piani di azione.
+                </p>
+              </div>
             </div>
 
             <h3 className="text-lg font-semibold text-gray-800">Funzionalita principali</h3>
             <BulletList
               items={[
-                'Creazione guidata di assessment FMEA e RCA.',
-                'Gestione strutturata di rischi, cause, Root Cause e azioni correttive.',
+                'Creazione guidata di assessment FMEA, RCA e Gap Analysis.',
+                'Gestione strutturata di rischi, cause, Root Cause, requisiti, norme e azioni correttive.',
                 'Dashboard operative per monitorare stato, severita, priorita e avanzamento.',
                 'Report professionali ed export PDF, Excel e immagini dove previsti.',
                 'Impostazione modulare pensata per audit, revisioni e miglioramento continuo.',
@@ -805,6 +845,262 @@ export default function Docs() {
       },
     ]
 
+    const gapSections: GuideSection[] = [
+      {
+        id: 'gap-intro',
+        moduleId: 'gap',
+        title: 'Introduzione Gap Analysis',
+        icon: <BookOpen className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              La <strong>Gap Analysis</strong> e una metodologia di valutazione strutturata che confronta lo stato attuale
+              di un processo con uno stato atteso di riferimento. Nel contesto sanitario e farmaceutico consente di verificare
+              la conformita a requisiti interni, standard organizzativi, procedure operative, norme cogenti e buone pratiche.
+            </p>
+            <InfoBox title="Obiettivo Gap Analysis">
+              L obiettivo e identificare scostamenti documentati tra cio che avviene nella pratica e cio che dovrebbe avvenire,
+              attribuire una priorita al gap e trasformare le criticita in azioni correttive verificabili.
+            </InfoBox>
+            <BulletList
+              items={[
+                'Costruire una libreria riutilizzabile di macro-processi, Domini/Sezioni e Attivita/Requisiti.',
+                'Collegare norme e riferimenti agli specifici requisiti valutabili.',
+                'Valutare stato attuale, target atteso, conformita, priorita e note operative.',
+                'Pianificare azioni correttive con date, responsabili, avanzamento e verifica di efficacia.',
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'gap-library',
+        moduleId: 'gap',
+        title: 'Libreria processi',
+        icon: <Network className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              La libreria Gap e organizzata come struttura riutilizzabile. Un processo rappresenta un macro-flusso valutabile;
+              ogni processo contiene Domini/Sezioni e ogni Dominio/Sezione contiene Attivita/Requisiti.
+            </p>
+            <MiniTable
+              columns={['Livello', 'Significato', 'Esempio']}
+              rows={[
+                ['Processo', 'Macro-processo o flusso operativo valutabile.', 'Gestione farmaci antiblastici'],
+                ['Dominio/Sezione', 'Fase, sottoambito o area funzionale del processo.', 'Allestimento'],
+                ['Contesto operativo', 'Ambiente o setting in cui il requisito viene applicato.', 'UFA, reparto, magazzino'],
+                ['Attivita/Requisito', 'Azione, controllo o requisito concreto da valutare.', 'Preparazione in cappa biologica'],
+              ]}
+            />
+            <InfoBox title="Target atteso di riferimento" variant="warning">
+              Ogni nuova Attivita/Requisito deve avere un target atteso di riferimento. Il target appartiene alla libreria
+              e viene mostrato in sola lettura durante l assessment.
+            </InfoBox>
+          </div>
+        ),
+      },
+      {
+        id: 'gap-standards',
+        moduleId: 'gap',
+        title: 'Catalogo Norme',
+        icon: <BookMarked className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              Il Catalogo Norme raccoglie i riferimenti normativi o documentali collegabili alle Attivita/Requisiti.
+              Le norme possono essere consultate in lista completa o raggruppate per ambito di applicazione.
+            </p>
+            <MiniTable
+              columns={['Campo', 'Uso']}
+              rows={[
+                ['Codice', 'Identificativo sintetico della norma o del documento.'],
+                ['Nome e versione', 'Titolo del riferimento e versione applicabile.'],
+                ['Ente emittente', 'Organizzazione, societa scientifica o autorita che ha emesso il riferimento.'],
+                ['Ambito di applicazione', 'Area operativa a cui si riferisce, ad esempio allestimento o sperimentazioni.'],
+                ['Norma cogente', 'Flag che evidenzia riferimenti obbligatori o vincolanti.'],
+              ]}
+            />
+            <InfoBox title="Norme create durante assessment" variant="tip">
+              Una norma creata dal pannello di valutazione puo essere salvata nel Catalogo Norme personale oppure mantenuta
+              solo nello specifico assessment.
+            </InfoBox>
+          </div>
+        ),
+      },
+      {
+        id: 'gap-create',
+        moduleId: 'gap',
+        title: 'Creare un assessment Gap',
+        icon: <FileText className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              Un assessment Gap viene creato selezionando uno o piu macro-processi dalla libreria. Le Attivita/Requisiti
+              dei processi selezionati generano automaticamente le valutazioni assessment-specifiche.
+            </p>
+            <NumberedSteps
+              steps={[
+                { title: 'Compila i dati generali', description: 'Inserisci titolo, struttura, reparto, assessor, data e descrizione del perimetro.' },
+                { title: 'Seleziona i processi', description: 'Scegli i macro-processi da includere. Ogni processo porta con se Domini/Sezioni e Attivita/Requisiti.' },
+                { title: 'Verifica la preview', description: 'Controlla il numero di Domini/Sezioni e Attivita/Requisiti prima della creazione.' },
+                { title: 'Crea l assessment', description: 'Il sistema genera una valutazione per ogni Attivita/Requisito selezionata.' },
+              ]}
+            />
+            <InfoBox title="Arricchimento durante la valutazione" variant="tip">
+              Nel dettaglio assessment puoi aggiungere nuovi Domini/Sezioni o Attivita/Requisiti e scegliere se salvarli
+              nella libreria personale o limitarli allo specifico assessment.
+            </InfoBox>
+          </div>
+        ),
+      },
+      {
+        id: 'gap-evaluation',
+        moduleId: 'gap',
+        title: 'Valutazione e criticita',
+        icon: <ClipboardCheck className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              La tab Valutazione e la console operativa dell assessment. Ogni riga rappresenta una Attivita/Requisito
+              e puo essere espansa per compilare i dati della valutazione.
+            </p>
+            <MiniTable
+              columns={['Campo', 'Descrizione']}
+              rows={[
+                ['Stato attuale', 'Situazione osservata durante la valutazione.'],
+                ['Target atteso', 'Stato atteso di riferimento proveniente dalla libreria.'],
+                ['Gap rilevato', 'Descrizione dello scostamento tra stato attuale e target.'],
+                ['Conformita', 'Non valutata, conforme, parzialmente conforme o non conforme.'],
+                ['Priorita rischio', 'Low, medium o high in base alla rilevanza del gap.'],
+                ['Note', 'Evidenze, osservazioni o riferimenti operativi.'],
+              ]}
+            />
+            <InfoBox title="Definizione di criticita">
+              Una valutazione e considerata criticita quando lo stato di conformita e <strong>non conforme</strong> o
+              <strong> parzialmente conforme</strong>. Il testo del gap descrive lo scostamento, ma non determina da solo
+              la criticita.
+            </InfoBox>
+            <BulletList
+              items={[
+                'Usa i filtri rapidi per visualizzare tutte le attivita, quelle da valutare, le criticita o le alte priorita.',
+                'Il filtro Con norme cogenti evidenzia requisiti collegati a riferimenti obbligatori.',
+                'Il filtro Solo assessment mostra elementi creati nello specifico assessment e non salvati in libreria.',
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'gap-actions',
+        moduleId: 'gap',
+        title: 'Azioni correttive Gap',
+        icon: <CheckCircle2 className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              Le azioni correttive Gap sono collegate a valutazioni non conformi o parzialmente conformi. Possono essere
+              create rapidamente dalla riga di valutazione oppure gestite nella tab Azioni correttive.
+            </p>
+            <MiniTable
+              columns={['Elemento', 'Descrizione']}
+              rows={[
+                ['Responsabile/i', 'Persona, team o funzione responsabile dell intervento.'],
+                ['Priorita', 'Low, medium, high o critical.'],
+                ['Stato', 'not_started, planned, in_progress, blocked, completed, verified o closed.'],
+                ['Progress', 'Percentuale di avanzamento usata anche per il Diagramma di GANTT.'],
+                ['Date pianificate', 'Inizio e fine pianificata dell intervento.'],
+                ['Verifica efficacia', 'Esito documentato dopo il completamento dell azione.'],
+              ]}
+            />
+            <InfoBox title="Verifica di efficacia">
+              Dopo il completamento, l azione entra in verifica. L esito puo essere efficace, parzialmente efficace o inefficace.
+              Se l esito e inefficace, l azione torna operativamente in corso e deve essere rivalutata.
+            </InfoBox>
+          </div>
+        ),
+      },
+      {
+        id: 'gap-dashboard',
+        moduleId: 'gap',
+        title: 'Dashboard Gap',
+        icon: <BarChart3 className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              La dashboard Gap sintetizza lo stato complessivo degli assessment, delle criticita e delle azioni correttive.
+              E pensata come vista operativa, non come report completo.
+            </p>
+            <BulletList
+              items={[
+                'Assessment totali e compliance media.',
+                'Gap aperti e gap ad alta priorita.',
+                'Azioni aperte, azioni scadute e verifiche pending.',
+                'Distribuzioni grafiche per conformita, priorita, stato azioni ed esiti di verifica.',
+                'Liste operative con ultimi assessment, gap prioritari, azioni scadute e verifiche da completare.',
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'gap-report',
+        moduleId: 'gap',
+        title: 'Statistiche e report',
+        icon: <PieChart className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              La tab Statistiche e report presenta una vista analitica dello specifico assessment. Non sostituisce la
+              console di valutazione, ma interpreta i dati compilati e prepara il contenuto per il report documentale.
+            </p>
+            <BulletList
+              items={[
+                'Compliance per Dominio/Sezione e distribuzione degli stati di conformita.',
+                'Priorita dei gap e focus sui gap ad alta priorita.',
+                'Stato delle azioni correttive ed esiti della verifica efficacia.',
+                'Diagramma di GANTT delle azioni con date pianificate, avanzamento e milestone di verifica.',
+                'Note metodologiche dell analisi e sintesi interpretativa.',
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'gap-export',
+        moduleId: 'gap',
+        title: 'Export dati',
+        icon: <Download className="w-5 h-5" />,
+        content: (
+          <div className="space-y-5">
+            <p className="text-gray-700 leading-relaxed">
+              Gli export Gap permettono di documentare l assessment e riutilizzare i dati per audit, riunioni operative
+              o analisi successive.
+            </p>
+            <MiniTable
+              columns={['Formato', 'Contenuto']}
+              rows={[
+                ['PDF', 'Report documentale con dati assessment, KPI, grafici, valutazioni, criticita, azioni, norme e firma finale.'],
+                ['Excel', 'Workbook con riepilogo, valutazioni, criticita, azioni e norme collegate.'],
+                ['PNG', 'Esportazione dei grafici principali, inclusi distribuzioni e Diagramma di GANTT.'],
+              ]}
+            />
+            <InfoBox title="Uso del report PDF" variant="tip">
+              Il report PDF e pensato per audit e conservazione documentale. I grafici includono percentuali o valori leggibili
+              anche quando vengono esportati come immagini statiche.
+            </InfoBox>
+          </div>
+        ),
+      },
+      {
+        id: 'gap-faq',
+        moduleId: 'gap',
+        title: 'FAQ Gap Analysis',
+        icon: <HelpCircle className="w-5 h-5" />,
+        content: faqList(gapFaqs),
+      },
+    ]
+
     return [
       {
         id: 'general',
@@ -827,6 +1123,13 @@ export default function Docs() {
         color: 'amber',
         sections: rcaSections,
       },
+      {
+        id: 'gap',
+        title: 'Modulo GAP',
+        subtitle: 'Gap Analysis',
+        color: 'teal',
+        sections: gapSections,
+      },
     ]
   }, [expandedFaq])
 
@@ -840,6 +1143,7 @@ export default function Docs() {
   const moduleHeaderColor = (module: GuideModule) => {
     if (module.color === 'sky') return 'text-sky-700 bg-sky-50'
     if (module.color === 'amber') return 'text-amber-700 bg-amber-50'
+    if (module.color === 'teal') return 'text-teal-700 bg-teal-50'
     return 'text-slate-700 bg-slate-50'
   }
 
@@ -847,7 +1151,7 @@ export default function Docs() {
     <div className="clinical-page">
         <PageHeader
           title="Guida Utente"
-          description="Manuale operativo modulare per FMEA, RCA e futuri moduli di gestione del rischio sanitario."
+          description="Manuale operativo modulare per FMEA, RCA, Gap Analysis e futuri moduli di gestione del rischio sanitario."
           icon={<BookOpen className="h-5 w-5" />}
         />
 

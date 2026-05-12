@@ -23,6 +23,7 @@ import {
   getGapRiskPriorityLabel,
 } from '../../lib/labels'
 import { cn } from '../../lib/ui'
+import { isGapFinding } from '../../lib/gapScoring'
 import { Button } from '../ui/Button'
 import {
   GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT,
@@ -59,6 +60,7 @@ interface QuickActionDraft {
   description: string
   responsible: string
   priority: GapActionPriority
+  planned_start_date: string
   planned_end_date: string
   notes: string
 }
@@ -247,8 +249,8 @@ export function GapEvaluationRow({
   const [standardSearch, setStandardSearch] = useState('')
   const [standardMandatoryFilter, setStandardMandatoryFilter] = useState<StandardMandatoryFilter>('all')
   const [standardScopeFilter, setStandardScopeFilter] = useState('all')
-  const hasGap = Boolean(evaluation.gap_description?.trim())
-  const isFinding = evaluation.compliance_status === 'non_compliant' || evaluation.compliance_status === 'partially_compliant'
+  const isFinding = isGapFinding(evaluation)
+  const hasGap = isFinding
   const mandatoryStandardsCount = standards.filter((link) => link.standard?.is_mandatory).length
   const hasMandatoryStandards = mandatoryStandardsCount > 0
   const standardsLimitReached = standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT
@@ -381,7 +383,7 @@ export function GapEvaluationRow({
         onClick={onToggle}
         className="group w-full cursor-pointer px-4 py-4 text-left transition hover:bg-teal-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2"
       >
-        <div className="grid gap-3 xl:grid-cols-[120px_minmax(150px,1.2fr)_minmax(150px,1fr)_120px_120px_100px_90px_150px_44px] xl:items-center">
+        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-[120px_minmax(150px,1.2fr)_minmax(150px,1fr)_120px_120px_100px_90px_150px_44px] 2xl:items-center">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -401,14 +403,14 @@ export function GapEvaluationRow({
           </div>
 
           <div className="min-w-0">
-            <span className="font-medium text-slate-700 xl:hidden">Attività/Requisito: </span>
-            <p className="inline font-semibold text-slate-950 xl:block">
+            <span className="font-medium text-slate-700 2xl:hidden">Attività/Requisito: </span>
+            <p className="inline break-words font-semibold text-slate-950 2xl:block">
               {evaluation.activity_name_snapshot || 'Attività/Requisito senza nome'}
             </p>
           </div>
 
-          <div className="text-sm text-slate-600">
-            <span className="font-medium text-slate-700 xl:hidden">Dominio/Sezione: </span>
+          <div className="min-w-0 break-words text-sm text-slate-600">
+            <span className="font-medium text-slate-700 2xl:hidden">Dominio/Sezione: </span>
             {evaluation.area_name_snapshot || 'N/D'}
           </div>
 
@@ -425,7 +427,7 @@ export function GapEvaluationRow({
           </div>
 
           <div className="text-sm text-slate-600">
-            <span className="font-medium text-slate-700 xl:hidden">Azioni: </span>
+            <span className="font-medium text-slate-700 2xl:hidden">Azioni: </span>
             {actionCount > 0 ? (
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
                 {actionCount === 1 ? '1 azione' : `${actionCount} azioni`}
@@ -436,7 +438,7 @@ export function GapEvaluationRow({
           </div>
 
           <div className="text-sm text-slate-600">
-            <span className="font-medium text-slate-700 xl:hidden">Norme: </span>
+            <span className="font-medium text-slate-700 2xl:hidden">Norme: </span>
             {standards.length > 0 ? (
               <span className="inline-flex flex-wrap gap-1.5">
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
@@ -454,11 +456,11 @@ export function GapEvaluationRow({
           </div>
 
           <div className="text-sm text-slate-500">
-            <span className="font-medium text-slate-700 xl:hidden">Ultima valutazione: </span>
+            <span className="font-medium text-slate-700 2xl:hidden">Ultima valutazione: </span>
             {formatDateTime(evaluation.evaluated_at)}
           </div>
 
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end lg:col-span-2 2xl:col-span-1">
             <span
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-teal-100 bg-white text-teal-700 transition group-hover:bg-teal-50"
               title={expanded ? 'Chiudi valutazione' : 'Apri valutazione'}
@@ -839,6 +841,7 @@ export function GapEvaluationRow({
                     <p className="text-sm font-semibold text-slate-900">Nuova azione rapida</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Per stato avanzato, fase, avanzamento e verifica efficacia usa la tab Azioni correttive.
+                      Le date pianificate alimentano il diagramma di Gantt.
                     </p>
                   </div>
 
@@ -880,7 +883,17 @@ export function GapEvaluationRow({
                     </label>
 
                     <label className="block">
-                      <span className="mb-1 block text-xs font-medium text-slate-600">Scadenza</span>
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Inizio pianificato</span>
+                      <input
+                        type="date"
+                        value={quickActionDraft.planned_start_date}
+                        onChange={(event) => onQuickActionDraftChange?.({ planned_start_date: event.target.value })}
+                        className="clinical-input py-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Fine pianificata</span>
                       <input
                         type="date"
                         value={quickActionDraft.planned_end_date}
@@ -968,8 +981,15 @@ export function GapEvaluationRow({
               className="clinical-input min-h-24 resize-y"
               placeholder="Descrivi lo scostamento tra stato attuale e target atteso di riferimento."
             />
-            <span className="mt-1 block text-xs leading-5 text-slate-500">
-              Descrivi lo scostamento tra stato attuale e target atteso di riferimento.
+            <span className={cn(
+              'mt-1 block text-xs leading-5',
+              draft.compliance_status === 'compliant' ? 'text-emerald-700' : 'text-slate-500',
+            )}>
+              {draft.compliance_status === 'compliant'
+                ? 'La valutazione e conforme: eventuali note in questo campo non saranno conteggiate come gap.'
+                : isGapFinding({ compliance_status: draft.compliance_status })
+                  ? 'Descrivi lo scostamento tra stato attuale e target atteso di riferimento.'
+                  : 'Compila questo campo solo se rilevi uno scostamento rispetto al target.'}
             </span>
             </label>
 
