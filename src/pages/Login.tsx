@@ -43,7 +43,7 @@ export default function Login() {
                 Clinical Risk Suite
               </p>
               <p className="mt-3 text-sm text-slate-500">
-                Risk management per farmacia ospedaliera e rischio clinico.
+                Supporto formativo e documentale per farmacia ospedaliera e rischio clinico.
               </p>
             </div>
 
@@ -120,7 +120,8 @@ export default function Login() {
             Versione Beta
           </div>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            Solo per uso interno e test. Questo strumento non sostituisce la valutazione professionale.
+            Solo per uso formativo, metodologico e documentale con dati anonimizzati o simulati.
+            Non sostituisce la valutazione professionale e non orienta decisioni cliniche dirette.
           </p>
           <p className="mt-2 text-xs text-slate-500">Sviluppato da Dott. Daniele Leonardi Vinci</p>
           <div className="mt-3 flex justify-center gap-3 text-xs">

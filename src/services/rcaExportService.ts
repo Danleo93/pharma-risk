@@ -699,6 +699,15 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y
   y += 12
 
+  y = addPageIfNeeded(doc, y, 28)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(71, 85, 105)
+  const useLimitNote = 'Nota d uso: il presente report e generato a fini formativi, metodologici e documentali. Non costituisce dispositivo medico, valutazione clinica automatizzata o indicazione per decisioni cliniche dirette.'
+  const useLimitLines = doc.splitTextToSize(useLimitNote, pageWidth - 28)
+  doc.text(useLimitLines, 14, y)
+  y += useLimitLines.length * 4.5 + 8
+
   y = addPageIfNeeded(doc, y)
   y = addSectionTitle(doc, 'Dati evento', y)
   autoTable(doc, {

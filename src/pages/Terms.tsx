@@ -18,12 +18,13 @@ const sections = [
     content: (
       <>
         <p>
-          PhaRMA T e uno strumento per la gestione e valutazione del rischio in ambito farmaceutico e sanitario.
-          L'applicazione supporta analisi proattive FMEA e analisi reattive RCA.
+          PhaRMA T e una web app a finalita formative, metodologiche e di supporto documentale
+          per l'applicazione di strumenti di gestione del rischio in ambito farmaceutico e sanitario.
+          L'applicazione supporta analisi proattive FMEA, analisi reattive RCA e Gap Analysis.
         </p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Creare e gestire assessment di rischio.</li>
-          <li>Identificare e valutare rischi, cause e Root Cause.</li>
+          <li>Identificare e valutare rischi, cause, Root Cause, requisiti e gap di conformita.</li>
           <li>Pianificare e monitorare azioni correttive.</li>
           <li>Esportare report in formato PDF, Excel e immagini dove previsto.</li>
         </ul>
@@ -31,7 +32,23 @@ const sections = [
     ),
   },
   {
-    title: '3. Uso Consentito',
+    title: '3. Natura e limiti d uso',
+    content: (
+      <>
+        <p>
+          PhaRMA T non e un dispositivo medico, non formula diagnosi, non prescrive interventi terapeutici
+          e non deve essere utilizzata come strumento decisionale clinico diretto.
+        </p>
+        <p className="mt-2">
+          Gli output generati hanno valore di supporto metodologico, formativo e documentale. Devono essere
+          interpretati criticamente da professionisti qualificati, nel rispetto delle procedure aziendali,
+          delle responsabilita professionali e della normativa applicabile.
+        </p>
+      </>
+    ),
+  },
+  {
+    title: '4. Uso Consentito',
     content: (
       <>
         <p>L'applicazione e destinata a:</p>
@@ -40,12 +57,19 @@ const sections = [
           <li>Attivita di formazione, ricerca, audit e miglioramento continuo.</li>
           <li>Uso interno presso strutture sanitarie.</li>
         </ul>
-        <p className="mt-2">E vietato utilizzare l'applicazione per scopi illegali o non autorizzati.</p>
+        <p className="mt-2">
+          L'applicazione deve essere utilizzata con dati simulati, anonimizzati, aggregati o comunque non
+          identificativi. E vietato utilizzare l'applicazione per scopi illegali o non autorizzati.
+        </p>
+        <p className="mt-2">
+          Non devono essere inseriti nomi, iniziali, codici paziente, numeri di cartella clinica, date di nascita,
+          recapiti, immagini o altri riferimenti che possano identificare pazienti, operatori o altre persone fisiche.
+        </p>
       </>
     ),
   },
   {
-    title: '4. Account Utente',
+    title: '5. Account Utente',
     content: (
       <p>
         Per utilizzare l'applicazione e necessario creare un account. Sei responsabile della riservatezza
@@ -54,7 +78,7 @@ const sections = [
     ),
   },
   {
-    title: '5. Proprieta Intellettuale',
+    title: '6. Proprieta Intellettuale',
     content: (
       <>
         <p>
@@ -68,7 +92,7 @@ const sections = [
     ),
   },
   {
-    title: '6. Limitazione di Responsabilita',
+    title: '7. Limitazione di Responsabilita',
     content: (
       <>
         <p>
@@ -78,13 +102,18 @@ const sections = [
         <p className="mt-2">
           <strong>Importante:</strong> PhaRMA T e uno strumento di supporto alla gestione del rischio.
           Le decisioni finali rimangono di responsabilita dell'utente e dei professionisti competenti.
-          L'applicazione non sostituisce il giudizio professionale ne le procedure aziendali vigenti.
+          L'applicazione non sostituisce il giudizio professionale, le procedure aziendali vigenti, il
+          parere degli organismi competenti ne eventuali valutazioni clinico-organizzative formali.
+        </p>
+        <p className="mt-2">
+          Report, grafici, punteggi e output esportati devono essere utilizzati con cautela come supporto
+          documentale e metodologico. Non costituiscono raccomandazioni cliniche automatiche.
         </p>
       </>
     ),
   },
   {
-    title: '7. Disponibilita del Servizio',
+    title: '8. Disponibilita del Servizio',
     content: (
       <p>
         Il Titolare si impegna a mantenere l'applicazione disponibile, ma non garantisce un servizio ininterrotto.
@@ -93,7 +122,7 @@ const sections = [
     ),
   },
   {
-    title: '8. Modifiche ai Termini',
+    title: '9. Modifiche ai Termini',
     content: (
       <p>
         Il Titolare si riserva il diritto di modificare i presenti Termini. Le modifiche saranno effettive
@@ -102,7 +131,7 @@ const sections = [
     ),
   },
   {
-    title: '9. Legge Applicabile',
+    title: '10. Legge Applicabile',
     content: (
       <p>
         I presenti Termini sono regolati dalla legge italiana. Per qualsiasi controversia sara competente il foro applicabile
@@ -111,7 +140,7 @@ const sections = [
     ),
   },
   {
-    title: '10. Contatti',
+    title: '11. Contatti',
     content: (
       <p>
         Per domande o chiarimenti sui presenti Termini di Servizio, contatta il Titolare all'indirizzo

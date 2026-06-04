@@ -303,6 +303,12 @@ export default function Docs() {
               e la Gap Analysis per la verifica di conformita rispetto a requisiti e standard.
             </p>
 
+            <InfoBox title="Finalita e limiti d uso" variant="warning">
+              PhaRMA T e uno strumento formativo, metodologico e di supporto documentale. Non e un dispositivo medico,
+              non formula diagnosi, non prescrive interventi terapeutici e non deve essere utilizzata come strumento
+              decisionale clinico diretto. Usa dati simulati, anonimizzati, aggregati o comunque non identificativi.
+            </InfoBox>
+
             <InfoBox title="Struttura della guida">
               La sezione e pensata per crescere nel tempo: nuovi moduli come Audit, HACCP, Checklist o controlli periodici possono
               essere aggiunti alla sidebar mantenendo la stessa struttura di navigazione.

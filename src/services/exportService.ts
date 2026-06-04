@@ -200,6 +200,9 @@ doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.text('Pharmacy Risk Management Assessment Tool', pageWidth / 2, 256, { align: 'center' })
   doc.text('Sviluppato da Dott. Daniele Leonardi Vinci', pageWidth / 2, 262, { align: 'center' })
+  const useLimitNote = 'Report generato a fini formativi, metodologici e documentali. Non costituisce dispositivo medico, valutazione clinica automatizzata o indicazione per decisioni cliniche dirette.'
+  const useLimitLines = doc.splitTextToSize(useLimitNote, pageWidth - 40)
+  doc.text(useLimitLines, pageWidth / 2, 272, { align: 'center' })
 
   // ============================================
   // PAGINA 2 - EXECUTIVE SUMMARY

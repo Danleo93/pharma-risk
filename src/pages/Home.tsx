@@ -9,7 +9,7 @@ export default function Home() {
     <div className="clinical-page">
       <PageHeader
         title="PhaRMA T"
-        description="Seleziona l'area metodologica da utilizzare."
+        description="Strumento formativo, metodologico e documentale per risk management. Non utilizzare per decisioni cliniche dirette."
         eyebrow="Clinical risk management"
       />
 

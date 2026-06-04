@@ -55,7 +55,9 @@ export default function Register() {
               <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Clinical Risk Suite
               </p>
-              <p className="mt-3 text-sm text-slate-500">Crea il tuo account.</p>
+              <p className="mt-3 text-sm text-slate-500">
+                Crea il tuo account per un uso formativo e documentale con dati anonimizzati.
+              </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -159,7 +161,9 @@ export default function Register() {
             <AlertTriangle className="h-4 w-4" />
             Versione Beta
           </div>
-          <p className="mt-2 text-xs text-slate-500">Solo per uso interno e test.</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+            Non inserire dati personali, sanitari o identificativi. PhaRMA T non e uno strumento decisionale clinico.
+          </p>
         </div>
       </div>
     </div>

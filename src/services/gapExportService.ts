@@ -585,6 +585,13 @@ export const exportGapAssessmentToPDF = ({
   })
 
   y = getLastAutoTableY(doc, y) + 12
+  y = addPageIfNeeded(doc, y, 28)
+  y = addParagraph(
+    doc,
+    'Nota d uso: il presente report e generato a fini formativi, metodologici e documentali. Non costituisce dispositivo medico, valutazione clinica automatizzata o indicazione per decisioni cliniche dirette.',
+    y,
+    portraitMargin,
+  )
   y = addPageIfNeeded(doc, y, 55)
   y = addSectionTitle(doc, 'Riepilogo KPI', y)
   autoTable(doc, {
