@@ -106,6 +106,11 @@ const sections = [
           verranno eliminati o resi non piu accessibili entro un termine ragionevole, indicativamente entro 30 giorni,
           salvo impedimenti tecnici, obblighi legali o conservazioni temporanee nei backup.
         </p>
+        <p className="mt-2">
+          La richiesta di cancellazione viene gestita come procedura verificata: l'utente deve indicare l'email
+          dell'account, confermare la volonta di cancellazione definitiva e puo ricevere conferma di presa in carico
+          ed esito dell'operazione all'indirizzo registrato.
+        </p>
       </>
     ),
   },
@@ -142,6 +147,11 @@ const sections = [
         <p className="mt-2">
           Le richieste possono essere inviate al Titolare tramite l'indirizzo di contatto indicato nell'applicazione.
           L'utente puo inoltre utilizzare le funzioni di esportazione dati disponibili nelle impostazioni, ove presenti.
+        </p>
+        <p className="mt-2">
+          Prima di richiedere la cancellazione, l'utente e invitato a esportare eventuali dati che intende conservare.
+          La cancellazione dell'account e dei dati applicativi e pensata come operazione definitiva, salvo copie
+          temporanee presenti nei backup tecnici dei fornitori.
         </p>
       </>
     ),

@@ -85,6 +85,9 @@ export default function Settings() {
       `User ID: ${user?.id || ''}`,
       '',
       'Confermo di aver esportato o salvato eventuali dati che intendo conservare.',
+      'Confermo di comprendere che la cancellazione dei dati applicativi e dell account e un operazione definitiva, salvo eventuali copie temporanee di backup tecnico.',
+      '',
+      'Richiedo conferma di presa in carico e comunicazione dell esito della cancellazione.',
       '',
       'Note aggiuntive:',
     ].join('\n'))
@@ -232,22 +235,50 @@ export default function Settings() {
 
             <p className="text-sm leading-6 text-slate-600">
               Puoi richiedere la cancellazione dell'account e dei dati applicativi associati. Prima di procedere,
-              esporta i dati che intendi conservare: la cancellazione e pensata come operazione definitiva.
+              esporta i dati che intendi conservare: la cancellazione e pensata come operazione definitiva e
+              riguarda i contenuti applicativi collegati al tuo utente.
             </p>
 
             <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-4">
-              <h3 className="mb-2 font-medium text-red-900">Procedura di richiesta oblio</h3>
-              <ul className="space-y-1 text-sm text-red-800">
-                <li>- invia la richiesta usando il pulsante qui sotto;</li>
-                <li>- indica l'email dell'account e conferma la volonta di cancellazione;</li>
-                <li>- la richiesta verra presa in carico e confermata via email;</li>
-                <li>- l'eliminazione dei dati applicativi verra completata indicativamente entro 30 giorni, salvo obblighi tecnici o legali.</li>
+              <h3 className="mb-3 font-medium text-red-900">Procedura strutturata di cancellazione</h3>
+              <div className="grid gap-4 text-sm text-red-900 md:grid-cols-2">
+                <div>
+                  <h4 className="mb-1 font-semibold">Prima della richiesta</h4>
+                  <ul className="space-y-1 text-red-800">
+                    <li>- esporta i dati che intendi conservare;</li>
+                    <li>- verifica l'email dell'account indicata nella richiesta;</li>
+                    <li>- conferma esplicitamente la volonta di cancellazione definitiva.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="mb-1 font-semibold">Dopo l'invio</h4>
+                  <ul className="space-y-1 text-red-800">
+                    <li>- la richiesta viene presa in carico e confermata via email;</li>
+                    <li>- l'identita dell'account puo essere verificata prima dell'esecuzione;</li>
+                    <li>- l'esito della cancellazione viene comunicato all'indirizzo registrato.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="mb-2 font-medium text-slate-900">Dati interessati dalla cancellazione</h3>
+              <ul className="grid gap-1 text-sm text-slate-600 md:grid-cols-2">
+                <li>- assessment, rischi e azioni FMEA;</li>
+                <li>- assessment, cause, 5 Whys, Ishikawa e azioni RCA;</li>
+                <li>- processi, requisiti, norme, valutazioni e azioni Gap;</li>
+                <li>- impostazioni utente e dati applicativi collegati all'account.</li>
               </ul>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                La cancellazione viene completata indicativamente entro 30 giorni dalla presa in carico,
+                salvo obblighi tecnici, legali o copie temporanee presenti nei sistemi di backup dei fornitori.
+              </p>
             </div>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-5 text-slate-500">
-                Per sicurezza, la cancellazione completa dell'account viene gestita come richiesta verificata e non come azione automatica immediata.
+                Per sicurezza, la cancellazione completa dell'account viene gestita come richiesta verificata
+                e non come azione automatica immediata dal browser.
               </p>
               <Button
                 type="button"
