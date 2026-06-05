@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent } from '../components/ui/Card'
+import { validatePasswordPolicy } from '../lib/passwordPolicy'
 import { supabase } from '../lib/supabase'
 
 export default function ResetPassword() {
@@ -13,13 +14,14 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const passwordPolicy = validatePasswordPolicy(password)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (password.length < 6) {
-      setError('La password deve essere di almeno 6 caratteri')
+    if (!passwordPolicy.isValid) {
+      setError(`La password non rispetta i requisiti minimi: ${passwordPolicy.missingLabels.join(', ')}`)
       return
     }
 
@@ -99,7 +101,7 @@ export default function ResetPassword() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="clinical-input px-4 py-3 pr-12"
-                  placeholder="Almeno 6 caratteri"
+                  placeholder="Almeno 12 caratteri, maiuscole, numeri e simboli"
                 />
                 <button
                   type="button"
@@ -109,6 +111,21 @@ export default function ResetPassword() {
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
+              </div>
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Requisiti password
+                </p>
+                <ul className="space-y-1 text-xs">
+                  {passwordPolicy.checks.map((check) => (
+                    <li
+                      key={check.id}
+                      className={check.valid ? 'text-emerald-700' : 'text-slate-500'}
+                    >
+                      {check.valid ? '✓' : '•'} {check.label}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
 

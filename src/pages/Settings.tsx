@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Check, Download, Save, Shield, User } from 'lucide-react'
+import { AlertTriangle, Building2, Check, Download, Mail, Save, Shield, User } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent } from '../components/ui/Card'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -74,6 +74,22 @@ export default function Settings() {
     } finally {
       setExporting(false)
     }
+  }
+
+  const handleDeletionRequest = () => {
+    const subject = encodeURIComponent('[PhaRMA T] Richiesta cancellazione account e dati')
+    const body = encodeURIComponent([
+      'Richiedo la cancellazione del mio account PhaRMA T e dei dati applicativi associati.',
+      '',
+      `Email account: ${user?.email || ''}`,
+      `User ID: ${user?.id || ''}`,
+      '',
+      'Confermo di aver esportato o salvato eventuali dati che intendo conservare.',
+      '',
+      'Note aggiuntive:',
+    ].join('\n'))
+
+    window.location.href = `mailto:daniele.leo93@gmail.com?subject=${subject}&body=${body}`
   }
 
   if (loading) {
@@ -202,6 +218,47 @@ export default function Settings() {
               Il file verra scaricato in formato JSON. Potrebbe contenere testi liberi inseriti dall'utente:
               conservalo e condividilo con cautela.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-700">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900">Cancellazione account e dati</h2>
+            </div>
+
+            <p className="text-sm leading-6 text-slate-600">
+              Puoi richiedere la cancellazione dell'account e dei dati applicativi associati. Prima di procedere,
+              esporta i dati che intendi conservare: la cancellazione e pensata come operazione definitiva.
+            </p>
+
+            <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-4">
+              <h3 className="mb-2 font-medium text-red-900">Procedura di richiesta oblio</h3>
+              <ul className="space-y-1 text-sm text-red-800">
+                <li>- invia la richiesta usando il pulsante qui sotto;</li>
+                <li>- indica l'email dell'account e conferma la volonta di cancellazione;</li>
+                <li>- la richiesta verra presa in carico e confermata via email;</li>
+                <li>- l'eliminazione dei dati applicativi verra completata indicativamente entro 30 giorni, salvo obblighi tecnici o legali.</li>
+              </ul>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-5 text-slate-500">
+                Per sicurezza, la cancellazione completa dell'account viene gestita come richiesta verificata e non come azione automatica immediata.
+              </p>
+              <Button
+                type="button"
+                variant="danger"
+                tone="risk"
+                icon={<Mail className="h-4 w-4" />}
+                onClick={handleDeletionRequest}
+              >
+                Richiedi cancellazione
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
