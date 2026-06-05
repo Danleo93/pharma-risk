@@ -174,16 +174,17 @@ export default function Settings() {
 
             <p className="mb-4 text-sm leading-6 text-slate-600">
               Ai sensi del GDPR (Regolamento UE 2016/679), hai il diritto di accedere ai tuoi dati
-              e di riceverli in un formato strutturato e leggibile.
+              e di riceverli in un formato strutturato, leggibile e interoperabile.
             </p>
 
             <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50 p-4">
               <h3 className="mb-2 font-medium text-slate-800">I tuoi dati includono:</h3>
               <ul className="space-y-1 text-sm text-slate-600">
                 <li>- Informazioni del profilo (email, nome struttura)</li>
-                <li>- Tutti i tuoi assessment</li>
-                <li>- Tutti i rischi identificati e valutati</li>
-                <li>- Tutte le azioni correttive pianificate</li>
+                <li>- Assessment, rischi, cataloghi personalizzati e azioni FMEA</li>
+                <li>- Assessment RCA, cause, Ishikawa, 5 Whys e azioni correttive</li>
+                <li>- Processi, Domini/Sezioni, Attivita/Requisiti, norme, valutazioni e azioni Gap</li>
+                <li>- Eventi, note e testi liberi collegati ai moduli applicativi</li>
               </ul>
             </div>
 
@@ -198,7 +199,8 @@ export default function Settings() {
             </Button>
 
             <p className="mt-3 text-xs text-slate-500">
-              Il file verra scaricato in formato JSON, leggibile e interoperabile.
+              Il file verra scaricato in formato JSON. Potrebbe contenere testi liberi inseriti dall'utente:
+              conservalo e condividilo con cautela.
             </p>
           </CardContent>
         </Card>
