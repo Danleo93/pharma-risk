@@ -12,6 +12,11 @@ Permette di identificare, valutare e gestire i rischi nelle strutture sanitarie 
 
 🔗 **Live Demo:** [https://pharma-risk.vercel.app](https://pharma-risk.vercel.app)
 
+**Hosting, 9 settembre 2026:** preparazione della migrazione a Cloudflare Workers
+Static Assets avviata; nessun passaggio del servizio effettuato. Vercel resta
+invariato. Stato, verifiche e passaggi manuali sono registrati in
+[CLOUDFLARE_MIGRATION.md](docs/CLOUDFLARE_MIGRATION.md).
+
 ---
 
 ## ✨ Funzionalità Principali
