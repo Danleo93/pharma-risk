@@ -1,8 +1,6 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import { toPng } from 'html-to-image'
-import * as XLSX from 'xlsx'
+import type jsPDF from 'jspdf'
 import type { RCAAssessment } from '../types'
+import { loadHtmlToImage, loadPdfEngine, loadXlsx, type XlsxEngine } from '../lib/exportEngines'
 import {
   RCA_EVENT_TYPE_LABELS,
   RCA_METHODOLOGY_LABELS,
@@ -13,6 +11,14 @@ import {
   getRCASeverityLabel,
   getRootCauseStatusLabel,
 } from '../lib/labels'
+import { sanitizeSpreadsheetRecords, sanitizeSpreadsheetRows } from '../lib/spreadsheetSecurity'
+import { ensureRuntimeModuleCanExport } from '../lib/moduleRuntime'
+import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
+
+const aoaToSafeSheet = (XLSX: XlsxEngine, rows: unknown[][]) => XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetRows(rows))
+const jsonToSafeSheet = <T extends Record<string, unknown>>(XLSX: XlsxEngine, records: T[]) => (
+  XLSX.utils.json_to_sheet(sanitizeSpreadsheetRecords(records))
+)
 
 export interface RCAExportCause {
   id: string
@@ -98,11 +104,9 @@ const safeValue = (value: string | number | null | undefined) => {
   return String(value)
 }
 
-const createFileName = (title: string, extension: string) => {
-  const cleanTitle = title.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_')
-  const date = new Date().toISOString().split('T')[0]
-  return `RCA_${cleanTitle}_${date}.${extension}`
-}
+const createFileName = (_title: string, extension: 'pdf' | 'xlsx') => (
+  createNeutralExportFileName('RCA', new Date(), extension)
+)
 
 const getFiveWhyStatus = (stepsCount: number) => {
   if (stepsCount === 0) return 'Da compilare'
@@ -590,6 +594,7 @@ const getLiveIshikawaReportElement = () => {
 }
 
 const captureIshikawaElement = async (element: HTMLElement) => {
+  const { toPng } = await loadHtmlToImage()
   const width = Math.max(element.scrollWidth, element.offsetWidth, Math.ceil(element.getBoundingClientRect().width))
   const height = Math.max(element.scrollHeight, element.offsetHeight, Math.ceil(element.getBoundingClientRect().height))
   const dataUrl = await toPng(element, {
@@ -661,11 +666,20 @@ const addIshikawaImagePage = async (doc: jsPDF, data: RCAExportData) => {
 }
 
 export const exportRCAToPDF = async (data: RCAExportData) => {
+  if (!ensureRuntimeModuleCanExport('RCA')) return
+  if (!confirmExportPrivacy()) return
+  const { jsPDF, autoTable } = await loadPdfEngine()
   const { assessment, branches, causes, candidateCauses, fiveWhyChains, actions } = data
   const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
   const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
   const monitoring = getRCAMonitoringSummary(data)
   const doc = new jsPDF()
+  doc.setProperties({
+    title: 'PhaRMA T - Report RCA',
+    subject: 'Report metodologico RCA',
+    author: 'PhaRMA T',
+    creator: 'PhaRMA T',
+  })
   const pageWidth = doc.internal.pageSize.getWidth()
   let y = 18
 
@@ -871,14 +885,24 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   doc.save(createFileName(assessment.title, 'pdf'))
 }
 
-export const exportRCAToExcel = (data: RCAExportData) => {
+export const exportRCAToExcel = async (data: RCAExportData) => {
+  if (!ensureRuntimeModuleCanExport('RCA')) return
+  if (!confirmExportPrivacy()) return
+  const XLSX = await loadXlsx()
   const { assessment, branches, causes, candidateCauses, fiveWhyChains, actions } = data
   const confirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'confirmed')
   const notConfirmedRootCauses = candidateCauses.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed')
   const monitoring = getRCAMonitoringSummary(data)
   const wb = XLSX.utils.book_new()
+  wb.Props = {
+    Title: 'PhaRMA T - Report RCA',
+    Subject: 'Report metodologico RCA',
+    Author: 'PhaRMA T',
+    Company: 'PhaRMA T',
+    Comments: 'Generato da PhaRMA T',
+  }
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+  XLSX.utils.book_append_sheet(wb, aoaToSafeSheet(XLSX, [
     ['Campo', 'Valore'],
     ['Titolo', assessment.title],
     ['Evento', safeValue(assessment.event_title)],
@@ -891,7 +915,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     ['Stato', getRCAAssessmentStatusLabel(assessment.status)],
   ]), 'Info')
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+  XLSX.utils.book_append_sheet(wb, aoaToSafeSheet(XLSX, [
     ['Elemento', 'Criterio documentale'],
     ...rcaMethodologyNotes,
     [],
@@ -899,7 +923,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     ...rootCauseStatusLegend,
   ]), 'Metodo RCA')
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+  XLSX.utils.book_append_sheet(wb, aoaToSafeSheet(XLSX, [
     ['Indicatore', 'Valore'],
     ['Categorie attive', branches.length],
     ['Cause totali', causes.length],
@@ -910,7 +934,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     ['Azioni correttive', actions.length],
   ]), 'KPI')
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(branches.map((branch) => ({
+  XLSX.utils.book_append_sheet(wb, jsonToSafeSheet(XLSX, branches.map((branch) => ({
     Categoria: branch.name,
     Tipo: branch.source_type,
     Cause: branch.causes.length,
@@ -919,7 +943,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     NonConfermate: branch.causes.filter((cause) => getEffectiveRootCauseStatus(cause) === 'not_confirmed').length,
   }))), 'Ishikawa')
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(causes.map((cause) => ({
+  XLSX.utils.book_append_sheet(wb, jsonToSafeSheet(XLSX, causes.map((cause) => ({
     Descrizione: cause.description,
     Categoria: safeValue(cause.category),
     Fonte: cause.source_type,
@@ -929,7 +953,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     NoteConferma: safeValue(cause.root_cause_confirmation_notes),
   }))), 'Cause')
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fiveWhyChains.flatMap((chain) => {
+  XLSX.utils.book_append_sheet(wb, jsonToSafeSheet(XLSX, fiveWhyChains.flatMap((chain) => {
     if (chain.steps.length === 0) {
       return [{
         Causa: safeValue(chain.cause_description),
@@ -953,7 +977,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     }))
   })), '5 Whys')
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(actions.map((action) => ({
+  XLSX.utils.book_append_sheet(wb, jsonToSafeSheet(XLSX, actions.map((action) => ({
     Descrizione: action.description,
     Causa: safeValue(action.cause_description),
     Categoria: safeValue(action.cause_category),
@@ -964,7 +988,7 @@ export const exportRCAToExcel = (data: RCAExportData) => {
     Stato: getRCAActionStatusLabel(action.status),
   }))), 'Azioni')
 
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+  XLSX.utils.book_append_sheet(wb, aoaToSafeSheet(XLSX, [
     ['Campo', 'Valore'],
     ['Rivalutazione prevista', monitoring.reevaluationStatus],
     ['Effectiveness check', monitoring.effectivenessStatus],

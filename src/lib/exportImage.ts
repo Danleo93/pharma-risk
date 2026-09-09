@@ -1,17 +1,11 @@
-import { toPng } from 'html-to-image'
-
-const sanitizeFileName = (value: string) =>
-  value
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '-')
-    .replace(/\s+/g, '_')
-    .replace(/_+/g, '_')
-    .slice(0, 120) || 'export'
+import { loadHtmlToImage } from './exportEngines'
+import { confirmExportPrivacy, createNeutralExportFileName } from './privacyRuntime'
 
 export const exportElementToPng = async (
   element: HTMLElement | null,
   fileName: string,
 ) => {
+  if (!confirmExportPrivacy()) return
   if (!element) {
     console.warn('Export PNG non disponibile: riferimento elemento assente.')
     return
@@ -21,7 +15,7 @@ export const exportElementToPng = async (
   if (!dataUrl) return
 
   const link = document.createElement('a')
-  link.download = `${sanitizeFileName(fileName)}.png`
+  link.download = createNeutralExportFileName('GAP', new Date(), 'png', fileName)
   link.href = dataUrl
   link.click()
 }
@@ -42,6 +36,8 @@ export const elementToPngDataUrl = async (element: HTMLElement | null) => {
     element.offsetHeight,
     Math.ceil(element.getBoundingClientRect().height),
   )
+
+  const { toPng } = await loadHtmlToImage()
 
   return toPng(element, {
     cacheBust: true,

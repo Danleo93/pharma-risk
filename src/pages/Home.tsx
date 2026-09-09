@@ -1,61 +1,15 @@
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, ClipboardCheck, Search } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Card, CardContent } from '../components/ui/Card'
 import { PageHeader } from '../components/ui/PageHeader'
-
-const modules = [
-  {
-    tag: 'FMEA',
-    title: 'Analisi Proattiva',
-    description: 'Valutazione preventiva dei rischi, catalogo, assessment e azioni correttive.',
-    icon: AlertTriangle,
-    iconClass: 'bg-sky-50 text-sky-700 ring-sky-100',
-    badgeVariant: 'fmea',
-    topClass: 'bg-sky-500',
-    linkClass: 'hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-sky-500',
-    links: [
-      { to: '/fmea/dashboard', label: 'Dashboard' },
-      { to: '/fmea/assessments', label: 'Assessment' },
-      { to: '/fmea/risks', label: 'Catalogo rischi' },
-      { to: '/fmea/actions', label: 'Azioni correttive' },
-    ],
-  },
-  {
-    tag: 'RCA',
-    title: 'Analisi Reattiva',
-    description: 'Analisi di eventi, cause radice, 5 Whys e piano di azioni conseguenti.',
-    icon: Search,
-    iconClass: 'bg-amber-50 text-amber-700 ring-amber-100',
-    badgeVariant: 'rca',
-    topClass: 'bg-amber-500',
-    linkClass: 'hover:border-amber-300 hover:bg-amber-50 focus-visible:ring-amber-500',
-    links: [
-      { to: '/rca/dashboard', label: 'Dashboard' },
-      { to: '/rca/assessments', label: 'Assessment' },
-      { to: '/rca/actions', label: 'Azioni correttive' },
-    ],
-  },
-  {
-    tag: 'GAP',
-    title: 'Gap Analysis',
-    description: 'Verifica di conformità, requisiti, norme, gap operativi e azioni correttive.',
-    icon: ClipboardCheck,
-    iconClass: 'bg-teal-50 text-teal-700 ring-teal-100',
-    badgeVariant: 'success',
-    topClass: 'bg-teal-500',
-    linkClass: 'hover:border-teal-300 hover:bg-teal-50 focus-visible:ring-teal-500',
-    links: [
-      { to: '/gap/dashboard', label: 'Dashboard' },
-      { to: '/gap/assessments', label: 'Assessment' },
-      { to: '/gap/processes', label: 'Processi' },
-      { to: '/gap/standards', label: 'Norme' },
-      { to: '/gap/actions', label: 'Azioni correttive' },
-    ],
-  },
-] as const
+import { MODULE_DEFINITIONS } from '../config/modules'
+import { useModuleConfig } from '../context/useModuleConfig'
 
 export default function Home() {
+  const { error, getStatus, isVisible } = useModuleConfig()
+  const modules = MODULE_DEFINITIONS.filter((module) => isVisible(module.key))
+
   return (
     <div className="clinical-page space-y-8">
       <PageHeader
@@ -74,7 +28,7 @@ export default function Home() {
               Tre percorsi integrati per documentare rischio, cause e conformità
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Accedi rapidamente ai moduli FMEA, RCA e Gap Analysis mantenendo separati i workflow operativi.
+              Accedi rapidamente ai moduli disponibili mantenendo separati i workflow operativi.
             </p>
           </div>
 
@@ -100,6 +54,15 @@ export default function Home() {
         </div>
       </section>
 
+      {modules.length === 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-950">Nessun modulo attualmente disponibile</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            {error || 'I moduli metodologici sono temporaneamente disattivati.'}
+          </p>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {modules.map((module) => {
           const Icon = module.icon
@@ -113,18 +76,21 @@ export default function Home() {
                       <Icon className="h-6 w-6" />
                     </div>
                     <h2 className="text-xl font-semibold text-slate-900">{module.title}</h2>
-                    <p className="mt-2 min-h-[3rem] text-sm leading-6 text-slate-500">{module.description}</p>
+                    <p className="mt-2 min-h-[3rem] text-sm leading-6 text-slate-500">{module.homeDescription}</p>
                   </div>
                   <Badge variant={module.badgeVariant}>
                     {module.tag}
                   </Badge>
+                  {getStatus(module.key) === 'read_only' && (
+                    <Badge variant="warning">Sola lettura</Badge>
+                  )}
                 </div>
 
                 <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {module.links.map((item) => (
+                  {module.navigation.map((item) => (
                     <Link
-                      key={item.to}
-                      to={item.to}
+                      key={item.path}
+                      to={item.path}
                       className={`flex min-h-14 items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${module.linkClass}`}
                     >
                       <span>{item.label}</span>

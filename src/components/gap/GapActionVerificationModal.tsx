@@ -7,6 +7,7 @@ import {
 import type { GapAction, GapVerificationResult } from '../../types/gap'
 import type { GapActionVerificationInput } from '../../services/gapService'
 import { Button } from '../ui/Button'
+import { PrivacyFieldHint } from '../privacy/PrivacyFieldHint'
 
 interface GapActionVerificationModalProps {
   action: GapAction
@@ -118,7 +119,7 @@ export function GapActionVerificationModal({
 
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-slate-700">
-                Verificato da
+                Ruolo / Funzione / Team verificatore
               </span>
               <input
                 type="text"
@@ -128,8 +129,9 @@ export function GapActionVerificationModal({
                   verified_by: event.target.value,
                 }))}
                 className="clinical-input"
-                placeholder="Nome, funzione o email"
+                placeholder="Es. Referente qualità"
               />
+              <PrivacyFieldHint kind="professional" />
             </label>
           </div>
 

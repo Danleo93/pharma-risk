@@ -6,6 +6,8 @@ import { exportToPDF, exportToExcel } from '../services/exportService'
 import RiskMatrix from '../components/RiskMatrix'
 import ParetoChart from '../components/ParetoChart'
 import ParetoAnalysis from '../components/ParetoAnalysis'
+import { PrivacyFieldHint } from '../components/privacy/PrivacyFieldHint'
+import { PrivacyFormNotice } from '../components/privacy/PrivacyFormNotice'
 import type { RiskAssessment, RiskItem, RiskCatalogBase, ActionPlan, UserCustomRisk } from '../types'
 import { FMEA_ASSESSMENT_STATUS_OPTIONS, type FMEAStatus } from '../lib/labels'
 import {
@@ -32,6 +34,8 @@ export default function AssessmentDetail() {
   const [riskItems, setRiskItems] = useState<RiskItem[]>([])
   const [catalogRisks, setCatalogRisks] = useState<RiskCatalogBase[]>([])
   const [loading, setLoading] = useState(true)
+  const [exportingPDF, setExportingPDF] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
 
   const [showAddRisk, setShowAddRisk] = useState(false)
   const [selectedArea, setSelectedArea] = useState<string>('')
@@ -422,6 +426,34 @@ export default function AssessmentDetail() {
     }
   }
 
+  const handleExportPDF = async () => {
+    if (!assessment || exportingPDF) return
+
+    setExportingPDF(true)
+    try {
+      await exportToPDF({ assessment, riskItems, actions, paretoThreshold: 80, facilityName })
+    } catch (error) {
+      console.error('Errore durante la preparazione export PDF FMEA:', error)
+      alert('Impossibile preparare il report PDF. Riprova tra qualche istante.')
+    } finally {
+      setExportingPDF(false)
+    }
+  }
+
+  const handleExportExcel = async () => {
+    if (!assessment || exportingExcel) return
+
+    setExportingExcel(true)
+    try {
+      await exportToExcel({ assessment, riskItems, actions })
+    } catch (error) {
+      console.error('Errore durante la preparazione export Excel FMEA:', error)
+      alert('Impossibile preparare il file Excel. Riprova tra qualche istante.')
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center">
@@ -472,25 +504,27 @@ export default function AssessmentDetail() {
             </button>
 
             <button
-              onClick={() => exportToPDF({ assessment, riskItems, actions, paretoThreshold: 80, facilityName })}
-              disabled={riskItems.length === 0}
+              onClick={handleExportPDF}
+              disabled={riskItems.length === 0 || exportingPDF}
               className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-5 h-5" />
-              PDF
+              {exportingPDF ? 'Preparazione export...' : 'PDF'}
             </button>
 
             <button
-              onClick={() => exportToExcel({ assessment, riskItems, actions })}
-              disabled={riskItems.length === 0}
+              onClick={handleExportExcel}
+              disabled={riskItems.length === 0 || exportingExcel}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-5 h-5" />
-              Excel
+              {exportingExcel ? 'Preparazione export...' : 'Excel'}
             </button>
           </div>
         </div>
       </div>
+
+      <PrivacyFormNotice compact className="mb-6" />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -1142,14 +1176,15 @@ export default function AssessmentDetail() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Responsabile</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ruolo / Funzione / Team</label>
                   <input
                     type="text"
                     value={quickActionResponsible}
                     onChange={(e) => setQuickActionResponsible(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-                    placeholder="Nome"
+                    placeholder="Es. Farmacista referente, Team qualità"
                   />
+                  <PrivacyFieldHint kind="professional" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Scadenza</label>

@@ -25,6 +25,7 @@ import {
 import { cn } from '../../lib/ui'
 import { isGapFinding } from '../../lib/gapScoring'
 import { Button } from '../ui/Button'
+import { PrivacyFieldHint } from '../privacy/PrivacyFieldHint'
 import {
   GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT,
   GAP_STANDARDS_PER_ACTIVITY_WARNING,
@@ -857,7 +858,7 @@ export function GapEvaluationRow({
                     </label>
 
                     <label className="block">
-                      <span className="mb-1 block text-xs font-medium text-slate-600">Responsabile/i</span>
+                      <span className="mb-1 block text-xs font-medium text-slate-600">Ruolo / Funzione / Team responsabile</span>
                       <input
                         type="text"
                         value={quickActionDraft.responsible}
@@ -865,6 +866,7 @@ export function GapEvaluationRow({
                         className="clinical-input py-2 text-sm"
                         placeholder="Persona, team o funzione"
                       />
+                      <PrivacyFieldHint kind="professional" />
                     </label>
 
                     <label className="block">
@@ -958,6 +960,7 @@ export function GapEvaluationRow({
                 className="clinical-input min-h-24 resize-y"
                 placeholder="Descrivi la situazione osservata durante la valutazione."
               />
+              <PrivacyFieldHint kind="description" />
               </label>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
@@ -981,6 +984,7 @@ export function GapEvaluationRow({
               className="clinical-input min-h-24 resize-y"
               placeholder="Descrivi lo scostamento tra stato attuale e target atteso di riferimento."
             />
+            <PrivacyFieldHint kind="description" />
             <span className={cn(
               'mt-1 block text-xs leading-5',
               draft.compliance_status === 'compliant' ? 'text-emerald-700' : 'text-slate-500',

@@ -21,6 +21,8 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
 import { EmptyState } from '../ui/EmptyState'
+import { PrivacyFieldHint } from '../privacy/PrivacyFieldHint'
+import { PrivacyFormNotice } from '../privacy/PrivacyFormNotice'
 import {
   GAP_ASSESSMENT_ACTIVITY_HARD_LIMIT,
   GAP_ASSESSMENT_ACTIVITY_WARNING,
@@ -30,6 +32,7 @@ import {
   isGapHardLimitReached,
   isGapWarningLimitReached,
 } from '../../lib/gapLimits'
+import { isPrivacyReviewCancelled } from '../../lib/privacyRuntime'
 
 interface GapAssessmentFormState {
   title: string
@@ -268,6 +271,7 @@ export function GapAssessmentCreatePanel({
       )))
       setDomainFormProcessId(null)
     } catch (createError) {
+      if (isPrivacyReviewCancelled(createError)) return
       console.error('Errore creazione Dominio/Sezione Gap:', createError)
       setError('Impossibile creare il Dominio/Sezione nella libreria Gap.')
     } finally {
@@ -340,6 +344,7 @@ export function GapAssessmentCreatePanel({
       }))
       setActivityFormAreaId(null)
     } catch (createError) {
+      if (isPrivacyReviewCancelled(createError)) return
       console.error('Errore creazione Attività/Requisito Gap:', createError)
       setError("Impossibile creare l'Attività/Requisito nella libreria Gap.")
     } finally {
@@ -423,6 +428,7 @@ export function GapAssessmentCreatePanel({
 
       handleCreated(updatedAssessment)
     } catch (createError) {
+      if (isPrivacyReviewCancelled(createError)) return
       console.error('Errore creazione assessment Gap:', createError)
       setError(
         createdAssessmentId
@@ -466,6 +472,7 @@ export function GapAssessmentCreatePanel({
 
   return (
     <form onSubmit={createAssessment} className="space-y-6">
+      <PrivacyFormNotice />
       {error && (
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
           {error}
@@ -516,14 +523,15 @@ export function GapAssessmentCreatePanel({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Assessor</span>
+              <span className="mb-1 block text-sm font-medium text-slate-700">Ruolo / Funzione / Team valutatore</span>
               <input
                 type="text"
                 value={form.assessor}
                 onChange={(event) => setForm((current) => ({ ...current, assessor: event.target.value }))}
                 className="clinical-input"
-                placeholder="Responsabile valutazione"
+                placeholder="Es. Team audit, Farmacia ospedaliera"
               />
+              <PrivacyFieldHint kind="professional" />
             </label>
 
             <label className="block">
@@ -544,6 +552,7 @@ export function GapAssessmentCreatePanel({
                 className="clinical-input min-h-28 resize-y"
                 placeholder="Obiettivo, perimetro e note dell'assessment."
               />
+              <PrivacyFieldHint kind="description" />
             </label>
           </div>
         </CardContent>

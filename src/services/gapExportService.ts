@@ -1,6 +1,5 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import * as XLSX from 'xlsx'
+import type jsPDF from 'jspdf'
+import type { WorkBook } from 'xlsx'
 import type {
   GapAction,
   GapActivityEvaluation,
@@ -17,6 +16,10 @@ import {
   getGapVerificationResultLabel,
 } from '../lib/labels'
 import { isGapFinding } from '../lib/gapScoring'
+import { sanitizeSpreadsheetRows } from '../lib/spreadsheetSecurity'
+import { ensureRuntimeModuleCanExport } from '../lib/moduleRuntime'
+import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
+import { loadPdfEngine, loadXlsx, type PdfAutoTable, type XlsxEngine } from '../lib/exportEngines'
 
 type StandardsByActivityId = Record<string, GapActivityStandard[]>
 type TargetStateByActivityId = Record<string, string | null>
@@ -56,18 +59,9 @@ const formatDateTime = (value: string | null | undefined) => {
   return Number.isNaN(date.getTime()) ? 'N/D' : date.toLocaleString('it-IT')
 }
 
-const sanitizeFileName = (value: string) => {
-  const sanitized = value
-    .replace(/[^a-z0-9]/gi, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '')
-
-  return sanitized.slice(0, 80) || 'Assessment_Gap'
-}
-
 const createFileName = (assessment: GapAssessment, extension: 'pdf' | 'xlsx') => {
-  const date = assessment.assessment_date || new Date().toISOString().split('T')[0]
-  return `Gap_${sanitizeFileName(assessment.title)}_${date}.${extension}`
+  const date = assessment.assessment_date ? new Date(assessment.assessment_date) : new Date()
+  return createNeutralExportFileName('GAP', Number.isNaN(date.getTime()) ? new Date() : date, extension)
 }
 
 const getPhaseLabel = (phase: string | null | undefined) => {
@@ -79,8 +73,8 @@ const getStandardOriginLabel = (sourceType: string | null | undefined) => (
   sourceType === 'assessment_only' ? 'Solo assessment' : 'Libreria'
 )
 
-const appendSheet = (workbook: XLSX.WorkBook, name: string, rows: unknown[][], widths: number[]) => {
-  const sheet = XLSX.utils.aoa_to_sheet(rows)
+const appendSheet = (XLSX: XlsxEngine, workbook: WorkBook, name: string, rows: unknown[][], widths: number[]) => {
+  const sheet = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetRows(rows))
   sheet['!cols'] = widths.map((wch) => ({ wch }))
   XLSX.utils.book_append_sheet(workbook, sheet, name)
 }
@@ -199,7 +193,7 @@ const addLandscapeChartPage = (
   doc.addImage(image, 'PNG', imageX, imageY, imageWidth, imageHeight)
 }
 
-const addGapMethodologySection = (doc: jsPDF, startY: number) => {
+const addGapMethodologySection = (doc: jsPDF, startY: number, autoTable: PdfAutoTable) => {
   let y = addPageIfNeeded(doc, startY, 115)
   y = addSectionTitle(doc, 'Metodologia Gap Analysis', y)
   y = addParagraph(
@@ -238,7 +232,7 @@ const addGapMethodologySection = (doc: jsPDF, startY: number) => {
   return getLastAutoTableY(doc, y) + 12
 }
 
-const addFinalSignaturePage = (doc: jsPDF, assessment: GapAssessment) => {
+const addFinalSignaturePage = (doc: jsPDF, assessment: GapAssessment, autoTable: PdfAutoTable) => {
   doc.addPage('a4', 'portrait')
   const margin = 14
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -304,14 +298,24 @@ const gapFindingsFromEvaluations = (evaluations: GapActivityEvaluation[]) => (
   evaluations.filter(isGapFinding)
 )
 
-export const exportGapAssessmentToExcel = ({
+export const exportGapAssessmentToExcel = async ({
   assessment,
   evaluations,
   actions,
   standardsByActivityId,
   targetStateByActivityId,
 }: GapAssessmentExportData) => {
+  if (!ensureRuntimeModuleCanExport('GAP_ANALYSIS')) return
+  if (!confirmExportPrivacy()) return
+  const XLSX = await loadXlsx()
   const workbook = XLSX.utils.book_new()
+  workbook.Props = {
+    Title: 'PhaRMA T - Report Gap Analysis',
+    Subject: 'Report metodologico Gap Analysis',
+    Author: 'PhaRMA T',
+    Company: 'PhaRMA T',
+    Comments: 'Generato da PhaRMA T',
+  }
   const actionsByEvaluationId = actions.reduce<Record<string, GapAction[]>>((acc, action) => ({
     ...acc,
     [action.evaluation_id]: [...(acc[action.evaluation_id] || []), action],
@@ -324,7 +328,7 @@ export const exportGapAssessmentToExcel = ({
 
   const gapFindings = gapFindingsFromEvaluations(evaluations)
 
-  appendSheet(workbook, 'Riepilogo', [
+  appendSheet(XLSX, workbook, 'Riepilogo', [
     ['Campo', 'Valore'],
     ['Titolo', assessment.title],
     ['Descrizione', safeValue(assessment.description)],
@@ -347,7 +351,7 @@ export const exportGapAssessmentToExcel = ({
     ['Gap rilevati', gapFindings.length],
   ], [28, 70])
 
-  appendSheet(workbook, 'Valutazioni', [
+  appendSheet(XLSX, workbook, 'Valutazioni', [
     [
       'Processo',
       'Dominio/Sezione',
@@ -395,7 +399,7 @@ export const exportGapAssessmentToExcel = ({
     }),
   ], [26, 26, 18, 34, 45, 45, 45, 24, 18, 38, 20, 22, 16, 16, 16, 28])
 
-  appendSheet(workbook, 'Gap rilevati', [
+  appendSheet(XLSX, workbook, 'Gap rilevati', [
     [
       'Processo',
       'Dominio/Sezione',
@@ -424,7 +428,7 @@ export const exportGapAssessmentToExcel = ({
     ]),
   ], [26, 26, 18, 34, 45, 45, 45, 24, 18, 38, 16])
 
-  appendSheet(workbook, 'Azioni', [
+  appendSheet(XLSX, workbook, 'Azioni', [
     [
       'Descrizione',
       'Processo',
@@ -495,7 +499,7 @@ export const exportGapAssessmentToExcel = ({
     ])
   })
 
-  appendSheet(workbook, 'Norme', [
+  appendSheet(XLSX, workbook, 'Norme', [
     [
       'Processo',
       'Dominio/Sezione',
@@ -517,7 +521,7 @@ export const exportGapAssessmentToExcel = ({
   XLSX.writeFile(workbook, createFileName(assessment, 'xlsx'))
 }
 
-export const exportGapAssessmentToPDF = ({
+export const exportGapAssessmentToPDF = async ({
   assessment,
   evaluations,
   actions,
@@ -525,7 +529,16 @@ export const exportGapAssessmentToPDF = ({
   targetStateByActivityId,
   chartImages,
 }: GapAssessmentExportData) => {
+  if (!ensureRuntimeModuleCanExport('GAP_ANALYSIS')) return
+  if (!confirmExportPrivacy()) return
+  const { jsPDF, autoTable } = await loadPdfEngine()
   const doc = new jsPDF()
+  doc.setProperties({
+    title: 'PhaRMA T - Report Gap Analysis',
+    subject: 'Report metodologico Gap Analysis',
+    author: 'PhaRMA T',
+    creator: 'PhaRMA T',
+  })
   const portraitMargin = 14
   const landscapeMargin = 10
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -619,7 +632,7 @@ export const exportGapAssessmentToPDF = ({
   })
 
   y = getLastAutoTableY(doc, y) + 12
-  y = addGapMethodologySection(doc, y)
+  y = addGapMethodologySection(doc, y, autoTable)
 
   if (chartImages) {
     doc.addPage()
@@ -837,7 +850,7 @@ export const exportGapAssessmentToPDF = ({
     })
   }
 
-  addFinalSignaturePage(doc, assessment)
+  addFinalSignaturePage(doc, assessment, autoTable)
   addDocumentFooter(doc, assessment.title)
   doc.save(createFileName(assessment, 'pdf'))
 }

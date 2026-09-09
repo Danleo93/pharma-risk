@@ -127,7 +127,7 @@ export default function GapAssessments() {
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
               <span>Struttura: {assessment.facility_name || 'N/D'}</span>
               <span>Reparto: {assessment.department || 'N/D'}</span>
-              <span>Assessor: {assessment.assessor || 'N/D'}</span>
+              <span>Ruolo / Funzione / Team valutatore: {assessment.assessor || 'N/D'}</span>
             </div>
             <p className="mt-2 text-xs text-slate-400">
               Data assessment: {formatDate(assessment.assessment_date)}

@@ -6,7 +6,7 @@
 
 ## 📋 Descrizione
 
-**PhaRMA T** è uno strumento professionale per la gestione del rischio in ambito farmaceutico, basato sulla metodologia FMEA (Failure Mode and Effects Analysis).
+**PhaRMA T** è uno strumento formativo, metodologico e documentale per la gestione del rischio in ambito farmaceutico. Integra i moduli FMEA, RCA e Gap Analysis.
 
 Permette di identificare, valutare e gestire i rischi nelle strutture sanitarie attraverso un processo strutturato e conforme alle best practice del settore.
 
@@ -31,7 +31,7 @@ Permette di identificare, valutare e gestire i rischi nelle strutture sanitarie 
 
 | Categoria | Tecnologia |
 |-----------|------------|
-| Frontend | React 18 + TypeScript |
+| Frontend | React 19 + TypeScript |
 | Build Tool | Vite |
 | Styling | Tailwind CSS v4 |
 | Database | Supabase (PostgreSQL) |
@@ -76,6 +76,55 @@ pharma-risk/
 ├── public/             # Asset statici
 └── supabase/           # Migrations e seed database
 ```
+
+---
+
+## Sviluppo locale
+
+Con Node.js, Docker Desktop e Supabase CLI installati:
+
+```powershell
+git clone <URL_REPOSITORY>
+cd pharma-risk
+npm install
+supabase start
+supabase db reset
+npm run dev
+```
+
+L'ambiente locale usa esclusivamente dati sintetici distinti per USER_A e USER_B. La procedura completa, i controlli automatici e i guardrail per production sono descritti in [docs/LOCAL_DEVELOPMENT.md](./docs/LOCAL_DEVELOPMENT.md).
+
+Il report delle verifiche della Milestone 1 e disponibile in [docs/MILESTONE_1_VALIDATION.md](./docs/MILESTONE_1_VALIDATION.md); il confronto con lo schema remoto e in [docs/SCHEMA_DRIFT_MILESTONE_1.md](./docs/SCHEMA_DRIFT_MILESTONE_1.md).
+
+### Security baseline locale
+
+Con Supabase locale attivo e ricostruito:
+
+```powershell
+npm.cmd run security:test
+```
+
+La suite rifiuta endpoint non locali, usa soltanto USER_A/USER_B sintetici e produce risultati macchina in `.security-results/`. La baseline della Milestone 2A e in [docs/SECURITY_BASELINE.md](./docs/SECURITY_BASELINE.md); la remediation RLS relazionale della Milestone 2B.1 e documentata in [docs/RLS_REMEDIATION.md](./docs/RLS_REMEDIATION.md); la remediation delle dipendenze CRITICAL della Milestone 2B.2a e in [docs/DEPENDENCY_REMEDIATION_CRITICAL.md](./docs/DEPENDENCY_REMEDIATION_CRITICAL.md); React Router e SheetJS/xlsx sono documentati in [docs/DEPENDENCY_REMEDIATION_HIGH_RUNTIME.md](./docs/DEPENDENCY_REMEDIATION_HIGH_RUNTIME.md); la chiusura degli advisory residui e in [docs/RESIDUAL_DEPENDENCY_REVIEW.md](./docs/RESIDUAL_DEPENDENCY_REVIEW.md).
+
+### Privacy by design tecnica
+
+PhaRMA T distingue i dati tecnici di identita e sessione dai contenuti degli assessment, che sono progettati per informazioni anonime e non identificative. I form includono avvisi contestuali e un controllo locale pre-salvataggio per email, codici fiscali italiani plausibili e numeri telefonici plausibili. Il controllo e un ausilio alla compilazione e non certifica l'anonimizzazione.
+
+Con Supabase locale attivo e ricostruito:
+
+```powershell
+npm.cmd run privacy:test
+```
+
+La suite usa soltanto dati sintetici e verifica detector, warning e nomi file degli export, isolamento USER_A/USER_B, stati modulari e assenza di persistenza o destinazioni esterne inattese. La documentazione tecnica e disponibile in:
+
+- [Privacy tecnica](./docs/PRIVACY_TECHNICAL.md)
+- [Inventario dei campi](./docs/PRIVACY_FIELD_INVENTORY.md)
+- [Test privacy](./docs/PRIVACY_TESTING.md)
+- [Flussi di rete e dati](./docs/NETWORK_DATA_FLOW.md)
+- [Revisione cancellazione account](./docs/ACCOUNT_DELETION_TECHNICAL_REVIEW.md)
+- [Readiness per la conservazione](./docs/DATA_RETENTION_TECHNICAL_READINESS.md)
+- [Punti da validare con SIFO/DPO](./docs/PRIVACY_LEGAL_REVIEW_REQUIRED.md)
 
 ---
 

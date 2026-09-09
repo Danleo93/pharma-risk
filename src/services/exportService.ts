@@ -1,7 +1,8 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import * as XLSX from 'xlsx'
 import type { RiskAssessment, RiskItem, ActionPlan } from '../types'
+import { loadPdfEngine, loadXlsx } from '../lib/exportEngines'
+import { sanitizeSpreadsheetRows } from '../lib/spreadsheetSecurity'
+import { ensureRuntimeModuleCanExport } from '../lib/moduleRuntime'
+import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
 
 interface ExportData {
   assessment: RiskAssessment
@@ -10,6 +11,9 @@ interface ExportData {
   actions?: ActionPlan[]
   paretoThreshold?: number
 }
+
+const getLastAutoTableFinalY = (doc: object): number | undefined =>
+  (doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY
 
 // Funzione helper per parsare categoria
 const parseCategory = (category: string): { area: string; subArea: string | null } => {
@@ -31,8 +35,17 @@ const getAssessmentStatusText = (status: string) => {
   return statusMap[status] || status
 }
 
-export const exportToPDF = ({ assessment, riskItems, facilityName, actions = [], paretoThreshold = 80 }: ExportData) => {
+export const exportToPDF = async ({ assessment, riskItems, facilityName, actions = [], paretoThreshold = 80 }: ExportData) => {
+  if (!ensureRuntimeModuleCanExport('FMEA')) return
+  if (!confirmExportPrivacy()) return
+  const { jsPDF, autoTable } = await loadPdfEngine()
   const doc = new jsPDF()
+  doc.setProperties({
+    title: 'PhaRMA T - Report FMEA',
+    subject: 'Report metodologico FMEA',
+    author: 'PhaRMA T',
+    creator: 'PhaRMA T',
+  })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 14
@@ -317,7 +330,7 @@ doc.setFont('helvetica', 'normal')
   }
   
   // Distribuzione del rischio
-  y = (doc as any).lastAutoTable?.finalY + 15 || y + 50
+  y = (getLastAutoTableFinalY(doc) ?? y + 35) + 15
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(31, 41, 55)
@@ -419,7 +432,7 @@ doc.setFont('helvetica', 'normal')
     margin: { left: margin, right: margin }
   })
   
-  y = (doc as any).lastAutoTable.finalY + 10
+  y = (getLastAutoTableFinalY(doc) ?? y) + 10
   
   // Scala Probabilità
   doc.setFontSize(11)
@@ -449,7 +462,7 @@ doc.setFont('helvetica', 'normal')
     margin: { left: margin, right: margin }
   })
   
-  y = (doc as any).lastAutoTable.finalY + 10
+  y = (getLastAutoTableFinalY(doc) ?? y) + 10
   
   // Scala Rilevabilità
   doc.setFontSize(11)
@@ -479,7 +492,7 @@ doc.setFont('helvetica', 'normal')
     margin: { left: margin, right: margin }
   })
   
-  y = (doc as any).lastAutoTable.finalY + 10
+  y = (getLastAutoTableFinalY(doc) ?? y) + 10
   
   // Classificazione RPN
   doc.setFontSize(11)
@@ -650,7 +663,7 @@ doc.setFont('helvetica', 'normal')
       }
     })
     
-    y = (doc as any).lastAutoTable.finalY + 10
+    y = (getLastAutoTableFinalY(doc) ?? y) + 10
   })
 
   // ============================================
@@ -808,7 +821,7 @@ doc.setFont('helvetica', 'normal')
   }))
   
   if (risksWithActionsList.length > 0) {
-    const actionTableData: any[][] = []
+    const actionTableData: Array<Array<string | number>> = []
     
     risksWithActionsList.forEach((item) => {
       item.riskActions.forEach((action) => {
@@ -861,7 +874,7 @@ doc.setFont('helvetica', 'normal')
       }
     })
     
-    y = (doc as any).lastAutoTable.finalY + 15
+    y = (getLastAutoTableFinalY(doc) ?? y) + 15
   } else {
     doc.setFillColor(254, 249, 195) // yellow-100
     doc.roundedRect(margin, y, pageWidth - margin * 2, 20, 2, 2, 'F')
@@ -934,11 +947,14 @@ doc.setFont('helvetica', 'normal')
   }
 
   // Salva
-  const fileName = `${assessment.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+  const fileName = createNeutralExportFileName('FMEA', new Date(), 'pdf')
   doc.save(fileName)
 }
 
-export const exportToExcel = ({ assessment, riskItems, actions = [] }: ExportData) => {
+export const exportToExcel = async ({ assessment, riskItems, actions = [] }: ExportData) => {
+  if (!ensureRuntimeModuleCanExport('FMEA')) return
+  if (!confirmExportPrivacy()) return
+  const XLSX = await loadXlsx()
   // Foglio 1: Info Assessment
   const infoData = [
     ['RISK ASSESSMENT REPORT'],
@@ -1010,19 +1026,26 @@ export const exportToExcel = ({ assessment, riskItems, actions = [] }: ExportDat
   
   // Crea workbook
   const wb = XLSX.utils.book_new()
+  wb.Props = {
+    Title: 'PhaRMA T - Report FMEA',
+    Subject: 'Report metodologico FMEA',
+    Author: 'PhaRMA T',
+    Company: 'PhaRMA T',
+    Comments: 'Generato da PhaRMA T',
+  }
   
-  const ws1 = XLSX.utils.aoa_to_sheet(infoData)
+  const ws1 = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetRows(infoData))
   ws1['!cols'] = [{ wch: 25 }, { wch: 50 }]
   XLSX.utils.book_append_sheet(wb, ws1, 'Info')
   
-  const ws2 = XLSX.utils.aoa_to_sheet(risksData)
+  const ws2 = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetRows(risksData))
   ws2['!cols'] = [
     { wch: 5 }, { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
     { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 40 }
   ]
   XLSX.utils.book_append_sheet(wb, ws2, 'Rischi')
   
-  const ws3 = XLSX.utils.aoa_to_sheet(actionsData)
+  const ws3 = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetRows(actionsData))
   ws3['!cols'] = [
     { wch: 35 }, { wch: 8 }, { wch: 10 }, { wch: 40 },
     { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 30 }
@@ -1030,6 +1053,6 @@ export const exportToExcel = ({ assessment, riskItems, actions = [] }: ExportDat
   XLSX.utils.book_append_sheet(wb, ws3, 'Azioni Correttive')
   
   // Salva
-  const fileName = `${assessment.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
+  const fileName = createNeutralExportFileName('FMEA', new Date(), 'xlsx')
   XLSX.writeFile(wb, fileName)
 }

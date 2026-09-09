@@ -4,7 +4,10 @@ import { AlertTriangle, ArrowLeft, Check, ClipboardList, FileText, ShieldCheck }
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent } from '../../components/ui/Card'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { PrivacyFieldHint } from '../../components/privacy/PrivacyFieldHint'
+import { PrivacyFormNotice } from '../../components/privacy/PrivacyFormNotice'
 import { useAuth } from '../../context/AuthContext'
+import { isPrivacyReviewCancelled } from '../../lib/privacyRuntime'
 import { cn } from '../../lib/ui'
 import { supabase } from '../../lib/supabase'
 import type { RCAMethodology, RCAEventType, RCASeverity } from '../../types'
@@ -60,6 +63,10 @@ export default function NewRCAAssessment() {
       .single()
 
     if (insertError) {
+      if (isPrivacyReviewCancelled(insertError)) {
+        setLoading(false)
+        return
+      }
       console.error('Errore creazione RCA:', insertError)
       setError("Errore durante la creazione dell'assessment RCA")
       setLoading(false)
@@ -94,6 +101,8 @@ export default function NewRCAAssessment() {
           </button>
         )}
       />
+
+      <PrivacyFormNotice className="mb-6" />
 
       <Card elevated>
         <CardContent className="p-6">
@@ -154,6 +163,7 @@ export default function NewRCAAssessment() {
                   className="clinical-input resize-none px-4 py-3"
                   placeholder="Contesto o perimetro dell'analisi..."
                 />
+                <PrivacyFieldHint kind="description" />
               </div>
             </section>
 
@@ -252,6 +262,7 @@ export default function NewRCAAssessment() {
                     onChange={(e) => setEventDate(e.target.value)}
                     className="clinical-input px-4 py-3"
                   />
+                  <PrivacyFieldHint kind="temporal" />
                 </div>
               </div>
 
@@ -264,6 +275,7 @@ export default function NewRCAAssessment() {
                     onChange={(e) => setEventTime(e.target.value)}
                     className="clinical-input px-4 py-3"
                   />
+                  <PrivacyFieldHint kind="temporal" />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">Luogo</label>
@@ -274,6 +286,7 @@ export default function NewRCAAssessment() {
                     className="clinical-input px-4 py-3"
                     placeholder="Es: Farmacia ospedaliera"
                   />
+                  <PrivacyFieldHint kind="location" />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">Reparto / Servizio</label>
@@ -284,6 +297,7 @@ export default function NewRCAAssessment() {
                     className="clinical-input px-4 py-3"
                     placeholder="Es: UFA, DPC, Magazzino"
                   />
+                  <PrivacyFieldHint kind="location" />
                 </div>
               </div>
 
@@ -296,6 +310,7 @@ export default function NewRCAAssessment() {
                   className="clinical-input resize-none px-4 py-3"
                   placeholder="Descrivi cosa e' accaduto..."
                 />
+                <PrivacyFieldHint kind="description" />
               </div>
 
               <div>
@@ -307,6 +322,7 @@ export default function NewRCAAssessment() {
                   className="clinical-input resize-none px-4 py-3"
                   placeholder="Azioni immediate gia' adottate..."
                 />
+                <PrivacyFieldHint kind="description" />
               </div>
             </section>
           </div>

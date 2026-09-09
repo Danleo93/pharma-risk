@@ -62,6 +62,7 @@ import { GapAssessmentStatsReport, type GapReportChartRefs } from '../../compone
 import { GapEvaluationRow } from '../../components/gap/GapEvaluationRow'
 import { GapInlineActivityForm, type GapInlineActivityFormPayload } from '../../components/gap/GapInlineActivityForm'
 import { GapInlineDomainForm, type GapInlineDomainFormPayload } from '../../components/gap/GapInlineDomainForm'
+import { PrivacyFormNotice } from '../../components/privacy/PrivacyFormNotice'
 import { aggregateAssessmentStats, isGapFinding } from '../../lib/gapScoring'
 import {
   GAP_ASSESSMENT_STATUS_OPTIONS,
@@ -671,7 +672,7 @@ export default function GapAssessmentDetail() {
 
       if (current.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
         setError(
-          `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+          `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola Attività/Requisito.`,
         )
         return current
       }
@@ -695,7 +696,7 @@ export default function GapAssessmentDetail() {
 
     if (standardDraftLinks.length > GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
       setError(
-        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola Attività/Requisito.`,
       )
       return
     }
@@ -729,7 +730,7 @@ export default function GapAssessmentDetail() {
 
     if (standardDraftLinks.length >= GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT) {
       setError(
-        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola AttivitÃ /Requisito.`,
+        `Per mantenere prestazioni fluide, collega al massimo ${GAP_STANDARDS_PER_ACTIVITY_HARD_LIMIT} norme essenziali a una singola Attività/Requisito.`,
       )
       return
     }
@@ -961,7 +962,7 @@ export default function GapAssessmentDetail() {
         compliance_status: draft.compliance_status,
         risk_priority: draft.risk_priority,
         notes: toNullable(draft.notes),
-        evaluated_by: user.email || null,
+        evaluated_by: evaluation.evaluated_by || 'Utente autenticato',
         evaluated_at: new Date().toISOString(),
       })
 
@@ -1069,7 +1070,7 @@ export default function GapAssessmentDetail() {
 
     try {
       const actionsForExport = await ensureActionsLoaded()
-      exportGapAssessmentToExcel({
+      await exportGapAssessmentToExcel({
         assessment,
         evaluations,
         actions: actionsForExport,
@@ -1157,7 +1158,7 @@ export default function GapAssessmentDetail() {
     if (
       evaluationVolumeWarning &&
       !confirm(
-        `Questo assessment contiene ${evaluations.length} AttivitÃ /Requisiti. L'export PDF potrebbe richiedere piÃ¹ tempo. Vuoi continuare?`,
+        `Questo assessment contiene ${evaluations.length} Attività/Requisiti. L'export PDF potrebbe richiedere più tempo. Vuoi continuare?`,
       )
     ) {
       return
@@ -1173,7 +1174,7 @@ export default function GapAssessmentDetail() {
         setRenderPdfCapture(true)
       })
       const chartImages = await captureReportChartImages()
-      exportGapAssessmentToPDF({
+      await exportGapAssessmentToPDF({
         assessment,
         evaluations,
         actions: actionsForExport,
@@ -1750,7 +1751,7 @@ export default function GapAssessmentDetail() {
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              Esporta PDF
+              {exportingPDF ? 'Preparazione export...' : 'Esporta PDF'}
             </button>
             <button
               type="button"
@@ -1763,7 +1764,7 @@ export default function GapAssessmentDetail() {
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              Esporta Excel
+              {exportingExcel ? 'Preparazione export...' : 'Esporta Excel'}
             </button>
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Stato</span>
@@ -1784,6 +1785,8 @@ export default function GapAssessmentDetail() {
         )}
       />
 
+      <PrivacyFormNotice compact className="mb-6" />
+
       {error && (
         <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
           {error}
@@ -1802,7 +1805,7 @@ export default function GapAssessmentDetail() {
               <p className="mt-1 font-medium text-slate-800">{assessment.department || 'N/D'}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Assessor</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ruolo / Funzione / Team valutatore</p>
               <p className="mt-1 font-medium text-slate-800">{assessment.assessor || 'N/D'}</p>
             </div>
             <div>
@@ -1876,7 +1879,7 @@ export default function GapAssessmentDetail() {
 
           {evaluationVolumeWarning && (
             <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
-              Questo assessment contiene {evaluations.length} AttivitÃ /Requisiti. Per mantenere la valutazione fluida, valuta di lavorare per filtri o di dividere futuri assessment molto estesi in piÃ¹ parti.
+              Questo assessment contiene {evaluations.length} Attività/Requisiti. Per mantenere la valutazione fluida, valuta di lavorare per filtri o di dividere futuri assessment molto estesi in più parti.
             </div>
           )}
 

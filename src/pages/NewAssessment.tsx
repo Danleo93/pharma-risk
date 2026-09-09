@@ -4,7 +4,10 @@ import { ArrowLeft, ArrowRight, Building2, Check, ClipboardList, FileText } from
 import { Button } from '../components/ui/Button'
 import { Card, CardContent } from '../components/ui/Card'
 import { PageHeader } from '../components/ui/PageHeader'
+import { PrivacyFieldHint } from '../components/privacy/PrivacyFieldHint'
+import { PrivacyFormNotice } from '../components/privacy/PrivacyFormNotice'
 import { useAuth } from '../context/AuthContext'
+import { isPrivacyReviewCancelled } from '../lib/privacyRuntime'
 import { cn } from '../lib/ui'
 import { supabase } from '../lib/supabase'
 import type { Area, Process } from '../types'
@@ -124,6 +127,7 @@ export default function NewAssessment() {
 
       navigate(`/fmea/assessment/${assessment.id}`)
     } catch (err) {
+      if (isPrivacyReviewCancelled(err)) return
       console.error('Errore:', err)
       setError("Errore durante la creazione dell'assessment")
     } finally {
@@ -162,6 +166,8 @@ export default function NewAssessment() {
           </button>
         )}
       />
+
+      <PrivacyFormNotice className="mb-6" />
 
       <Card className="mb-6">
         <CardContent className="p-5">
@@ -223,6 +229,7 @@ export default function NewAssessment() {
                   className="clinical-input resize-none px-4 py-3"
                   placeholder="Descrivi brevemente lo scopo di questo assessment..."
                 />
+                <PrivacyFieldHint kind="description" />
               </div>
             </div>
           )}

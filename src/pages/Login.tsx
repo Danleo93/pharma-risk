@@ -25,7 +25,7 @@ export default function Login() {
       setError('Email o password non validi')
       setLoading(false)
     } else {
-      navigate('/dashboard')
+      navigate('/start')
     }
   }
 

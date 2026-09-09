@@ -1,0 +1,81 @@
+Template operativo
+Nel SQL Editor puoi usare una procedura di questo tipo, sostituendo INSERISCI-QUI-USER-ID:
+
+begin;
+
+-- Sostituisci con lo user_id Supabase dell'utente
+do $$
+declare
+  target_user uuid := 'INSERISCI-QUI-USER-ID';
+begin
+  -- GAP
+  delete from public.gap_action_events where user_id = target_user;
+  delete from public.gap_actions where user_id = target_user;
+  delete from public.gap_activity_evaluations where user_id = target_user;
+  delete from public.gap_assessment_processes where user_id = target_user;
+  delete from public.gap_assessments where user_id = target_user;
+  delete from public.gap_activity_standards where user_id = target_user;
+  delete from public.gap_activities where user_id = target_user;
+  delete from public.gap_areas where user_id = target_user;
+  delete from public.gap_processes where user_id = target_user;
+  delete from public.gap_standards where user_id = target_user;
+  delete from public.gap_links where user_id = target_user;
+
+  -- RCA
+  delete from public.rca_action_plans where user_id = target_user;
+  delete from public.rca_five_why_steps where user_id = target_user;
+  delete from public.rca_five_why_chains where user_id = target_user;
+  delete from public.rca_fishbone_causes where user_id = target_user;
+  delete from public.rca_fishbone_branches where user_id = target_user;
+  delete from public.rca_fishbone_diagrams where user_id = target_user;
+  delete from public.rca_causes where user_id = target_user;
+  delete from public.rca_assessments where user_id = target_user;
+
+  -- FMEA: tabelle figlie
+  delete from public.control_measures
+  where risk_item_id in (
+    select ri.id
+    from public.risk_items ri
+    join public.risk_assessments ra on ra.id = ri.assessment_id
+    where ra.user_id = target_user
+  );
+
+  delete from public.action_plans
+  where risk_item_id in (
+    select ri.id
+    from public.risk_items ri
+    join public.risk_assessments ra on ra.id = ri.assessment_id
+    where ra.user_id = target_user
+  );
+
+  delete from public.risk_items
+  where assessment_id in (
+    select id from public.risk_assessments where user_id = target_user
+  );
+
+  delete from public.risk_assessments where user_id = target_user;
+
+  delete from public.process_steps
+  where process_id in (
+    select id from public.processes where user_id = target_user
+  );
+
+  delete from public.processes where user_id = target_user;
+  delete from public.areas where user_id = target_user;
+
+  delete from public.user_custom_risks where user_id = target_user;
+  delete from public.user_settings where user_id = target_user;
+end $$;
+
+commit;
+Dopo questo, cancelli l’utente da:
+
+Authentication → Users → seleziona utente → Delete user
+
+Email di conferma
+Puoi rispondere così:
+
+Gentile utente,
+confermiamo di aver completato la cancellazione dell’account PhaRMA T e dei dati applicativi associati alla richiesta ricevuta in data //____.
+Eventuali copie temporanee presenti nei backup tecnici dei fornitori saranno gestite secondo i rispettivi tempi di retention.
+Cordiali saluti.

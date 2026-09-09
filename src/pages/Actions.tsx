@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
+import { PrivacyFieldHint } from '../components/privacy/PrivacyFieldHint'
 
 interface ActionWithRisk extends ActionPlan {
   risk_item?: RiskItem & {
@@ -550,15 +551,16 @@ export default function Actions() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-700">
-                        Responsabile
+                        Ruolo / Funzione / Team
                       </label>
                       <input
                         type="text"
                         value={responsible}
                         onChange={(e) => setResponsible(e.target.value)}
                         className="clinical-input px-4 py-2"
-                        placeholder="Nome responsabile"
+                        placeholder="Es. Farmacista referente, Team qualità"
                       />
+                      <PrivacyFieldHint kind="professional" />
                     </div>
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-700">

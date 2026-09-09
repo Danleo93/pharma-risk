@@ -29,6 +29,7 @@ import {
   type GapActionUpdateInput,
   type GapActionVerificationInput,
 } from '../../services/gapService'
+import { PrivacyFieldHint } from '../privacy/PrivacyFieldHint'
 import type {
   GapAction,
   GapActionEventType,
@@ -247,14 +248,15 @@ function ActionForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Responsabile/i</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Ruolo / Funzione / Team responsabile</span>
           <input
             type="text"
             value={form.responsible}
             onChange={(event) => onChange({ responsible: event.target.value })}
             className="clinical-input bg-white"
-            placeholder="Persona, team o funzione responsabile"
+            placeholder="Es. Farmacia ospedaliera, Team qualità"
           />
+          <PrivacyFieldHint kind="professional" />
         </label>
 
         <label className="block">
@@ -613,7 +615,7 @@ export function GapActionPlanTab({
       {verifyingAction && (
         <GapActionVerificationModal
           action={verifyingAction}
-          defaultVerifiedBy={userId}
+          defaultVerifiedBy=""
           loading={savingVerification}
           onClose={() => setVerifyingAction(null)}
           onSubmit={saveVerification}

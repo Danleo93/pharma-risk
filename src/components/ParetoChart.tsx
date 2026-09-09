@@ -10,9 +10,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { toPng } from 'html-to-image'
 import { BarChart3, Image as ImageIcon } from 'lucide-react'
 import type { RiskItem } from '../types'
+import { loadHtmlToImage } from '../lib/exportEngines'
+import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
 
 interface ParetoChartProps {
   riskItems: RiskItem[]
@@ -20,6 +21,7 @@ interface ParetoChartProps {
 
 export default function ParetoChart({ riskItems }: ParetoChartProps) {
   const [displayMode, setDisplayMode] = useState<'all' | '10' | '20'>('all')
+  const [exportingPNG, setExportingPNG] = useState(false)
   const exportRef = useRef<HTMLDivElement | null>(null)
 
   const sortedRisks = riskItems
@@ -62,9 +64,13 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
   }
 
   const handleExportPNG = async () => {
+    if (exportingPNG) return
+    if (!confirmExportPrivacy()) return
     if (!exportRef.current) return
 
+    setExportingPNG(true)
     try {
+      const { toPng } = await loadHtmlToImage()
       const dataUrl = await toPng(exportRef.current, {
         cacheBust: true,
         backgroundColor: '#ffffff',
@@ -72,11 +78,14 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
       })
 
       const link = document.createElement('a')
-      link.download = 'pharmaT_pareto.png'
+      link.download = createNeutralExportFileName('FMEA', new Date(), 'png', 'pareto')
       link.href = dataUrl
       link.click()
     } catch (error) {
       console.error('Errore durante esportazione PNG Pareto:', error)
+      alert('Impossibile preparare il file PNG. Riprova tra qualche istante.')
+    } finally {
+      setExportingPNG(false)
     }
   }
 
@@ -147,10 +156,11 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
 
           <button
             onClick={handleExportPNG}
+            disabled={exportingPNG}
             className="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-800"
           >
             <ImageIcon className="h-4 w-4" />
-            PNG
+            {exportingPNG ? 'Preparazione export...' : 'PNG'}
           </button>
         </div>
       </div>
@@ -196,7 +206,7 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
                 <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
-                      const item = payload[0].payload as any
+                      const item = payload[0].payload as (typeof data)[number]
                       return (
                         <div className="max-w-xs rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl">
                           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-sky-700">

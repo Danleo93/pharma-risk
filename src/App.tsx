@@ -1,35 +1,42 @@
-import Privacy from './pages/Privacy'
-import Terms from './pages/Terms'
-import Docs from './pages/Docs'
-import Contacts from './pages/Contacts'
+import { lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ModuleConfigProvider } from './context/ModuleConfigProvider'
+import { PrivacyGuardProvider } from './context/PrivacyGuardProvider'
+import { useModuleConfig } from './context/useModuleConfig'
 import Layout from './components/Layout'
+import { ModuleRoute } from './components/modules/ModuleRoute'
+import { ModuleUnavailable } from './components/modules/ModuleUnavailable'
+import { LazyRouteBoundary } from './components/LazyRouteBoundary'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
-import Home from './pages/Home'
-import Dashboard from './pages/Dashboard'
-import NewAssessment from './pages/NewAssessment'
-import AssessmentDetail from './pages/AssessmentDetail'
-import Actions from './pages/Actions'
-import RiskCatalog from './pages/RiskCatalog'
-import Settings from './pages/Settings'
-import Assessments from './pages/Assessments'
-import RCADashboard from './pages/rca/RCADashboard'
-import RCAAssessments from './pages/rca/RCAAssessments'
-import NewRCAAssessment from './pages/rca/NewRCAAssessment'
-import RCAAssessmentDetail from './pages/rca/RCAAssessmentDetail'
-import RCAActions from './pages/rca/RCAActions'
-import GapDashboard from './pages/gap/GapDashboard'
-import GapAssessments from './pages/gap/GapAssessments'
-import NewGapAssessment from './pages/gap/NewGapAssessment'
-import GapAssessmentDetail from './pages/gap/GapAssessmentDetail'
-import GapProcesses from './pages/gap/GapProcesses'
-import GapProcessDetail from './pages/gap/GapProcessDetail'
-import GapStandards from './pages/gap/GapStandards'
-import GapActions from './pages/gap/GapActions'
+const Privacy = lazy(() => import('./pages/Privacy'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Docs = lazy(() => import('./pages/Docs'))
+const Contacts = lazy(() => import('./pages/Contacts'))
+const Home = lazy(() => import('./pages/Home'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const NewAssessment = lazy(() => import('./pages/NewAssessment'))
+const AssessmentDetail = lazy(() => import('./pages/AssessmentDetail'))
+const Actions = lazy(() => import('./pages/Actions'))
+const RiskCatalog = lazy(() => import('./pages/RiskCatalog'))
+const Assessments = lazy(() => import('./pages/Assessments'))
+const RCADashboard = lazy(() => import('./pages/rca/RCADashboard'))
+const RCAAssessments = lazy(() => import('./pages/rca/RCAAssessments'))
+const NewRCAAssessment = lazy(() => import('./pages/rca/NewRCAAssessment'))
+const RCAAssessmentDetail = lazy(() => import('./pages/rca/RCAAssessmentDetail'))
+const RCAActions = lazy(() => import('./pages/rca/RCAActions'))
+const GapDashboard = lazy(() => import('./pages/gap/GapDashboard'))
+const GapAssessments = lazy(() => import('./pages/gap/GapAssessments'))
+const NewGapAssessment = lazy(() => import('./pages/gap/NewGapAssessment'))
+const GapAssessmentDetail = lazy(() => import('./pages/gap/GapAssessmentDetail'))
+const GapProcesses = lazy(() => import('./pages/gap/GapProcesses'))
+const GapProcessDetail = lazy(() => import('./pages/gap/GapProcessDetail'))
+const GapStandards = lazy(() => import('./pages/gap/GapStandards'))
+const GapActions = lazy(() => import('./pages/gap/GapActions'))
 // Componente per proteggere le route
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -68,7 +75,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to="/fmea/dashboard" replace />
+    return <Navigate to="/start" replace />
   }
 
   return <>{children}</>
@@ -79,12 +86,29 @@ function LegacyAssessmentRedirect() {
   return <Navigate to={`/fmea/assessment/${id}`} replace />
 }
 
+function DefaultModuleRedirect() {
+  const { loading, error, getDefaultAvailableRoute } = useModuleConfig()
+
+  if (loading) {
+    return (
+      <div className="clinical-page flex min-h-[45vh] items-center justify-center">
+        <p className="text-sm text-slate-500">Verifica moduli disponibili...</p>
+      </div>
+    )
+  }
+
+  const route = getDefaultAvailableRoute()
+  return route
+    ? <Navigate to={route} replace />
+    : <ModuleUnavailable configurationError={error} />
+}
+
 function AppRoutes() {
   return (
     <Routes>
       {/* Route pubbliche SENZA wrapper */}
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<LazyRouteBoundary><Privacy /></LazyRouteBoundary>} />
+      <Route path="/terms" element={<LazyRouteBoundary><Terms /></LazyRouteBoundary>} />
       
       {/* Route pubbliche */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -93,38 +117,42 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       
       {/* Route protette generali */}
-      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="/docs" element={<ProtectedRoute><Docs /></ProtectedRoute>} />
-      <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute><LazyRouteBoundary><Home /></LazyRouteBoundary></ProtectedRoute>} />
+      <Route path="/start" element={<ProtectedRoute><DefaultModuleRedirect /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><LazyRouteBoundary><Settings /></LazyRouteBoundary></ProtectedRoute>} />
+      <Route path="/docs" element={<ProtectedRoute><LazyRouteBoundary><Docs /></LazyRouteBoundary></ProtectedRoute>} />
+      <Route path="/contacts" element={<ProtectedRoute><LazyRouteBoundary><Contacts /></LazyRouteBoundary></ProtectedRoute>} />
 
       {/* Analisi Proattiva - FMEA */}
-      <Route path="/fmea/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/fmea/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
-      <Route path="/fmea/assessment/new" element={<ProtectedRoute><NewAssessment /></ProtectedRoute>} />
-      <Route path="/fmea/assessment/:id" element={<ProtectedRoute><AssessmentDetail /></ProtectedRoute>} />
-      <Route path="/fmea/risks" element={<ProtectedRoute><RiskCatalog /></ProtectedRoute>} />
-      <Route path="/fmea/actions" element={<ProtectedRoute><Actions /></ProtectedRoute>} />
+      <Route path="/fmea" element={<ProtectedRoute><ModuleRoute moduleKey="FMEA"><Navigate to="/fmea/dashboard" replace /></ModuleRoute></ProtectedRoute>} />
+      <Route path="/fmea/dashboard" element={<ProtectedRoute><ModuleRoute moduleKey="FMEA"><LazyRouteBoundary><Dashboard /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/fmea/assessments" element={<ProtectedRoute><ModuleRoute moduleKey="FMEA"><LazyRouteBoundary><Assessments /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/fmea/assessment/new" element={<ProtectedRoute><ModuleRoute moduleKey="FMEA" requiresWrite><LazyRouteBoundary><NewAssessment /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/fmea/assessment/:id" element={<ProtectedRoute><ModuleRoute moduleKey="FMEA"><LazyRouteBoundary><AssessmentDetail /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/fmea/risks" element={<ProtectedRoute><ModuleRoute moduleKey="FMEA"><LazyRouteBoundary><RiskCatalog /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/fmea/actions" element={<ProtectedRoute><ModuleRoute moduleKey="FMEA"><LazyRouteBoundary><Actions /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
 
       {/* Analisi Reattiva - RCA placeholder */}
-      <Route path="/rca/dashboard" element={<ProtectedRoute><RCADashboard /></ProtectedRoute>} />
-      <Route path="/rca/assessments" element={<ProtectedRoute><RCAAssessments /></ProtectedRoute>} />
-      <Route path="/rca/assessment/new" element={<ProtectedRoute><NewRCAAssessment /></ProtectedRoute>} />
-      <Route path="/rca/assessment/:id" element={<ProtectedRoute><RCAAssessmentDetail /></ProtectedRoute>} />
-      <Route path="/rca/actions" element={<ProtectedRoute><RCAActions /></ProtectedRoute>} />
+      <Route path="/rca" element={<ProtectedRoute><ModuleRoute moduleKey="RCA"><Navigate to="/rca/dashboard" replace /></ModuleRoute></ProtectedRoute>} />
+      <Route path="/rca/dashboard" element={<ProtectedRoute><ModuleRoute moduleKey="RCA"><LazyRouteBoundary><RCADashboard /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/rca/assessments" element={<ProtectedRoute><ModuleRoute moduleKey="RCA"><LazyRouteBoundary><RCAAssessments /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/rca/assessment/new" element={<ProtectedRoute><ModuleRoute moduleKey="RCA" requiresWrite><LazyRouteBoundary><NewRCAAssessment /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/rca/assessment/:id" element={<ProtectedRoute><ModuleRoute moduleKey="RCA"><LazyRouteBoundary><RCAAssessmentDetail /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/rca/actions" element={<ProtectedRoute><ModuleRoute moduleKey="RCA"><LazyRouteBoundary><RCAActions /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
 
       {/* Gap Analysis */}
-      <Route path="/gap/dashboard" element={<ProtectedRoute><GapDashboard /></ProtectedRoute>} />
-      <Route path="/gap/assessments" element={<ProtectedRoute><GapAssessments /></ProtectedRoute>} />
-      <Route path="/gap/assessment/new" element={<ProtectedRoute><NewGapAssessment /></ProtectedRoute>} />
-      <Route path="/gap/assessment/:id" element={<ProtectedRoute><GapAssessmentDetail /></ProtectedRoute>} />
-      <Route path="/gap/processes" element={<ProtectedRoute><GapProcesses /></ProtectedRoute>} />
-      <Route path="/gap/process/:id" element={<ProtectedRoute><GapProcessDetail /></ProtectedRoute>} />
-      <Route path="/gap/standards" element={<ProtectedRoute><GapStandards /></ProtectedRoute>} />
-      <Route path="/gap/actions" element={<ProtectedRoute><GapActions /></ProtectedRoute>} />
+      <Route path="/gap" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><Navigate to="/gap/dashboard" replace /></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/dashboard" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><LazyRouteBoundary><GapDashboard /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/assessments" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><LazyRouteBoundary><GapAssessments /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/assessment/new" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS" requiresWrite><LazyRouteBoundary><NewGapAssessment /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/assessment/:id" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><LazyRouteBoundary><GapAssessmentDetail /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/processes" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><LazyRouteBoundary><GapProcesses /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/process/:id" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><LazyRouteBoundary><GapProcessDetail /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/standards" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><LazyRouteBoundary><GapStandards /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
+      <Route path="/gap/actions" element={<ProtectedRoute><ModuleRoute moduleKey="GAP_ANALYSIS"><LazyRouteBoundary><GapActions /></LazyRouteBoundary></ModuleRoute></ProtectedRoute>} />
       
       {/* Redirect legacy FMEA */}
-      <Route path="/dashboard" element={<Navigate to="/fmea/dashboard" replace />} />
+      <Route path="/dashboard" element={<Navigate to="/start" replace />} />
       <Route path="/assessments" element={<Navigate to="/fmea/assessments" replace />} />
       <Route path="/assessment/new" element={<Navigate to="/fmea/assessment/new" replace />} />
       <Route path="/assessment/:id" element={<LegacyAssessmentRedirect />} />
@@ -141,7 +169,11 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <ModuleConfigProvider>
+          <PrivacyGuardProvider>
+            <AppRoutes />
+          </PrivacyGuardProvider>
+        </ModuleConfigProvider>
       </AuthProvider>
     </BrowserRouter>
   )

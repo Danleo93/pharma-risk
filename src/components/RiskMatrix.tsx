@@ -1,7 +1,8 @@
-import { useRef } from 'react'
-import * as htmlToImage from 'html-to-image'
+import { useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import type { RiskItem } from '../types'
+import { loadHtmlToImage } from '../lib/exportEngines'
+import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
 
 interface RiskMatrixProps {
   riskItems: RiskItem[]
@@ -9,6 +10,7 @@ interface RiskMatrixProps {
 
 export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
   const matrixRef = useRef<HTMLDivElement>(null)
+  const [exportingPNG, setExportingPNG] = useState(false)
 
   const matrix: { [key: string]: RiskItem[] } = {}
 
@@ -37,24 +39,28 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
   const severityLabels = ['Critica', 'Alta', 'Moderata', 'Bassa', 'Minima']
   const probabilityLabels = ['Rara', 'Improbabile', 'Occasionale', 'Probabile', 'Frequente']
 
-  const exportPNG = () => {
+  const exportPNG = async () => {
+    if (exportingPNG) return
+    if (!confirmExportPrivacy()) return
     if (!matrixRef.current) return
 
-    htmlToImage
-      .toPng(matrixRef.current, {
+    setExportingPNG(true)
+    try {
+      const { toPng } = await loadHtmlToImage()
+      const dataUrl = await toPng(matrixRef.current, {
         cacheBust: true,
         backgroundColor: '#ffffff',
       })
-      .then((dataUrl) => {
-        const link = document.createElement('a')
-        link.download = 'pharmaT_matrice_rischio.png'
-        link.href = dataUrl
-        link.click()
-      })
-      .catch((err) => {
-        console.error('Errore esportazione PNG:', err)
-        alert('Errore durante l esportazione della matrice in PNG.')
-      })
+      const link = document.createElement('a')
+      link.download = createNeutralExportFileName('FMEA', new Date(), 'png', 'matrice_rischio')
+      link.href = dataUrl
+      link.click()
+    } catch (error) {
+      console.error('Errore esportazione PNG:', error)
+      alert('Impossibile preparare il file PNG. Riprova tra qualche istante.')
+    } finally {
+      setExportingPNG(false)
+    }
   }
 
   return (
@@ -70,10 +76,11 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
         <button
           type="button"
           onClick={exportPNG}
+          disabled={exportingPNG}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-800"
         >
           <Download className="h-4 w-4" />
-          Esporta PNG
+          {exportingPNG ? 'Preparazione export...' : 'Esporta PNG'}
         </button>
       </div>
 

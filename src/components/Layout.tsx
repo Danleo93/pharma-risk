@@ -2,106 +2,37 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
-  AlertTriangle,
   BookOpen,
-  BookMarked,
-  CheckSquare,
   ChevronDown,
   ChevronRight,
-  ClipboardList,
-  FileText,
-  LayoutDashboard,
-  Layers3,
   LogOut,
   Mail,
   Menu,
-  SearchCheck,
   Settings,
   ShieldCheck,
   X,
 } from 'lucide-react'
+import {
+  MODULE_DEFINITIONS,
+  type ModuleDefinition,
+  type ModuleNavigationItem,
+} from '../config/modules'
 import { useAuth } from '../context/AuthContext'
+import { useModuleConfig } from '../context/useModuleConfig'
 import { cn } from '../lib/ui'
 
 interface LayoutProps {
   children: React.ReactNode
 }
 
-interface NavItem {
+type NavItem = ModuleNavigationItem | {
   path: string
   label: string
   icon: LucideIcon
   activeMatch?: string[]
 }
 
-type SectionKey = 'fmea' | 'rca' | 'gap'
-
-interface NavSection {
-  key: SectionKey
-  title: string
-  subtitle: string
-  description: string
-  items: NavItem[]
-}
-
-const navSections: NavSection[] = [
-  {
-    key: 'fmea',
-    title: 'FMEA',
-    subtitle: 'Analisi Proattiva',
-    description: 'Prevenzione rischi',
-    items: [
-      { path: '/fmea/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      {
-        path: '/fmea/assessments',
-        label: 'Assessment',
-        icon: FileText,
-        activeMatch: ['/fmea/assessments', '/fmea/assessment'],
-      },
-      { path: '/fmea/risks', label: 'Catalogo Rischi', icon: AlertTriangle },
-      { path: '/fmea/actions', label: 'Azioni Correttive', icon: CheckSquare },
-    ],
-  },
-  {
-    key: 'rca',
-    title: 'RCA',
-    subtitle: 'Analisi Reattiva',
-    description: 'Eventi e cause',
-    items: [
-      { path: '/rca/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      {
-        path: '/rca/assessments',
-        label: 'Assessment',
-        icon: FileText,
-        activeMatch: ['/rca/assessments', '/rca/assessment'],
-      },
-      { path: '/rca/actions', label: 'Azioni Correttive', icon: CheckSquare },
-    ],
-  },
-  {
-    key: 'gap',
-    title: 'GAP',
-    subtitle: 'Gap Analysis',
-    description: 'Conformita e scostamenti',
-    items: [
-      { path: '/gap/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      {
-        path: '/gap/assessments',
-        label: 'Assessment',
-        icon: FileText,
-        activeMatch: ['/gap/assessments', '/gap/assessment'],
-      },
-      {
-        path: '/gap/processes',
-        label: 'Processi',
-        icon: Layers3,
-        activeMatch: ['/gap/processes', '/gap/process'],
-      },
-      { path: '/gap/standards', label: 'Norme', icon: BookMarked },
-      { path: '/gap/actions', label: 'Azioni', icon: CheckSquare },
-    ],
-  },
-]
+type SectionKey = ModuleDefinition['sectionKey']
 
 const generalItems: NavItem[] = [
   { path: '/settings', label: 'Impostazioni', icon: Settings },
@@ -111,6 +42,7 @@ const generalItems: NavItem[] = [
 
 export default function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth()
+  const { getStatus, isVisible } = useModuleConfig()
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -144,8 +76,10 @@ export default function Layout({ children }: LayoutProps) {
     })
   }
 
-  const getSectionTone = (section: NavSection) => {
-    if (section.key === 'rca') {
+  const navSections = MODULE_DEFINITIONS.filter((section) => isVisible(section.key))
+
+  const getSectionTone = (section: ModuleDefinition) => {
+    if (section.sectionKey === 'rca') {
       return {
           icon: 'bg-amber-50 text-amber-700 ring-amber-100',
           expanded: 'border-amber-200 bg-amber-50 text-amber-900 shadow-clinical-soft',
@@ -156,7 +90,7 @@ export default function Layout({ children }: LayoutProps) {
         }
     }
 
-    if (section.key === 'gap') {
+    if (section.sectionKey === 'gap') {
       return {
         icon: 'bg-teal-50 text-teal-700 ring-teal-100',
         expanded: 'border-teal-200 bg-teal-50/80 text-teal-900 shadow-clinical-soft',
@@ -175,19 +109,6 @@ export default function Layout({ children }: LayoutProps) {
       itemActive: 'border-sky-200 bg-sky-50 text-sky-700 shadow-clinical-soft',
       itemInactive: 'border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-900',
     }
-  }
-
-  const getSectionIcon = (section: NavSection) => {
-    if (section.key === 'fmea') return SearchCheck
-    if (section.key === 'rca') return AlertTriangle
-    if (section.key === 'gap') return ClipboardList
-    return LayoutDashboard
-  }
-
-  const getSectionBadge = (section: NavSection) => {
-    if (section.key === 'rca') return 'Reactive'
-    if (section.key === 'gap') return 'Compliance'
-    return 'Proactive'
   }
 
   return (
@@ -246,16 +167,17 @@ export default function Layout({ children }: LayoutProps) {
               </p>
 
               {navSections.map((section) => {
-                const expanded = openSection === section.key
-                const SectionIcon = getSectionIcon(section)
+                const expanded = openSection === section.sectionKey
+                const SectionIcon = section.icon
                 const tone = getSectionTone(section)
+                const readOnly = getStatus(section.key) === 'read_only'
 
                 return (
                   <div key={section.key} className="space-y-2">
                     <button
                       type="button"
                       aria-expanded={expanded}
-                      onClick={() => setOpenSection(expanded ? null : section.key)}
+                      onClick={() => setOpenSection(expanded ? null : section.sectionKey)}
                       className={cn(
                         'min-h-20 w-full rounded-xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500',
                         expanded ? tone.expanded : tone.collapsed,
@@ -268,10 +190,15 @@ export default function Layout({ children }: LayoutProps) {
                           </span>
                           <span className="min-w-0">
                             <span className="flex items-center gap-2">
-                              <span className="text-sm font-bold uppercase tracking-wide">{section.title}</span>
+                              <span className="text-sm font-bold uppercase tracking-wide">{section.tag}</span>
                               <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                {getSectionBadge(section)}
+                                {section.badgeLabel}
                               </span>
+                              {readOnly && (
+                                <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                  Sola lettura
+                                </span>
+                              )}
                             </span>
                             <span className="block truncate text-xs font-semibold opacity-90">
                               {section.subtitle}
@@ -291,7 +218,7 @@ export default function Layout({ children }: LayoutProps) {
 
                     {expanded && (
                       <div className="space-y-1 border-l border-slate-200 pl-3 ml-5">
-                        {section.items.map((item) => {
+                        {section.navigation.map((item) => {
                           const Icon = item.icon
                           const active = isActive(item)
 

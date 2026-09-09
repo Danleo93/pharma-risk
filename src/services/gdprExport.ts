@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
 
 type ExportRow = Record<string, unknown>
 
@@ -63,6 +64,7 @@ const downloadJson = (data: unknown, fileName: string) => {
 
 export async function exportUserDataGDPR(userId: string, userEmail: string) {
   try {
+    if (!confirmExportPrivacy()) return { success: false, error: new Error('Export annullato dall utente.') }
     const exportedAt = new Date().toISOString()
     const warnings: string[] = []
 
@@ -233,7 +235,7 @@ export async function exportUserDataGDPR(userId: string, userEmail: string) {
 
     downloadJson(
       exportData,
-      `PhaRMA_T_export_GDPR_${new Date().toISOString().split('T')[0]}.json`,
+      createNeutralExportFileName('GDPR', new Date(), 'json'),
     )
 
     return { success: true }

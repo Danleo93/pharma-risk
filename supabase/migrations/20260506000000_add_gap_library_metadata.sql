@@ -47,26 +47,17 @@ begin
   end if;
 end $$;
 
-create index if not exists gap_standards_user_source_type_idx
+create index if not exists idx_gap_standards_user_source
 on public.gap_standards(user_id, source_type);
 
-create index if not exists gap_standards_created_in_assessment_idx
-on public.gap_standards(user_id, created_in_assessment_id);
-
-create index if not exists gap_areas_user_source_type_idx
+create index if not exists idx_gap_areas_user_source
 on public.gap_areas(user_id, source_type);
 
-create index if not exists gap_areas_process_source_type_idx
-on public.gap_areas(process_id, source_type);
+create index if not exists idx_gap_areas_assessment_source
+on public.gap_areas(user_id, created_in_assessment_id, source_type);
 
-create index if not exists gap_areas_created_in_assessment_idx
-on public.gap_areas(user_id, created_in_assessment_id);
-
-create index if not exists gap_activities_user_source_type_idx
+create index if not exists idx_gap_activities_user_source
 on public.gap_activities(user_id, source_type);
 
-create index if not exists gap_activities_area_source_type_idx
-on public.gap_activities(area_id, source_type);
-
-create index if not exists gap_activities_created_in_assessment_idx
-on public.gap_activities(user_id, created_in_assessment_id);
+create index if not exists idx_gap_activities_assessment_source
+on public.gap_activities(user_id, created_in_assessment_id, source_type);

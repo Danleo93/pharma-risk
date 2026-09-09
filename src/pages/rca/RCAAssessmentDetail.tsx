@@ -21,11 +21,14 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { toPng } from 'html-to-image'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import type { RCAAssessment, RCAAssessmentStatus, RCAEventType, RCAMethodology } from '../../types'
 import { exportRCAToExcel, exportRCAToPDF, type RCAExportData } from '../../services/rcaExportService'
+import { PrivacyFieldHint } from '../../components/privacy/PrivacyFieldHint'
+import { PrivacyFormNotice } from '../../components/privacy/PrivacyFormNotice'
+import { confirmExportPrivacy, createNeutralExportFileName } from '../../lib/privacyRuntime'
+import { loadHtmlToImage } from '../../lib/exportEngines'
 import {
   RCA_ACTION_STATUS_OPTIONS,
   RCA_ASSESSMENT_STATUS_OPTIONS,
@@ -252,6 +255,9 @@ export default function RCAAssessmentDetail() {
   const [newFiveWhyAnswer, setNewFiveWhyAnswer] = useState('')
   const [causeFilter, setCauseFilter] = useState<CauseFilter>('all')
   const [monitoringResponsibleSignature, setMonitoringResponsibleSignature] = useState('')
+  const [exportingPDF, setExportingPDF] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
+  const [exportingPNG, setExportingPNG] = useState(false)
   const tabParam = searchParams.get('tab')
 
   useEffect(() => {
@@ -1323,7 +1329,7 @@ export default function RCAAssessmentDetail() {
         : hasSomeCompletedActions
           ? 'Parzialmente valutabile'
           : 'Da definire dopo implementazione azioni',
-      responsibleSignature: monitoringResponsibleSignature.trim() || user?.email || 'Non assegnato',
+      responsibleSignature: monitoringResponsibleSignature.trim() || 'Non assegnato',
     }
   }
 
@@ -1404,18 +1410,40 @@ export default function RCAAssessmentDetail() {
   }
 
   const exportRCAReportPDF = async () => {
+    if (exportingPDF) return
     const data = buildRCAExportData()
     if (!data) return
-    await exportRCAToPDF(data)
+
+    setExportingPDF(true)
+    try {
+      await exportRCAToPDF(data)
+    } catch (error) {
+      console.error('Errore durante la preparazione export PDF RCA:', error)
+      alert('Impossibile preparare il report PDF RCA. Riprova tra qualche istante.')
+    } finally {
+      setExportingPDF(false)
+    }
   }
 
-  const exportRCAReportExcel = () => {
+  const exportRCAReportExcel = async () => {
+    if (exportingExcel) return
     const data = buildRCAExportData()
     if (!data) return
-    exportRCAToExcel(data)
+
+    setExportingExcel(true)
+    try {
+      await exportRCAToExcel(data)
+    } catch (error) {
+      console.error('Errore durante la preparazione export Excel RCA:', error)
+      alert('Impossibile preparare il file Excel RCA. Riprova tra qualche istante.')
+    } finally {
+      setExportingExcel(false)
+    }
   }
 
   const exportIshikawaToPNG = async () => {
+    if (exportingPNG) return
+    if (!confirmExportPrivacy()) return
     if (!assessment) {
       console.warn('Export PNG Ishikawa non disponibile: assessment non caricato.')
       return
@@ -1426,19 +1454,23 @@ export default function RCAAssessmentDetail() {
       return
     }
 
+    setExportingPNG(true)
     try {
+      const { toPng } = await loadHtmlToImage()
       const dataUrl = await toPng(reportIshikawaRef.current, {
         cacheBust: true,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
       })
-      const cleanTitle = assessment.title.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_')
       const link = document.createElement('a')
-      link.download = `RCA_Ishikawa_${cleanTitle}_${new Date().toISOString().split('T')[0]}.png`
+      link.download = createNeutralExportFileName('RCA', new Date(), 'png', 'ishikawa')
       link.href = dataUrl
       link.click()
     } catch (error) {
       console.error('Errore durante esportazione PNG Ishikawa:', error)
+      alert('Impossibile preparare il file PNG Ishikawa. Riprova tra qualche istante.')
+    } finally {
+      setExportingPNG(false)
     }
   }
 
@@ -1827,15 +1859,16 @@ export default function RCAAssessmentDetail() {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
                                   <div>
                                     <label className="block text-xs font-medium text-sky-900 mb-1">
-                                      Responsabile
+                                      Ruolo / Funzione / Team
                                     </label>
                                     <input
                                       type="text"
                                       value={actionResponsible}
                                       onChange={(e) => setActionResponsible(e.target.value)}
                                       className="w-full px-3 py-2 border border-sky-200 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-                                      placeholder="Nome"
+                                      placeholder="Es. Farmacia ospedaliera, Team qualità"
                                     />
+                                    <PrivacyFieldHint kind="professional" />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-medium text-sky-900 mb-1">
@@ -1917,6 +1950,7 @@ export default function RCAAssessmentDetail() {
                             placeholder="Descrivi la causa..."
                             autoFocus
                           />
+                          <PrivacyFieldHint kind="causal" />
                           {causeError && (
                             <div className="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm">
                               {causeError}
@@ -2074,6 +2108,7 @@ export default function RCAAssessmentDetail() {
                   placeholder="Descrivi la risposta..."
                   autoFocus
                 />
+                <PrivacyFieldHint kind="causal" />
                 <div className="flex flex-col sm:flex-row gap-2 sm:justify-end mt-3">
                   <button
                     type="button"
@@ -2127,6 +2162,7 @@ export default function RCAAssessmentDetail() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none"
                   placeholder="Aggiungi una breve motivazione dell'esito..."
                 />
+                <PrivacyFieldHint kind="causal" />
 
                 <div className="flex flex-wrap gap-2 mt-3">
                   {(rootCauseStatus === 'candidate' || rootCauseStatus === 'not_confirmed') && (
@@ -2509,7 +2545,7 @@ export default function RCAAssessmentDetail() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Responsabile</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ruolo / Funzione / Team</label>
                         <input
                           type="text"
                           value={editActionResponsible}
@@ -2893,18 +2929,20 @@ export default function RCAAssessmentDetail() {
                 <button
                   type="button"
                   onClick={exportRCAReportPDF}
+                  disabled={exportingPDF}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
                 >
                   <Download className="w-4 h-4" />
-                  PDF
+                  {exportingPDF ? 'Preparazione export...' : 'PDF'}
                 </button>
                 <button
                   type="button"
                   onClick={exportRCAReportExcel}
+                  disabled={exportingExcel}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition"
                 >
                   <Download className="w-4 h-4" />
-                  Excel
+                  {exportingExcel ? 'Preparazione export...' : 'Excel'}
                 </button>
               </div>
             </div>
@@ -3019,11 +3057,11 @@ export default function RCAAssessmentDetail() {
             <button
               type="button"
               onClick={exportIshikawaToPNG}
-              disabled={fishboneBranches.length === 0}
+              disabled={exportingPNG || fishboneBranches.length === 0}
               className="inline-flex items-center justify-center gap-2 self-start sm:self-auto px-3 py-2 rounded-lg bg-white text-sky-700 border border-sky-200 text-sm font-medium hover:bg-sky-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
-              PNG
+              {exportingPNG ? 'Preparazione export...' : 'PNG'}
             </button>
           </div>
           {renderIshikawaReportDiagram()}
@@ -3165,14 +3203,15 @@ export default function RCAAssessmentDetail() {
               <p className="font-medium text-gray-800 mt-1">{monitoring.effectivenessStatus}</p>
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-              <p className="text-sm text-gray-500">Responsabile / Firma</p>
+              <p className="text-sm text-gray-500">Ruolo / Funzione / Team responsabile</p>
               <input
                 type="text"
                 value={monitoringResponsibleSignature}
                 onChange={(event) => setMonitoringResponsibleSignature(event.target.value)}
                 className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                placeholder={user?.email || 'Nome responsabile'}
+                placeholder="Es. Referente rischio clinico"
               />
+              <PrivacyFieldHint kind="professional" />
               <p className="mt-2 text-xs text-gray-400">
                 Usato nel report web e negli export PDF/Excel.
               </p>
@@ -3245,6 +3284,8 @@ export default function RCAAssessmentDetail() {
           </div>
         </div>
       </div>
+
+      <PrivacyFormNotice compact className="mb-6" />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2 mb-6 overflow-x-auto">
         <div className="flex gap-1 min-w-max">

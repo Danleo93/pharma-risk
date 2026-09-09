@@ -22,6 +22,7 @@ import { Card, CardContent } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { StatCard } from '../../components/ui/StatCard'
+import { PrivacyFieldHint } from '../../components/privacy/PrivacyFieldHint'
 
 type RCAActionStatus = string
 
@@ -401,13 +402,14 @@ export default function RCAActions() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Responsabile</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Ruolo / Funzione / Team</label>
                           <input
                             type="text"
                             value={editResponsible}
                             onChange={(event) => setEditResponsible(event.target.value)}
                             className="clinical-input px-3 py-2 text-sm"
                           />
+                          <PrivacyFieldHint kind="professional" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Scadenza</label>
