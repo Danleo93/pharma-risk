@@ -36,7 +36,7 @@ export default function Login() {
         <Card elevated>
           <CardContent className="p-8">
             <div className="mb-8 text-center">
-              <BrandMark className="mx-auto mb-4 h-20 w-20 drop-shadow-sm" />
+              <BrandMark className="mx-auto mb-4 h-24 w-24 drop-shadow-sm" />
               <h1 className="text-3xl font-bold tracking-tight text-slate-950">PhaRMA T</h1>
               <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Clinical Risk Suite
