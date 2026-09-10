@@ -19,6 +19,23 @@ collegato; nessun passaggio del punto di accesso ufficiale o modifica Supabase.
   ufficiale. La prima build automatica deve essere verificata nel pannello
   Cloudflare dopo un nuovo commit sul branch di produzione configurato.
 
+### Evidenza della prima pubblicazione da Git — 2026-09-10
+
+- Commit sorgente: `12eb38f6f4abd8ed967093d459dc4cc7f043ce71`,
+  pubblicato sul branch `codex/cloudflare-migration`; presenza sul repository
+  remoto verificata con interrogazione diretta del riferimento Git.
+- Dopo il push, `https://pharma-risk.daniele-leo93.workers.dev/pharmat-mark.png`
+  ha restituito HTTP 200, `Content-Type: image/png` e 940362 byte, coincidenti
+  con il nuovo asset presente nel commit.
+- `/login` ha restituito HTTP 200 e il documento pubblicato riferiva il nuovo
+  asset. Nel controllo browser, completato il caricamento del PNG, il marchio
+  risultava visibile con sfondo trasparente; nessun errore o warning di console.
+- Queste evidenze confermano la pubblicazione del nuovo commit mediante il
+  collegamento Git. L'identificativo interno della build Cloudflare non e stato
+  ancora acquisito dal pannello e resta da aggiungere al registro.
+- Il controllo resta non autenticato: non attesta login, recupero password,
+  isolamento RLS, operazioni FMEA/RCA/Gap o esportazioni.
+
 ## Prima pubblicazione e verifica pubblica — 2026-09-09
 
 - URL: https://pharma-risk.daniele-leo93.workers.dev
