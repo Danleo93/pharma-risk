@@ -37,12 +37,12 @@ export default function ForgotPassword() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
               <CheckCircle className="h-8 w-8" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-950">Email inviata</h1>
+            <h1 className="text-2xl font-bold text-slate-950">Controlla la tua posta</h1>
             <p className="mt-3 text-sm leading-6 text-slate-500">
-              Abbiamo inviato un link per reimpostare la password a <strong>{email}</strong>.
+              Se l'indirizzo indicato e associato a un account, riceverai un link per reimpostare la password.
             </p>
             <p className="mt-2 text-sm text-slate-400">
-              Controlla anche la cartella spam se non trovi l'email.
+              Per ragioni di sicurezza non confermiamo se un account esiste. Controlla anche la cartella spam.
             </p>
             <Link
               to="/login"

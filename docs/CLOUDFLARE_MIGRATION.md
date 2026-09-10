@@ -4,6 +4,24 @@ Data apertura: 2026-09-09.
 Stato: PRIMA PUBBLICAZIONE MANUALE DI VERIFICA eseguita e repository GitHub
 collegato; nessun passaggio del punto di accesso ufficiale o modifica Supabase.
 
+## Collaudo Auth: reindirizzamento recupero password — 2026-09-10
+
+- Nel test dall'URL Cloudflare, la richiesta di recupero password ha portato
+  al vecchio frontend Vercel. Non sono emersi due database o due identita:
+  entrambi i frontend usano lo stesso progetto Supabase e quindi gli stessi
+  account e le stesse password.
+- Il frontend Cloudflare invia gia `redirectTo` verso la propria route
+  `/reset-password`; il fallback a Vercel indica che l'URL Cloudflare non e
+  ancora nella allow-list hosted di Supabase Auth, oppure che il Site URL
+  hosted e ancora Vercel.
+- Correzione da effettuare nel dashboard Supabase, non nel file locale
+  `supabase/config.toml`: impostare il Site URL Cloudflare, aggiungere gli
+  URL Cloudflare esatti di login e reset alla Redirect URLs allow-list e
+  mantenere temporaneamente gli URL Vercel gia presenti come fallback.
+- L'interfaccia di recupero e stata aggiornata per non dichiarare l'esistenza
+  di un account o l'invio a uno specifico indirizzo. Rimane da collaudare il
+  flusso completo dopo la modifica hosted.
+
 ## Collegamento GitHub e prima build automatica — 2026-09-10
 
 - GitHub App `Cloudflare Workers and Pages` installata sull'account personale

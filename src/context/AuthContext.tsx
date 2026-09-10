@@ -41,6 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        // Must be allow-listed in Supabase Auth URL Configuration for each
+        // public deployment that is intentionally kept active.
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
     })
     return { error }
   }
