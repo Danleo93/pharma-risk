@@ -1,8 +1,23 @@
 # PhaRMA-T — registro migrazione Cloudflare
 
 Data apertura: 2026-09-09.
-Stato: PRIMA PUBBLICAZIONE MANUALE DI VERIFICA su Cloudflare eseguita dall'utente;
-nessun passaggio del punto di accesso ufficiale o modifica Supabase eseguito.
+Stato: PRIMA PUBBLICAZIONE MANUALE DI VERIFICA eseguita e repository GitHub
+collegato; nessun passaggio del punto di accesso ufficiale o modifica Supabase.
+
+## Collegamento GitHub e prima build automatica — 2026-09-10
+
+- GitHub App `Cloudflare Workers and Pages` installata sull'account personale
+  con accesso limitato al solo repository `Danleo93/pharma-risk`.
+- Repository collegato dal pannello Builds del progetto Cloudflare `pharma-risk`.
+- Comando di build: `npm run build`; comando di deploy:
+  `npx wrangler deploy`; root directory `/`.
+- Variabili di build configurate per nome come `VITE_SUPABASE_URL` e
+  `VITE_SUPABASE_ANON_KEY`; i valori non sono riportati in questo registro.
+  E stata usata esclusivamente una chiave client pubblicabile, non una chiave
+  `service_role`, `sb_secret` o altra credenziale amministrativa.
+- Il collegamento non modifica Vercel, Supabase, DNS o il punto di accesso
+  ufficiale. La prima build automatica deve essere verificata nel pannello
+  Cloudflare dopo un nuovo commit sul branch di produzione configurato.
 
 ## Prima pubblicazione e verifica pubblica — 2026-09-09
 
@@ -23,7 +38,8 @@ nessun passaggio del punto di accesso ufficiale o modifica Supabase eseguito.
   assenza di qualunque trattamento di metadati da parte del fornitore.
 - DPA/accettazione contrattuale dell'account ancora da documentare; nessuna
   dichiarazione di readiness istituzionale. Vercel mantenuto invariato.
-- Collegamento GitHub non ancora eseguito; nessun push autorizzato/eseguito.
+- In questa fase iniziale il collegamento GitHub non era ancora stato eseguito;
+  lo stato successivo e registrato nella sezione del 2026-09-10.
 
 ## Ambito autorizzato
 
@@ -44,7 +60,9 @@ registrate nei documenti di chiusura tecnica e governance.
 Il 2026-09-09 e stato creato e selezionato il branch locale
 `codex/cloudflare-migration`, a partire da `main`, commit `26e21d0`
 (`ui: add Gap Analysis to home dashboard`). Tutte le modifiche locali
-preesistenti sono state preservate. Nessun push eseguito.
+preesistenti sono state preservate. Il branch e stato successivamente
+pubblicato su GitHub per consentire il collegamento a Cloudflare; `main`
+non e stato modificato.
 
 Con autorizzazione dell'utente e stato successivamente creato il checkpoint
 locale **`fac158e`**, riferimento **`codex/pre-cloudflare-2026-09-09`**.

@@ -9,9 +9,9 @@ import {
   Mail,
   Menu,
   Settings,
-  ShieldCheck,
   X,
 } from 'lucide-react'
+import { BrandMark } from './BrandMark'
 import {
   MODULE_DEFINITIONS,
   type ModuleDefinition,
@@ -136,9 +136,7 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => setSidebarOpen(false)}
                 className="group flex min-w-0 items-center gap-3"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-700 text-white shadow-clinical-soft transition group-hover:bg-sky-800">
-                  <ShieldCheck className="h-6 w-6" />
-                </div>
+                <BrandMark className="h-12 w-12 transition group-hover:scale-[1.03]" />
                 <div className="min-w-0">
                   <span className="block truncate text-xl font-bold tracking-tight text-slate-950">
                     PhaRMA T
@@ -322,7 +320,7 @@ export default function Layout({ children }: LayoutProps) {
               <Menu className="h-6 w-6" />
             </button>
             <Link to="/" className="flex items-center gap-2 font-bold text-slate-950">
-              <ShieldCheck className="h-5 w-5 text-sky-700" />
+              <BrandMark className="h-7 w-7" />
               PhaRMA T
             </Link>
             <div className="h-10 w-10" aria-hidden="true" />

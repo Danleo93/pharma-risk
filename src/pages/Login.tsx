@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertTriangle, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { BrandMark } from '../components/BrandMark'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent } from '../components/ui/Card'
 import { useAuth } from '../context/AuthContext'
@@ -35,9 +36,7 @@ export default function Login() {
         <Card elevated>
           <CardContent className="p-8">
             <div className="mb-8 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-700 text-white shadow-clinical-soft">
-                <ShieldCheck className="h-7 w-7" />
-              </div>
+              <BrandMark className="mx-auto mb-4 h-20 w-20 drop-shadow-sm" />
               <h1 className="text-3xl font-bold tracking-tight text-slate-950">PhaRMA T</h1>
               <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Clinical Risk Suite
