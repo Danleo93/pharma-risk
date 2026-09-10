@@ -1,7 +1,29 @@
 # PhaRMA-T — registro migrazione Cloudflare
 
 Data apertura: 2026-09-09.
-Stato: PREPARAZIONE LOCALE; nessuna pubblicazione Cloudflare o modifica remota eseguita.
+Stato: PRIMA PUBBLICAZIONE MANUALE DI VERIFICA su Cloudflare eseguita dall'utente;
+nessun passaggio del punto di accesso ufficiale o modifica Supabase eseguito.
+
+## Prima pubblicazione e verifica pubblica — 2026-09-09
+
+- URL: https://pharma-risk.daniele-leo93.workers.dev
+- Dashboard mostrata dall'utente: versione abbreviata `e2bd6c48`,
+  "Manually deployed", progetto `pharma-risk`, soli asset statici.
+- Caricamento manuale: 79 file da `dist`, root `/`, HTML handling
+  `auto-trailing-slash`, not found handling `single-page-application`.
+- Prima del caricamento verificati endpoint Supabase remoto configurato e
+  chiave client anon; assenza dei pattern di credenziali operative controllati
+  e di file riservati/documenti/sourcemap nella build; `_headers` corrispondente.
+- Richieste HTTP pubbliche con `Sec-Fetch-Mode: navigate`: `/`, `/login`,
+  `/fmea`, `/rca`, `/gap`, `/reset-password` restituiscono 200, HTML e root React.
+- Sulla root pubblica rilevate tutte le sei intestazioni di sicurezza attese.
+- Questi controlli attestano il fallback HTML, NON l'esecuzione JavaScript,
+  il funzionamento autenticato, RLS o le esportazioni: ancora da verificare.
+- Workers Logs/Traces risultano disabilitati nello screenshot; cio non significa
+  assenza di qualunque trattamento di metadati da parte del fornitore.
+- DPA/accettazione contrattuale dell'account ancora da documentare; nessuna
+  dichiarazione di readiness istituzionale. Vercel mantenuto invariato.
+- Collegamento GitHub non ancora eseguito; nessun push autorizzato/eseguito.
 
 ## Ambito autorizzato
 
@@ -99,7 +121,7 @@ esterna: entrambi i branch sono al momento soltanto su questo computer.
 5. Registrare versione dello strumento di pubblicazione, identificativo deployment,
    manifest/hash della build, data e account (senza token o password).
 
-## Passaggi manuali e controlli remoti — tutti PENDING
+## Checklist completa (stato aggiornato nella sezione prima pubblicazione)
 
 - Accesso/creazione account personale; verifica email e autenticazione a due fattori.
 - Evidenza contratto/DPA applicabile al nuovo account.
@@ -146,7 +168,8 @@ Verifiche eseguite il 2026-09-09:
 - Confronto contenuto `public/_headers` / `dist/_headers`: PASS.
 - `git diff --check`: PASS; avvisi Git di normalizzazione LF/CRLF.
 
-Nessuna prova su infrastruttura Cloudflare ancora eseguita.
+Le prime verifiche HTTP su Cloudflare sono registrate nella sezione iniziale;
+collaudo browser e autenticato ancora da eseguire.
 
 ## Riferimenti ufficiali consultati il 2026-09-09
 
