@@ -22,6 +22,20 @@ collegato; nessun passaggio del punto di accesso ufficiale o modifica Supabase.
   di un account o l'invio a uno specifico indirizzo. Rimane da collaudare il
   flusso completo dopo la modifica hosted.
 
+### Evidenza gestione moduli hosted — 2026-09-11
+
+- Nel primo accesso autenticato Cloudflare la lettura di `public.app_modules`
+  non era disponibile; l'app ha applicato il comportamento fail-safe previsto,
+  sospendendo i moduli operativi senza modificare dati o permessi lato client.
+- L'utente autorizzato ha applicato nel dashboard Supabase la migrazione
+  versionata `20260825020000_add_runtime_module_management.sql`.
+- Dopo aggiornamento della pagina Cloudflare sono risultati disponibili FMEA,
+  RCA e Gap Analysis; sono rimasti visibili gli assessment preesistenti.
+  L'evidenza conferma che Cloudflare e Vercel condividono il medesimo progetto
+  Supabase e che non e avvenuta alcuna duplicazione dei dati.
+- Restano da eseguire il collaudo completo di reset password dopo il limite
+  email e le verifiche funzionali/autenticate indicate nella checklist.
+
 ## Collegamento GitHub e prima build automatica — 2026-09-10
 
 - GitHub App `Cloudflare Workers and Pages` installata sull'account personale
