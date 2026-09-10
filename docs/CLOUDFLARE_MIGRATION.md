@@ -31,8 +31,9 @@ collegato; nessun passaggio del punto di accesso ufficiale o modifica Supabase.
   asset. Nel controllo browser, completato il caricamento del PNG, il marchio
   risultava visibile con sfondo trasparente; nessun errore o warning di console.
 - Queste evidenze confermano la pubblicazione del nuovo commit mediante il
-  collegamento Git. L'identificativo interno della build Cloudflare non e stato
-  ancora acquisito dal pannello e resta da aggiungere al registro.
+  collegamento Git. Il pannello ha successivamente mostrato per il commit
+  `12eb38f` la build `96d8bc42-47be-45e0-a304-81d1b6e231d3`, completata al
+  100%, e la versione Cloudflare `2463428c`.
 - Il controllo resta non autenticato: non attesta login, recupero password,
   isolamento RLS, operazioni FMEA/RCA/Gap o esportazioni.
 
