@@ -832,9 +832,13 @@ export default function AssessmentDetail() {
 
       {/* Grafici */}
       {riskItems.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          <RiskMatrix riskItems={riskItems} />
-          <ParetoChart riskItems={riskItems} />
+        <div className="mt-6 flex min-w-0 flex-col gap-6">
+          <div className="min-w-0">
+            <RiskMatrix riskItems={riskItems} />
+          </div>
+          <div className="min-w-0">
+            <ParetoChart riskItems={riskItems} />
+          </div>
         </div>
       )}
 
