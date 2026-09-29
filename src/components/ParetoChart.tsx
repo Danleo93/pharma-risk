@@ -82,7 +82,7 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
 
   if (sortedRisks.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-4 flex items-center gap-3">
           <div className="rounded-xl bg-sky-50 p-2 text-sky-700">
             <BarChart3 className="h-5 w-5" />
@@ -102,7 +102,7 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
   const contentMinWidth = Math.max(760, data.length * 72)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">Analisi di Pareto</h3>
@@ -155,7 +155,7 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/50">
+      <div className="max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/50">
         <div
           ref={exportRef}
           className="bg-white px-5 pb-6 pt-4"

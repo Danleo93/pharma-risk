@@ -58,7 +58,7 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">Matrice del Rischio (5x5)</h3>
@@ -77,8 +77,8 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/60">
-        <div className="min-w-[760px] bg-white px-8 py-10" ref={matrixRef}>
+      <div className="max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/60">
+        <div className="min-w-[700px] bg-white px-5 py-8 sm:px-8 sm:py-10" ref={matrixRef}>
           <div className="flex">
             <div className="w-28 flex-shrink-0" />
             <div className="mb-2 grid flex-1 grid-cols-5 gap-2">
