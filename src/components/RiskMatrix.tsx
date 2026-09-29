@@ -78,7 +78,7 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
       </div>
 
       <div className="max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/60">
-        <div className="min-w-[700px] bg-white px-5 py-8 sm:px-8 sm:py-10" ref={matrixRef}>
+        <div className="mx-auto w-full min-w-[700px] max-w-[800px] bg-white px-5 py-8 sm:px-8 sm:py-10" ref={matrixRef}>
           <div className="flex">
             <div className="w-28 flex-shrink-0" />
             <div className="mb-2 grid flex-1 grid-cols-5 gap-2">
