@@ -296,23 +296,23 @@ export default function RCAAssessments() {
             : 'Quando archivi un assessment RCA, viene mostrato qui.'}
         />
       ) : (
-        <div className="grid gap-4">
+        <div className="grid min-w-0 gap-4">
           {filteredAssessments.map((assessment) => (
-            <Card key={assessment.id} className="transition hover:shadow-clinical">
-              <CardContent className="p-4">
+            <Card key={assessment.id} className="min-w-0 transition hover:shadow-clinical">
+              <CardContent className="min-w-0 p-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex min-w-0 items-start gap-4">
-                    <div className="mt-1">{getStatusIcon(assessment.status)}</div>
-                    <div className="min-w-0">
+                  <div className="flex min-w-0 flex-1 items-start gap-4">
+                    <div className="mt-1 shrink-0">{getStatusIcon(assessment.status)}</div>
+                    <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                       <Link
                         to={`/rca/assessment/${assessment.id}`}
                         className="font-semibold text-slate-900 transition hover:text-amber-700"
                       >
                         {assessment.title}
                       </Link>
-                      <p className="mt-1 truncate text-sm text-slate-600">{assessment.event_title}</p>
+                      <p className="mt-1 text-sm text-slate-600">{assessment.event_title}</p>
                       {assessment.event_description && (
-                        <p className="mt-1 truncate text-sm text-slate-500">{assessment.event_description}</p>
+                        <p className="mt-1 whitespace-pre-line text-sm leading-5 text-slate-500">{assessment.event_description}</p>
                       )}
                       <p className="mt-2 text-xs text-slate-400">
                         Creato il {new Date(assessment.created_at).toLocaleDateString('it-IT')}
