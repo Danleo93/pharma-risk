@@ -109,10 +109,10 @@ export default function GapAssessments() {
   }
 
   const renderAssessmentCard = (assessment: GapAssessment) => (
-    <Card key={assessment.id} className="transition hover:shadow-clinical">
-      <CardContent className="p-5">
+    <Card key={assessment.id} className="min-w-0 transition hover:shadow-clinical">
+      <CardContent className="min-w-0 p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
             <Link
               to={`/gap/assessment/${assessment.id}`}
               className="text-base font-semibold text-slate-900 transition hover:text-teal-700"
@@ -120,7 +120,7 @@ export default function GapAssessments() {
               {assessment.title}
             </Link>
             {assessment.description && (
-              <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
+              <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-500">
                 {assessment.description}
               </p>
             )}

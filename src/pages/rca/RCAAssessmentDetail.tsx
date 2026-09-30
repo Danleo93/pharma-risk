@@ -16,6 +16,7 @@ import {
   Pill,
   Plus,
   Target,
+  Trash2,
   Users,
   Wrench,
   X,
@@ -221,6 +222,8 @@ export default function RCAAssessmentDetail() {
   const [newCauseDescription, setNewCauseDescription] = useState('')
   const [causeSaving, setCauseSaving] = useState(false)
   const [causeError, setCauseError] = useState<string | null>(null)
+  const [deletingCauseId, setDeletingCauseId] = useState<string | null>(null)
+  const [causeDeleteError, setCauseDeleteError] = useState<string | null>(null)
   const [activeActionFormCauseId, setActiveActionFormCauseId] = useState<string | null>(null)
   const [actionDescription, setActionDescription] = useState('')
   const [actionResponsible, setActionResponsible] = useState('')
@@ -949,6 +952,63 @@ export default function RCAAssessmentDetail() {
     setCauseSaving(false)
   }
 
+  const deleteFishboneCause = async (cause: RCACause) => {
+    if (!assessment || !user || deletingCauseId) return
+
+    setDeletingCauseId(cause.id)
+    setCauseDeleteError(null)
+
+    try {
+      const dependencies = await Promise.all([
+        supabase.from('rca_action_plans').select('id').eq('assessment_id', assessment.id).eq('user_id', user.id).eq('cause_id', cause.id).limit(1),
+        supabase.from('rca_five_why_chains').select('id').eq('assessment_id', assessment.id).eq('user_id', user.id).eq('cause_id', cause.id).limit(1),
+        supabase.from('rca_five_why_steps').select('id').eq('assessment_id', assessment.id).eq('user_id', user.id).eq('cause_id', cause.id).limit(1),
+      ])
+
+      if (dependencies.some(({ error }) => error)) {
+        setCauseDeleteError('Impossibile verificare gli elementi collegati alla causa. Riprova.')
+        return
+      }
+
+      if (dependencies.some(({ data }) => data && data.length > 0)) {
+        setCauseDeleteError('Questa causa ha azioni o analisi 5 Whys collegate. Eliminale prima di rimuovere la causa; la categoria resterà invariata.')
+        return
+      }
+
+      if (!confirm('Eliminare questa causa? La categoria resterà attiva. L’operazione è irreversibile.')) return
+
+      const { data, error } = await supabase
+        .from('rca_causes')
+        .delete()
+        .eq('id', cause.id)
+        .eq('assessment_id', assessment.id)
+        .eq('user_id', user.id)
+        .select('id')
+        .maybeSingle()
+
+      if (error || !data) {
+        console.error('Errore eliminazione causa RCA:', error)
+        setCauseDeleteError('Impossibile eliminare la causa. Verifica eventuali elementi collegati e riprova.')
+        return
+      }
+
+      setFishboneCausesByBranch((current) => Object.fromEntries(
+        Object.entries(current).map(([branchId, items]) => [
+          branchId,
+          items.filter((item) => item.cause_id !== cause.id),
+        ]),
+      ))
+      setRootCauseNotesByCauseId((current) => {
+        const next = { ...current }
+        delete next[cause.id]
+        return next
+      })
+      if (activeActionFormCauseId === cause.id) cancelCreateAction()
+    } finally {
+      setDeletingCauseId(null)
+    }
+  }
+
   const toggleRootCause = async (fishboneCause: RCAFishboneCause) => {
     if (!user || !fishboneCause.cause) return
 
@@ -1665,6 +1725,12 @@ export default function RCAAssessmentDetail() {
             </div>
           </div>
 
+          {causeDeleteError && (
+            <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              {causeDeleteError}
+            </div>
+          )}
+
           {fishboneBranches.length === 0 ? (
             <div className="border border-dashed border-gray-200 rounded-lg p-8 text-center text-gray-500">
               Nessuna categoria attiva. Seleziona una categoria standard o aggiungine una custom.
@@ -1767,6 +1833,18 @@ export default function RCAAssessmentDetail() {
                                     >
                                       <Plus className="w-3.5 h-3.5" />
                                       Crea azione
+                                    </button>
+                                  )}
+                                  {fishboneCause.cause && (
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteFishboneCause(fishboneCause.cause!)}
+                                      disabled={deletingCauseId !== null}
+                                      aria-label={`Elimina causa: ${fishboneCause.cause.description}`}
+                                      title="Elimina causa"
+                                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
                                     </button>
                                   )}
                                 </div>
@@ -2345,6 +2423,12 @@ export default function RCAAssessmentDetail() {
             </div>
           </div>
 
+          {causeDeleteError && (
+            <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              {causeDeleteError}
+            </div>
+          )}
+
           {allCauses.length === 0 ? (
             <div className="border border-dashed border-gray-200 rounded-lg p-10 text-center">
               <ClipboardList className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -2420,6 +2504,16 @@ export default function RCAAssessmentDetail() {
                             {fiveWhyChain ? 'Apri 5 Whys' : 'Avvia 5 Whys'}
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => deleteFishboneCause(cause)}
+                          disabled={deletingCauseId !== null}
+                          aria-label={`Elimina causa: ${cause.description}`}
+                          title="Elimina causa"
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-100 bg-white text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
