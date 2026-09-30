@@ -223,7 +223,7 @@ export default function RCAAssessmentDetail() {
   const [causeSaving, setCauseSaving] = useState(false)
   const [causeError, setCauseError] = useState<string | null>(null)
   const [deletingCauseId, setDeletingCauseId] = useState<string | null>(null)
-  const [causeDeleteError, setCauseDeleteError] = useState<string | null>(null)
+  const [causeDeleteError, setCauseDeleteError] = useState<{ causeId: string; message: string } | null>(null)
   const [activeActionFormCauseId, setActiveActionFormCauseId] = useState<string | null>(null)
   const [actionDescription, setActionDescription] = useState('')
   const [actionResponsible, setActionResponsible] = useState('')
@@ -966,12 +966,12 @@ export default function RCAAssessmentDetail() {
       ])
 
       if (dependencies.some(({ error }) => error)) {
-        setCauseDeleteError('Impossibile verificare gli elementi collegati alla causa. Riprova.')
+        setCauseDeleteError({ causeId: cause.id, message: 'Impossibile verificare gli elementi collegati alla causa. Riprova.' })
         return
       }
 
       if (dependencies.some(({ data }) => data && data.length > 0)) {
-        setCauseDeleteError('Questa causa ha azioni o analisi 5 Whys collegate. Eliminale prima di rimuovere la causa; la categoria resterà invariata.')
+        setCauseDeleteError({ causeId: cause.id, message: 'Questa causa ha azioni o analisi 5 Whys collegate. Eliminale prima di rimuovere la causa; la categoria resterà invariata.' })
         return
       }
 
@@ -988,7 +988,7 @@ export default function RCAAssessmentDetail() {
 
       if (error || !data) {
         console.error('Errore eliminazione causa RCA:', error)
-        setCauseDeleteError('Impossibile eliminare la causa. Verifica eventuali elementi collegati e riprova.')
+        setCauseDeleteError({ causeId: cause.id, message: 'Impossibile eliminare la causa. Verifica eventuali elementi collegati e riprova.' })
         return
       }
 
@@ -1725,12 +1725,6 @@ export default function RCAAssessmentDetail() {
             </div>
           </div>
 
-          {causeDeleteError && (
-            <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-              {causeDeleteError}
-            </div>
-          )}
-
           {fishboneBranches.length === 0 ? (
             <div className="border border-dashed border-gray-200 rounded-lg p-8 text-center text-gray-500">
               Nessuna categoria attiva. Seleziona una categoria standard o aggiungine una custom.
@@ -1967,6 +1961,11 @@ export default function RCAAssessmentDetail() {
                                   </button>
                                 </div>
                               </form>
+                            )}
+                            {causeDeleteError?.causeId === fishboneCause.cause_id && (
+                              <div role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {causeDeleteError.message}
+                              </div>
                             )}
                           </div>
                             )
@@ -2423,12 +2422,6 @@ export default function RCAAssessmentDetail() {
             </div>
           </div>
 
-          {causeDeleteError && (
-            <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-              {causeDeleteError}
-            </div>
-          )}
-
           {allCauses.length === 0 ? (
             <div className="border border-dashed border-gray-200 rounded-lg p-10 text-center">
               <ClipboardList className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -2516,6 +2509,11 @@ export default function RCAAssessmentDetail() {
                         </button>
                       </div>
                     </div>
+                    {causeDeleteError?.causeId === cause.id && (
+                      <div role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {causeDeleteError.message}
+                      </div>
+                    )}
                   </div>
                 )
               })}
