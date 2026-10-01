@@ -453,12 +453,12 @@ export default function Docs() {
             />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="bg-red-100 border border-red-300 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-red-700">&gt;= 50</div>
+                <div className="text-2xl font-bold text-red-700">&gt;= 40</div>
                 <div className="text-sm font-medium text-red-800">Alta</div>
                 <div className="text-xs text-red-600 mt-1">Intervento immediato</div>
               </div>
               <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-yellow-700">20-49</div>
+                <div className="text-2xl font-bold text-yellow-700">20-39</div>
                 <div className="text-sm font-medium text-yellow-800">Media</div>
                 <div className="text-xs text-yellow-600 mt-1">Azione programmata</div>
               </div>
