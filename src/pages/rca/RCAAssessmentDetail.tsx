@@ -256,6 +256,8 @@ export default function RCAAssessmentDetail() {
   const [expandedFiveWhyChainId, setExpandedFiveWhyChainId] = useState<string | null>(null)
   const [activeFiveWhyFormChainId, setActiveFiveWhyFormChainId] = useState<string | null>(null)
   const [newFiveWhyAnswer, setNewFiveWhyAnswer] = useState('')
+  const [editingFiveWhyStepId, setEditingFiveWhyStepId] = useState<string | null>(null)
+  const [editFiveWhyAnswer, setEditFiveWhyAnswer] = useState('')
   const [causeFilter, setCauseFilter] = useState<CauseFilter>('all')
   const [monitoringResponsibleSignature, setMonitoringResponsibleSignature] = useState('')
   const [exportingPDF, setExportingPDF] = useState(false)
@@ -465,6 +467,10 @@ export default function RCAAssessmentDetail() {
         setNewFiveWhyAnswer('')
         setFiveWhyError(null)
       }
+      if (current === chainId) {
+        setEditingFiveWhyStepId(null)
+        setEditFiveWhyAnswer('')
+      }
       return next
     })
   }
@@ -476,6 +482,8 @@ export default function RCAAssessmentDetail() {
   }
 
   const startAddFiveWhyStep = (chainId: string) => {
+    setEditingFiveWhyStepId(null)
+    setEditFiveWhyAnswer('')
     setActiveFiveWhyFormChainId(chainId)
     setNewFiveWhyAnswer('')
     setFiveWhyError(null)
@@ -485,6 +493,58 @@ export default function RCAAssessmentDetail() {
     setActiveFiveWhyFormChainId(null)
     setNewFiveWhyAnswer('')
     setFiveWhyError(null)
+  }
+
+  const startEditFiveWhyStep = (step: RCAFiveWhyStep) => {
+    setActiveFiveWhyFormChainId(null)
+    setNewFiveWhyAnswer('')
+    setEditingFiveWhyStepId(step.id)
+    setEditFiveWhyAnswer(step.answer)
+    setFiveWhyError(null)
+  }
+
+  const cancelEditFiveWhyStep = () => {
+    setEditingFiveWhyStepId(null)
+    setEditFiveWhyAnswer('')
+    setFiveWhyError(null)
+  }
+
+  const saveEditedFiveWhyStep = async (step: RCAFiveWhyStep) => {
+    if (!assessment || !user) return
+
+    const answer = editFiveWhyAnswer.trim()
+    if (!answer) {
+      setFiveWhyError('Inserisci una risposta per il perché.')
+      return
+    }
+
+    setFiveWhySaving(true)
+    setFiveWhyError(null)
+
+    const { data, error } = await supabase
+      .from('rca_five_why_steps')
+      .update({ answer })
+      .eq('id', step.id)
+      .eq('chain_id', step.chain_id)
+      .eq('assessment_id', assessment.id)
+      .eq('user_id', user.id)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('Errore modifica step 5 Whys:', error)
+      setFiveWhyError('Impossibile salvare la modifica del perché.')
+      setFiveWhySaving(false)
+      return
+    }
+
+    setFiveWhyStepsByChain((current) => ({
+      ...current,
+      [step.chain_id]: (current[step.chain_id] || []).map((item) => item.id === step.id ? data as RCAFiveWhyStep : item),
+    }))
+    setEditingFiveWhyStepId(null)
+    setEditFiveWhyAnswer('')
+    setFiveWhySaving(false)
   }
 
   const saveFiveWhyStep = async (chain: RCAFiveWhyChain) => {
@@ -604,30 +664,79 @@ export default function RCAAssessmentDetail() {
     })
     setExpandedFiveWhyChainId((current) => (current === chainId ? null : current))
     setActiveFiveWhyFormChainId((current) => (current === chainId ? null : current))
+    if ((fiveWhyStepsByChain[chainId] || []).some((step) => step.id === editingFiveWhyStepId)) {
+      setEditingFiveWhyStepId(null)
+      setEditFiveWhyAnswer('')
+    }
   }
 
   const deleteFiveWhyStep = async (step: RCAFiveWhyStep) => {
-    if (!user) return
+    if (!assessment || !user) return
 
-    const confirmed = confirm('Eliminare questo step 5 Whys?')
+    const confirmed = confirm('Eliminare questo perché? Gli altri perché resteranno e la sequenza sarà rinumerata.')
     if (!confirmed) return
+
+    setFiveWhySaving(true)
+    setFiveWhyError(null)
 
     const { error } = await supabase
       .from('rca_five_why_steps')
       .delete()
       .eq('id', step.id)
+      .eq('chain_id', step.chain_id)
+      .eq('assessment_id', assessment.id)
       .eq('user_id', user.id)
+      .select('id')
+      .single()
 
     if (error) {
       console.error('Errore eliminazione step 5 Whys:', error)
-      setFiveWhyError('Errore durante l eliminazione dello step 5 Whys')
+      setFiveWhyError('Impossibile eliminare il perché.')
+      setFiveWhySaving(false)
       return
+    }
+
+    const remaining = (fiveWhyStepsByChain[step.chain_id] || [])
+      .filter((item) => item.id !== step.id)
+      .sort((a, b) => a.step_number - b.step_number)
+    const reordered: RCAFiveWhyStep[] = []
+
+    for (const [index, item] of remaining.entries()) {
+      const stepNumber = index + 1
+      if (item.step_number === stepNumber) {
+        reordered.push(item)
+        continue
+      }
+
+      const question = item.why_question === `Perché? #${item.step_number}`
+        ? `Perché? #${stepNumber}`
+        : item.why_question
+      const { data, error: reorderError } = await supabase
+        .from('rca_five_why_steps')
+        .update({ step_number: stepNumber, why_question: question })
+        .eq('id', item.id)
+        .eq('chain_id', step.chain_id)
+        .eq('assessment_id', assessment.id)
+        .eq('user_id', user.id)
+        .select('*')
+        .single()
+
+      if (reorderError) {
+        console.error('Errore rinumerazione 5 Whys:', reorderError)
+        await fetchFiveWhySteps(fiveWhyChains)
+        setFiveWhyError('Il perché è stato eliminato, ma la sequenza non è stata rinumerata completamente. Ricarica la pagina prima di aggiungerne altri.')
+        setFiveWhySaving(false)
+        return
+      }
+      reordered.push(data as RCAFiveWhyStep)
     }
 
     setFiveWhyStepsByChain((current) => ({
       ...current,
-      [step.chain_id]: (current[step.chain_id] || []).filter((item) => item.id !== step.id),
+      [step.chain_id]: reordered,
     }))
+    if (editingFiveWhyStepId === step.id) cancelEditFiveWhyStep()
+    setFiveWhySaving(false)
   }
 
   const fetchFishboneDiagram = async () => {
@@ -2141,25 +2250,78 @@ export default function RCAAssessmentDetail() {
               <div className="space-y-3">
                 {steps.map((step) => (
                   <div key={step.id} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 min-w-0">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
                         <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-700 text-sm font-semibold shrink-0">
                           {step.step_number}
                         </span>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-gray-800">{step.why_question}</p>
-                          <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{step.answer}</p>
+                          {editingFiveWhyStepId === step.id ? (
+                            <form
+                              onSubmit={(e) => {
+                                e.preventDefault()
+                                saveEditedFiveWhyStep(step)
+                              }}
+                              className="mt-3"
+                            >
+                              <label htmlFor={`five-why-answer-${step.id}`} className="block text-sm font-medium text-gray-700 mb-2">
+                                Risposta al perché #{step.step_number}
+                              </label>
+                              <textarea
+                                id={`five-why-answer-${step.id}`}
+                                value={editFiveWhyAnswer}
+                                onChange={(e) => setEditFiveWhyAnswer(e.target.value)}
+                                rows={4}
+                                className="w-full px-3 py-2 border border-sky-200 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-y"
+                                autoFocus
+                              />
+                              <PrivacyFieldHint kind="causal" />
+                              <div className="flex flex-wrap justify-end gap-2 mt-3">
+                                <button
+                                  type="button"
+                                  onClick={cancelEditFiveWhyStep}
+                                  disabled={fiveWhySaving}
+                                  className="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                                >
+                                  Annulla
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={fiveWhySaving || !editFiveWhyAnswer.trim()}
+                                  className="px-3 py-2 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700 transition disabled:opacity-50"
+                                >
+                                  {fiveWhySaving ? 'Salvataggio...' : 'Salva'}
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap break-words">{step.answer}</p>
+                          )}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteFiveWhyStep(step)}
-                        aria-label="Elimina step 5 Whys"
-                        title="Elimina step"
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600 transition shrink-0"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      {editingFiveWhyStepId !== step.id && (
+                        <div className="flex items-center gap-1 self-end sm:self-start shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => startEditFiveWhyStep(step)}
+                            disabled={fiveWhySaving}
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm font-medium text-sky-700 hover:bg-sky-100 transition disabled:opacity-50"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Modifica
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteFiveWhyStep(step)}
+                            disabled={fiveWhySaving}
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Elimina
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
