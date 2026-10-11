@@ -3,6 +3,7 @@ import { Download } from 'lucide-react'
 import type { RiskItem } from '../types'
 import { loadHtmlToImage } from '../lib/exportEngines'
 import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
+import { getFMEARiskName } from '../lib/fmeaRiskName'
 
 interface RiskMatrixProps {
   riskItems: RiskItem[]
@@ -127,7 +128,7 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
                         probability,
                       )}`}
                       title={cellRisks
-                        .map((risk) => risk.risk_catalog_base?.name || risk.custom_risk_name)
+                        .map(getFMEARiskName)
                         .join('\n')}
                     >
                       {count > 0 && (
@@ -139,7 +140,7 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
                           <div className="max-w-xs rounded-lg bg-slate-950 px-3 py-2 text-xs text-white shadow-xl">
                             {cellRisks.slice(0, 3).map((risk, index) => (
                               <div key={index} className="whitespace-nowrap">
-                                {risk.risk_catalog_base?.name || risk.custom_risk_name}
+                                {getFMEARiskName(risk)}
                               </div>
                             ))}
                             {count > 3 && (

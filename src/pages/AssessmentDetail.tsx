@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -10,6 +10,7 @@ import { PrivacyFieldHint } from '../components/privacy/PrivacyFieldHint'
 import { PrivacyFormNotice } from '../components/privacy/PrivacyFormNotice'
 import type { RiskAssessment, RiskItem, RiskCatalogBase, ActionPlan, UserCustomRisk } from '../types'
 import { FMEA_ASSESSMENT_STATUS_OPTIONS, type FMEAStatus } from '../lib/labels'
+import { getFMEARiskName } from '../lib/fmeaRiskName'
 import {
   ArrowLeft,
   Plus,
@@ -21,6 +22,7 @@ import {
   RotateCcw,
   ClipboardPlus,
   ClipboardCheck,
+  Pencil,
 } from 'lucide-react'
 import { SEVERITY_SCALE, PROBABILITY_SCALE, DETECTABILITY_SCALE } from '../types'
 
@@ -42,6 +44,10 @@ export default function AssessmentDetail() {
   const [selectedSubArea, setSelectedSubArea] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [saving, setSaving] = useState(false)
+  const [editingRiskItem, setEditingRiskItem] = useState<RiskItem | null>(null)
+  const [editedRiskName, setEditedRiskName] = useState('')
+  const [editRiskError, setEditRiskError] = useState<string | null>(null)
+  const [savingRiskName, setSavingRiskName] = useState(false)
 
   const [actions, setActions] = useState<ActionPlan[]>([])
   const [filterCategory, setFilterCategory] = useState<string>('')
@@ -342,6 +348,60 @@ export default function AssessmentDetail() {
     }
 
     setSaving(false)
+  }
+
+  const openRiskNameEditor = (item: RiskItem) => {
+    setEditingRiskItem(item)
+    setEditedRiskName(getFMEARiskName(item))
+    setEditRiskError(null)
+  }
+
+  const closeRiskNameEditor = () => {
+    setEditingRiskItem(null)
+    setEditedRiskName('')
+    setEditRiskError(null)
+  }
+
+  const saveRiskName = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!editingRiskItem || !id || savingRiskName) return
+
+    const name = editedRiskName.trim()
+    if (!name) {
+      setEditRiskError('Inserisci il nome della modalità di errore.')
+      return
+    }
+    if (riskItems.some((item) => item.id !== editingRiskItem.id &&
+      getFMEARiskName(item).toLocaleLowerCase('it') === name.toLocaleLowerCase('it'))) {
+      setEditRiskError('Questa modalità di errore è già presente nell’assessment.')
+      return
+    }
+
+    const customName = editingRiskItem.risk_catalog_base_id &&
+      name === editingRiskItem.risk_catalog_base?.name ? null : name
+    setSavingRiskName(true)
+    setEditRiskError(null)
+
+    const { data, error } = await supabase
+      .from('risk_items')
+      .update({ custom_risk_name: customName })
+      .eq('id', editingRiskItem.id)
+      .eq('assessment_id', id)
+      .select('id, custom_risk_name')
+      .single()
+
+    if (error) {
+      console.error('Errore modifica modalità di errore FMEA:', error)
+      setEditRiskError('Modifica non salvata. Riprova.')
+      setSavingRiskName(false)
+      return
+    }
+
+    setRiskItems((current) => current.map((item) =>
+      item.id === data.id ? { ...item, custom_risk_name: data.custom_risk_name } : item,
+    ))
+    setSavingRiskName(false)
+    closeRiskNameEditor()
   }
 
   const deleteRiskItem = async (riskItemId: string) => {
@@ -684,7 +744,7 @@ export default function AssessmentDetail() {
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-medium text-gray-800">{item.risk_catalog_base?.name || item.custom_risk_name}</p>
+                        <p className="font-medium text-gray-800 break-words">{getFMEARiskName(item)}</p>
                         <p className="text-sm text-gray-500">{item.risk_catalog_base?.category || 'Personalizzato'}</p>
                       </div>
                     </td>
@@ -812,6 +872,16 @@ export default function AssessmentDetail() {
                           <ClipboardPlus className="w-4 h-4" />
                         </button>
 
+                        <button
+                          type="button"
+                          onClick={() => openRiskNameEditor(item)}
+                          className="text-sky-700 hover:text-sky-900 hover:bg-sky-50 p-2 rounded-lg transition"
+                          aria-label={`Modifica modalità di errore: ${getFMEARiskName(item)}`}
+                          title="Modifica modalità di errore"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+
                         {/* Elimina rischio */}
                         <button
                           onClick={() => deleteRiskItem(item.id)}
@@ -846,6 +916,66 @@ export default function AssessmentDetail() {
       {riskItems.length > 0 && (
         <div className="mt-6">
           <ParetoAnalysis riskItems={riskItems} actions={actions} />
+        </div>
+      )}
+
+      {editingRiskItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <form
+            onSubmit={saveRiskName}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-fmea-risk-title"
+            className="w-full max-w-lg rounded-lg bg-white shadow-xl"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-gray-100 p-4">
+              <h2 id="edit-fmea-risk-title" className="text-lg font-semibold text-gray-800">
+                Modifica modalità di errore
+              </h2>
+              <button
+                type="button"
+                onClick={closeRiskNameEditor}
+                disabled={savingRiskName}
+                aria-label="Chiudi modifica"
+                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              <label htmlFor="edit-fmea-risk-name" className="block text-sm font-medium text-gray-700">
+                Nome modalità di errore
+              </label>
+              <input
+                id="edit-fmea-risk-name"
+                type="text"
+                value={editedRiskName}
+                onChange={(event) => setEditedRiskName(event.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                autoFocus
+              />
+              <PrivacyFieldHint kind="causal" />
+              <p className="text-sm text-gray-500">La modifica riguarda solo questo assessment; il catalogo resta invariato.</p>
+              {editRiskError && <p role="alert" className="text-sm text-red-600">{editRiskError}</p>}
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 p-4">
+              <button
+                type="button"
+                onClick={closeRiskNameEditor}
+                disabled={savingRiskName}
+                className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annulla
+              </button>
+              <button
+                type="submit"
+                disabled={!editedRiskName.trim() || savingRiskName}
+                className="rounded-md bg-sky-600 px-4 py-2 font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+              >
+                {savingRiskName ? 'Salvataggio...' : 'Salva'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -1162,8 +1292,7 @@ export default function AssessmentDetail() {
               <div className="p-3 bg-sky-50 rounded-lg">
                 <p className="text-sm text-sky-800">
                   <span className="font-medium">Rischio:</span>{' '}
-                  {riskItems.find((r) => r.id === quickActionRiskId)?.risk_catalog_base?.name ||
-                    riskItems.find((r) => r.id === quickActionRiskId)?.custom_risk_name}
+                  {getFMEARiskName(riskItems.find((r) => r.id === quickActionRiskId))}
                 </p>
               </div>
 

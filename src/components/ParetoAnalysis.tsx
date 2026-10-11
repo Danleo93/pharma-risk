@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import type { ActionPlan, RiskItem } from '../types'
+import { getFMEARiskName } from '../lib/fmeaRiskName'
 
 interface ParetoAnalysisProps {
   riskItems: RiskItem[]
@@ -160,7 +161,7 @@ export default function ParetoAnalysis({ riskItems, actions }: ParetoAnalysisPro
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium text-slate-900">
-                          {risk.risk_catalog_base?.name || risk.custom_risk_name}
+                          {getFMEARiskName(risk)}
                         </p>
                         <span
                           className={`rounded-full border px-2 py-0.5 text-xs font-medium ${getRiskClassColor(

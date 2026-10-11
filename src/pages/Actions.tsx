@@ -8,6 +8,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { PrivacyFieldHint } from '../components/privacy/PrivacyFieldHint'
+import { getFMEARiskName } from '../lib/fmeaRiskName'
 
 interface ActionWithRisk extends ActionPlan {
   risk_item?: RiskItem & {
@@ -228,7 +229,7 @@ export default function Actions() {
 
   const getSelectedRiskName = () => {
     const risk = filteredRiskItems.find(r => r.id === selectedRiskItem)
-    return risk?.risk_catalog_base?.name || risk?.custom_risk_name || ''
+    return getFMEARiskName(risk)
   }
 
   // Assessment che hanno azioni (per il filtro)
@@ -347,7 +348,7 @@ export default function Actions() {
                         <p className="font-medium text-slate-900">{action.description}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           <span className="text-sm text-slate-500">
-                            Rischio: {action.risk_item?.risk_catalog_base?.name || action.risk_item?.custom_risk_name || 'N/D'}
+                            Rischio: {getFMEARiskName(action.risk_item) || 'N/D'}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-500">
@@ -506,7 +507,7 @@ export default function Actions() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium text-slate-900">
-                                {risk.risk_catalog_base?.name || risk.custom_risk_name}
+                                {getFMEARiskName(risk)}
                               </p>
                               <p className="text-sm text-slate-500">
                                 {risk.risk_catalog_base?.category || 'Personalizzato'} • RPN: {risk.rpn || 'N/D'}

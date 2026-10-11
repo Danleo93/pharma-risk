@@ -3,6 +3,7 @@ import { loadPdfEngine, loadXlsx } from '../lib/exportEngines'
 import { sanitizeSpreadsheetRows } from '../lib/spreadsheetSecurity'
 import { ensureRuntimeModuleCanExport } from '../lib/moduleRuntime'
 import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
+import { getFMEARiskName } from '../lib/fmeaRiskName'
 
 interface ExportData {
   assessment: RiskAssessment
@@ -610,7 +611,7 @@ doc.setFont('helvetica', 'normal')
       
       return [
         index + 1,
-        risk.risk_catalog_base?.name || risk.custom_risk_name || '',
+        getFMEARiskName(risk),
         risk.severity || '-',
         risk.probability || '-',
         risk.detectability || '-',
@@ -730,7 +731,7 @@ doc.setFont('helvetica', 'normal')
     const hasActions = actions.some(a => a.risk_item_id === item.risk.id)
     return [
       index + 1,
-      item.risk.risk_catalog_base?.name || item.risk.custom_risk_name || '',
+      getFMEARiskName(item.risk),
       item.risk.risk_catalog_base?.category || 'Altro',
       item.risk.rpn || '-',
       `${item.cumulativePercent}%`,
@@ -826,7 +827,7 @@ doc.setFont('helvetica', 'normal')
     risksWithActionsList.forEach((item) => {
       item.riskActions.forEach((action) => {
         actionTableData.push([
-          item.risk.risk_catalog_base?.name || item.risk.custom_risk_name || '',
+          getFMEARiskName(item.risk),
           item.risk.rpn || '-',
           item.risk.risk_class || 'N/D',
           action.description || '',
@@ -992,7 +993,7 @@ export const exportToExcel = async ({ assessment, riskItems, actions = [] }: Exp
       const riskActions = actions.filter(a => a.risk_item_id === risk.id)
       risksData.push([
         String(index + 1),
-        risk.risk_catalog_base?.name || risk.custom_risk_name || '',
+        getFMEARiskName(risk),
         risk.risk_catalog_base?.category || 'Altro',
         area,
         subArea || '',
@@ -1013,7 +1014,7 @@ export const exportToExcel = async ({ assessment, riskItems, actions = [] }: Exp
   actions.forEach(action => {
     const risk = riskItems.find(r => r.id === action.risk_item_id)
     actionsData.push([
-      risk?.risk_catalog_base?.name || risk?.custom_risk_name || '',
+      getFMEARiskName(risk),
       String(risk?.rpn || ''),
       risk?.risk_class || '',
       action.description || '',

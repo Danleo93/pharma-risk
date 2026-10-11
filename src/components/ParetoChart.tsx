@@ -14,6 +14,7 @@ import { BarChart3, Image as ImageIcon } from 'lucide-react'
 import type { RiskItem } from '../types'
 import { loadHtmlToImage } from '../lib/exportEngines'
 import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
+import { getFMEARiskName } from '../lib/fmeaRiskName'
 
 interface ParetoChartProps {
   riskItems: RiskItem[]
@@ -38,7 +39,7 @@ export default function ParetoChart({ riskItems }: ParetoChartProps) {
   let cumulative = 0
   const data = limitedRisks.map((item, index) => {
     cumulative += item.rpn || 0
-    const fullName = item.risk_catalog_base?.name || item.custom_risk_name || 'Rischio'
+    const fullName = getFMEARiskName(item) || 'Rischio'
 
     return {
       name: `#${index + 1}`,
