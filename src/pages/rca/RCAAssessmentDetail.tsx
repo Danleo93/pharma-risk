@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -24,11 +24,11 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import type { RCAAssessment, RCAAssessmentStatus, RCAEventType, RCAMethodology } from '../../types'
+import type { RCAAssessment, RCAAssessmentStatus, RCAEventType, RCAMethodology, RCASeverity } from '../../types'
 import { exportRCAToExcel, exportRCAToPDF, type RCAExportData } from '../../services/rcaExportService'
 import { PrivacyFieldHint } from '../../components/privacy/PrivacyFieldHint'
 import { PrivacyFormNotice } from '../../components/privacy/PrivacyFormNotice'
-import { confirmExportPrivacy, createNeutralExportFileName } from '../../lib/privacyRuntime'
+import { confirmExportPrivacy, createNeutralExportFileName, isPrivacyReviewCancelled } from '../../lib/privacyRuntime'
 import { loadHtmlToImage } from '../../lib/exportEngines'
 import {
   RCA_ACTION_STATUS_OPTIONS,
@@ -58,6 +58,36 @@ const methodologyLabels = RCA_METHODOLOGY_LABELS as Record<RCAMethodology, strin
 
 type RCATab = 'event' | 'ishikawa' | 'five_whys' | 'causes' | 'actions' | 'report'
 type CauseFilter = 'all' | 'candidates' | 'with_actions' | 'without_actions'
+
+type RCAEventDraft = {
+  title: string
+  description: string
+  event_title: string
+  event_description: string
+  event_type: RCAEventType | ''
+  event_date: string
+  event_time: string
+  location: string
+  department: string
+  severity: RCASeverity | ''
+  methodology: RCAMethodology | ''
+  immediate_containment: string
+}
+
+const eventDraftFromAssessment = (assessment: RCAAssessment): RCAEventDraft => ({
+  title: assessment.title,
+  description: assessment.description || '',
+  event_title: assessment.event_title,
+  event_description: assessment.event_description || '',
+  event_type: assessment.event_type || '',
+  event_date: assessment.event_date || '',
+  event_time: assessment.event_time?.slice(0, 5) || '',
+  location: assessment.location || '',
+  department: assessment.department || '',
+  severity: assessment.severity || '',
+  methodology: assessment.methodology || '',
+  immediate_containment: assessment.immediate_containment || '',
+})
 
 const tabs: { key: RCATab; label: string }[] = [
   { key: 'event', label: 'Evento' },
@@ -212,6 +242,9 @@ export default function RCAAssessmentDetail() {
   const [loading, setLoading] = useState(true)
   const [statusUpdating, setStatusUpdating] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [eventDraft, setEventDraft] = useState<RCAEventDraft | null>(null)
+  const [eventSaving, setEventSaving] = useState(false)
+  const [eventError, setEventError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<RCATab>('event')
   const [fishboneDiagram, setFishboneDiagram] = useState<RCAFishboneDiagram | null>(null)
   const [fishboneBranches, setFishboneBranches] = useState<RCAFishboneBranch[]>([])
@@ -1389,6 +1422,53 @@ export default function RCAAssessmentDetail() {
 
     setAssessment(data as RCAAssessment)
     setStatusUpdating(false)
+  }
+
+  const saveEvent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!assessment || !user || !eventDraft || eventSaving) return
+
+    const title = eventDraft.title.trim()
+    const eventTitle = eventDraft.event_title.trim()
+    if (!title || !eventTitle) {
+      setEventError('Titolo assessment e titolo evento sono obbligatori.')
+      return
+    }
+
+    setEventSaving(true)
+    setEventError(null)
+    const { data, error } = await supabase
+      .from('rca_assessments')
+      .update({
+        title,
+        description: eventDraft.description.trim() || null,
+        event_title: eventTitle,
+        event_description: eventDraft.event_description.trim() || null,
+        event_type: eventDraft.event_type || null,
+        event_date: eventDraft.event_date || null,
+        event_time: eventDraft.event_time || null,
+        location: eventDraft.location.trim() || null,
+        department: eventDraft.department.trim() || null,
+        severity: eventDraft.severity || null,
+        methodology: eventDraft.methodology || null,
+        immediate_containment: eventDraft.immediate_containment.trim() || null,
+      })
+      .eq('id', assessment.id)
+      .eq('user_id', user.id)
+      .select('*')
+      .single()
+
+    setEventSaving(false)
+    if (error) {
+      if (!isPrivacyReviewCancelled(error)) {
+        console.error('Errore aggiornamento evento RCA:', error)
+        setEventError('Impossibile salvare le modifiche. Riprova.')
+      }
+      return
+    }
+
+    setAssessment(data as RCAAssessment)
+    setEventDraft(null)
   }
 
   const formatEventTime = (time: string | null) => {
@@ -3569,15 +3649,111 @@ export default function RCAAssessmentDetail() {
         </div>
       </div>
 
-      {activeTab === 'event' ? (
+      {activeTab === 'event' ? eventDraft ? (
+        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <h2 className="text-lg font-semibold text-gray-800">Modifica evento</h2>
+            <button
+              type="button"
+              onClick={() => { setEventDraft(null); setEventError(null) }}
+              disabled={eventSaving}
+              className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
+            >
+              <X className="w-4 h-4" /> Annulla
+            </button>
+          </div>
+          <form onSubmit={saveEvent} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Titolo assessment *
+                <input required value={eventDraft.title} onChange={(event) => setEventDraft({ ...eventDraft, title: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Titolo evento *
+                <input required value={eventDraft.event_title} onChange={(event) => setEventDraft({ ...eventDraft, event_title: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+              </label>
+            </div>
+            <label className="block text-sm font-medium text-gray-700">
+              Descrizione assessment
+              <textarea rows={3} value={eventDraft.description} onChange={(event) => setEventDraft({ ...eventDraft, description: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+              <PrivacyFieldHint kind="description" />
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Tipo evento
+                <select value={eventDraft.event_type} onChange={(event) => setEventDraft({ ...eventDraft, event_type: event.target.value as RCAEventType | '' })} className="clinical-input mt-2 px-3 py-2">
+                  <option value="">Non specificato</option>
+                  {Object.entries(eventTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Severità
+                <select value={eventDraft.severity} onChange={(event) => setEventDraft({ ...eventDraft, severity: event.target.value as RCASeverity | '' })} className="clinical-input mt-2 px-3 py-2">
+                  <option value="">Non specificata</option>
+                  {(['low', 'medium', 'high', 'critical'] as const).map((value) => <option key={value} value={value}>{getRCASeverityLabel(value)}</option>)}
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Metodologia prevista
+                <select value={eventDraft.methodology} onChange={(event) => setEventDraft({ ...eventDraft, methodology: event.target.value as RCAMethodology | '' })} className="clinical-input mt-2 px-3 py-2">
+                  <option value="">Da definire</option>
+                  {Object.entries(methodologyLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Data evento
+                <input type="date" value={eventDraft.event_date} onChange={(event) => setEventDraft({ ...eventDraft, event_date: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+                <PrivacyFieldHint kind="temporal" />
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Ora evento
+                <input type="time" value={eventDraft.event_time} onChange={(event) => setEventDraft({ ...eventDraft, event_time: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+                <PrivacyFieldHint kind="temporal" />
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Luogo
+                <input value={eventDraft.location} onChange={(event) => setEventDraft({ ...eventDraft, location: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+                <PrivacyFieldHint kind="location" />
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Reparto / Servizio
+                <input value={eventDraft.department} onChange={(event) => setEventDraft({ ...eventDraft, department: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+                <PrivacyFieldHint kind="location" />
+              </label>
+            </div>
+            <label className="block text-sm font-medium text-gray-700">
+              Descrizione evento
+              <textarea rows={4} value={eventDraft.event_description} onChange={(event) => setEventDraft({ ...eventDraft, event_description: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+              <PrivacyFieldHint kind="description" />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Contenimento immediato
+              <textarea rows={3} value={eventDraft.immediate_containment} onChange={(event) => setEventDraft({ ...eventDraft, immediate_containment: event.target.value })} className="clinical-input mt-2 px-3 py-2" />
+              <PrivacyFieldHint kind="description" />
+            </label>
+            {eventError && <p role="alert" className="text-sm text-red-600">{eventError}</p>}
+            <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-4">
+              <button type="button" onClick={() => { setEventDraft(null); setEventError(null) }} disabled={eventSaving} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50">Annulla</button>
+              <button type="submit" disabled={eventSaving} className="px-4 py-2 rounded-lg bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 disabled:opacity-50">{eventSaving ? 'Salvataggio...' : 'Salva modifiche'}</button>
+            </div>
+          </form>
+        </section>
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                 <ClipboardList className="w-5 h-5 text-orange-600" />
               </div>
               <h2 className="text-lg font-semibold text-gray-800">Evento</h2>
+              <button
+                type="button"
+                onClick={() => { setEventDraft(eventDraftFromAssessment(assessment)); setEventError(null) }}
+                className="ml-auto inline-flex items-center gap-2 rounded-lg border border-sky-200 px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
+              >
+                <Pencil className="w-4 h-4" /> Modifica
+              </button>
             </div>
 
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
