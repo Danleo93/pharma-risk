@@ -14,6 +14,7 @@ import {
 import { sanitizeSpreadsheetRecords, sanitizeSpreadsheetRows } from '../lib/spreadsheetSecurity'
 import { ensureRuntimeModuleCanExport } from '../lib/moduleRuntime'
 import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
+import { buildIshikawaFigure, ISHIKAWA_CARD_WIDTH, ISHIKAWA_FIGURE_WIDTH, shortenIshikawaLabel } from '../lib/rcaIshikawaFigure'
 
 const aoaToSafeSheet = (XLSX: XlsxEngine, rows: unknown[][]) => XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetRows(rows))
 const jsonToSafeSheet = <T extends Record<string, unknown>>(XLSX: XlsxEngine, records: T[]) => (
@@ -212,48 +213,14 @@ const createSvgElement = <K extends keyof SVGElementTagNameMap>(
   return element
 }
 
-const estimateTextLines = (text: string | null | undefined, charsPerLine = 34) => {
-  return Math.max(1, Math.ceil(safeValue(text).length / charsPerLine))
-}
-
-const getCausePillHeight = (cause: RCAExportCause) => {
-  return 18 + (estimateTextLines(cause.description) * 13)
-}
-
 const createIshikawaExportElement = (data: RCAExportData) => {
   const { assessment, branches } = data
   const outerWidth = 1040
-  const diagramWidth = 980
-  const reportBranches = branches.map((branch, index) => {
-    const spacing = branches.length > 1 ? 62 / (branches.length - 1) : 0
-
-    return {
-      branch,
-      index,
-      isTop: index % 2 === 0,
-      xPercent: branches.length === 1 ? 44 : 13 + (index * spacing),
-    }
-  })
-
-  const getCardHeight = (branch: RCAExportBranch) => {
-    if (branch.causes.length === 0) return 116
-    return 68 + branch.causes.reduce((total, cause) => total + getCausePillHeight(cause) + 8, 0)
-  }
-
-  const topHeight = Math.max(
-    150,
-    ...reportBranches.filter((item) => item.isTop).map((item) => getCardHeight(item.branch) + 22),
-  )
-  const bottomHeight = Math.max(
-    150,
-    ...reportBranches.filter((item) => !item.isTop).map((item) => getCardHeight(item.branch) + 22),
-  )
-  const axisY = topHeight + 54
-  const bottomStartY = axisY + 68
-  const diagramHeight = topHeight + bottomHeight + 148
+  const diagramWidth = ISHIKAWA_FIGURE_WIDTH
+  const figure = buildIshikawaFigure(branches, 2)
+  const { axisY, diagramHeight } = figure
   const effectLeft = diagramWidth * 0.83
   const effectWidth = diagramWidth * 0.15
-  const cardWidth = Math.max(154, diagramWidth * 0.18)
 
   const outer = document.createElement('div')
   applyStyles(outer, {
@@ -294,7 +261,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     'font-weight': '700',
     color: '#1e293b',
   }))
-  headerText.appendChild(createTextElement('p', 'Vista completa per report ed export PNG, con tutte le cause visibili.', {
+  headerText.appendChild(createTextElement('p', 'Figura sintetica: descrizioni complete nelle pagine successive del report.', {
     margin: '4px 0 0',
     'font-size': '12px',
     color: '#64748b',
@@ -317,7 +284,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     color: '#0369a1',
     'text-transform': 'uppercase',
   }))
-  headerEffect.appendChild(createTextElement('p', assessment.event_title || assessment.title, {
+  headerEffect.appendChild(createTextElement('p', shortenIshikawaLabel(assessment.event_title || assessment.title), {
     margin: '4px 0 0',
     'font-size': '13px',
     'font-weight': '700',
@@ -340,6 +307,18 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     return outer
   }
 
+  if (figure.hiddenCount > 0 || figure.shortLabels > 0) {
+    inner.appendChild(createTextElement('p', `Figura sintetica: ${figure.hiddenCount} cause non rappresentate nei riquadri, ${figure.shortLabels} etichette abbreviate. Elenco integrale nelle pagine seguenti.`, {
+      margin: '12px 0 0',
+      padding: '8px 12px',
+      border: '1px solid #fcd34d',
+      'border-radius': '8px',
+      'background-color': '#fffbeb',
+      color: '#78350f',
+      'font-size': '11px',
+    }))
+  }
+
   const diagram = document.createElement('div')
   applyStyles(diagram, {
     position: 'relative',
@@ -348,7 +327,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     'margin-top': '20px',
     'background-color': 'rgba(255,255,255,0.8)',
     'border-radius': '12px',
-    overflow: 'visible',
+    overflow: 'hidden',
   })
   inner.appendChild(diagram)
 
@@ -360,7 +339,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
   applyStyles(svg, {
     position: 'absolute',
     inset: '0',
-    overflow: 'visible',
+    overflow: 'hidden',
   })
   diagram.appendChild(svg)
 
@@ -396,29 +375,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     'stroke-linecap': 'round',
   }))
 
-  const branchLayout = reportBranches.map((item) => {
-    const branchX = diagramWidth * (item.xPercent / 100)
-    const cardHeight = getCardHeight(item.branch)
-    const top = item.isTop ? topHeight - cardHeight : bottomStartY
-    const maxLeft = effectLeft - cardWidth - 16
-    const cardLeft = Math.max(10, Math.min(branchX - (cardWidth / 2), maxLeft))
-    const cardCenterX = cardLeft + (cardWidth / 2)
-    const branchEndY = item.isTop ? topHeight - 8 : bottomStartY + 8
-    const hasCandidate = item.branch.causes.some((cause) => cause.is_root_cause)
-
-    return {
-      ...item,
-      branchX,
-      cardHeight,
-      cardLeft,
-      cardCenterX,
-      top,
-      branchEndY,
-      hasCandidate,
-    }
-  })
-
-  branchLayout.forEach((item) => {
+  figure.items.forEach((item) => {
     svg.appendChild(createSvgElement('line', {
       x1: item.branchX,
       y1: axisY,
@@ -449,7 +406,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     border: '1px solid #bae6fd',
     'background-color': '#f0f9ff',
     padding: '12px',
-    overflow: 'visible',
+    overflow: 'hidden',
   })
   diagram.appendChild(effectBox)
   effectBox.appendChild(createTextElement('p', 'Effetto', {
@@ -460,7 +417,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     'text-transform': 'uppercase',
     'letter-spacing': '0.03em',
   }))
-  effectBox.appendChild(createTextElement('p', assessment.event_title || assessment.title, {
+  effectBox.appendChild(createTextElement('p', shortenIshikawaLabel(assessment.event_title || assessment.title), {
     margin: '5px 0 0',
     'font-size': '12px',
     'font-weight': '700',
@@ -469,7 +426,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     'overflow-wrap': 'anywhere',
   }))
   if (assessment.event_description) {
-    effectBox.appendChild(createTextElement('p', assessment.event_description, {
+    effectBox.appendChild(createTextElement('p', shortenIshikawaLabel(assessment.event_description), {
       margin: '5px 0 0',
       'font-size': '10px',
       color: '#64748b',
@@ -478,21 +435,22 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     }))
   }
 
-  branchLayout.forEach((item) => {
+  figure.items.forEach((item) => {
+    const branch = branches[item.index]
     const card = document.createElement('div')
     applyStyles(card, {
       position: 'absolute',
       left: `${item.cardLeft}px`,
       top: `${item.top}px`,
-      width: `${cardWidth}px`,
-      'min-height': `${item.cardHeight}px`,
+      width: `${ISHIKAWA_CARD_WIDTH}px`,
+      height: `${item.cardHeight}px`,
       'box-sizing': 'border-box',
       'border-radius': '12px',
       border: item.hasCandidate ? '1px solid #fecaca' : '1px solid #e0f2fe',
       'background-color': '#ffffff',
-      padding: '12px',
+      padding: '10px',
       'box-shadow': '0 1px 3px rgba(15, 23, 42, 0.08)',
-      overflow: 'visible',
+      overflow: 'hidden',
     })
     diagram.appendChild(card)
 
@@ -502,12 +460,14 @@ const createIshikawaExportElement = (data: RCAExportData) => {
       'justify-content': 'space-between',
       gap: '8px',
       'align-items': 'flex-start',
+      height: '42px',
+      overflow: 'hidden',
     })
     card.appendChild(cardHeader)
 
     const titleGroup = document.createElement('div')
     cardHeader.appendChild(titleGroup)
-    titleGroup.appendChild(createTextElement('p', item.branch.name, {
+    titleGroup.appendChild(createTextElement('p', shortenIshikawaLabel(branch.name), {
       margin: '0',
       'font-size': '12px',
       'font-weight': '700',
@@ -515,7 +475,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
       'line-height': '1.25',
       'overflow-wrap': 'anywhere',
     }))
-    titleGroup.appendChild(createTextElement('p', `${item.branch.causes.length} ${item.branch.causes.length === 1 ? 'causa' : 'cause'}`, {
+    titleGroup.appendChild(createTextElement('p', `${item.totalCauses} ${item.totalCauses === 1 ? 'causa' : 'cause'}`, {
       margin: '4px 0 0',
       'font-size': '10px',
       color: '#64748b',
@@ -536,12 +496,12 @@ const createIshikawaExportElement = (data: RCAExportData) => {
     applyStyles(causesContainer, {
       display: 'flex',
       'flex-direction': 'column',
-      gap: '8px',
-      'margin-top': '12px',
+      gap: '6px',
+      'margin-top': '8px',
     })
     card.appendChild(causesContainer)
 
-    if (item.branch.causes.length === 0) {
+    if (item.totalCauses === 0) {
       causesContainer.appendChild(createTextElement('div', 'Nessuna causa', {
         'box-sizing': 'border-box',
         'border-radius': '8px',
@@ -554,7 +514,7 @@ const createIshikawaExportElement = (data: RCAExportData) => {
       return
     }
 
-    item.branch.causes.forEach((cause) => {
+    item.visibleCauses.forEach((cause) => {
       const causePill = document.createElement('div')
       const colors = getRootCauseExportColors(cause)
       applyStyles(causePill, {
@@ -562,35 +522,45 @@ const createIshikawaExportElement = (data: RCAExportData) => {
         'border-radius': '8px',
         border: `1px solid ${colors.border}`,
         'background-color': colors.background,
-        padding: '8px 10px',
+        padding: '4px 8px',
         'font-size': '11px',
         color: colors.text,
-        'line-height': '1.3',
+        'line-height': '13px',
         'overflow-wrap': 'anywhere',
+        height: '46px',
+        overflow: 'hidden',
       })
       causesContainer.appendChild(causePill)
-      causePill.appendChild(document.createTextNode(cause.description || 'Causa senza descrizione'))
+      causePill.appendChild(createTextElement('span', shortenIshikawaLabel(cause.description || 'Causa senza descrizione'), {
+        display: 'block',
+        'max-height': '26px',
+        overflow: 'hidden',
+      }))
       if (cause.is_root_cause) {
         causePill.appendChild(createTextElement('span', getRootCauseStatusLabel(cause, 'Non candidata') || 'Non candidata', {
           display: 'block',
-          'margin-top': '4px',
-          'font-size': '10px',
+          'margin-top': '2px',
+          'font-size': '9px',
           'font-weight': '700',
           color: colors.text,
+          'white-space': 'nowrap',
+          overflow: 'hidden',
         }))
       }
     })
+    if (item.hiddenCount > 0) {
+      causesContainer.appendChild(createTextElement('p', `+${item.hiddenCount} altre cause`, {
+        margin: '0',
+        padding: '4px 8px',
+        'border-radius': '4px',
+        'background-color': '#fffbeb',
+        color: '#78350f',
+        'font-size': '10px',
+      }))
+    }
   })
 
   return outer
-}
-
-const getLiveIshikawaReportElement = () => {
-  const diagram = document.querySelector<HTMLElement>('[aria-label="Diagramma Ishikawa RCA per report"]')
-  const inner = diagram?.parentElement
-  const outer = inner?.parentElement
-
-  return outer instanceof HTMLElement ? outer : null
 }
 
 const captureIshikawaElement = async (element: HTMLElement) => {
@@ -613,11 +583,6 @@ const captureIshikawaElement = async (element: HTMLElement) => {
 }
 
 const createIshikawaDiagramImage = async (data: RCAExportData) => {
-  const liveElement = getLiveIshikawaReportElement()
-  if (liveElement) {
-    return captureIshikawaElement(liveElement)
-  }
-
   const element = createIshikawaExportElement(data)
   applyStyles(element, {
     position: 'fixed',
@@ -816,6 +781,32 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
       ]),
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [51, 65, 85] },
+  })
+  y = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y) + 12
+
+  const allIshikawaCauseRows = branches.flatMap((branch) => branch.causes.map((cause, index) => [
+    branch.name,
+    index + 1,
+    cause.description,
+    getRootCauseStatusLabel(cause, 'Non candidata') || 'Non candidata',
+  ]))
+  y = addPageIfNeeded(doc, y)
+  y = addSectionTitle(doc, 'Elenco completo delle cause Ishikawa', y)
+  autoTable(doc, {
+    startY: y,
+    theme: 'striped',
+    head: [['Categoria', 'N.', 'Descrizione integrale', 'Esito']],
+    body: allIshikawaCauseRows.length > 0
+      ? allIshikawaCauseRows
+      : [['N/D', '', 'Nessuna causa Ishikawa registrata', '']],
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [51, 65, 85] },
+    columnStyles: {
+      0: { cellWidth: 34 },
+      1: { cellWidth: 10 },
+      2: { cellWidth: 108 },
+      3: { cellWidth: 30 },
+    },
   })
   y = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y) + 12
 
