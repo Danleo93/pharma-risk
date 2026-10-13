@@ -30,7 +30,7 @@ import { PrivacyFieldHint } from '../../components/privacy/PrivacyFieldHint'
 import { PrivacyFormNotice } from '../../components/privacy/PrivacyFormNotice'
 import { confirmExportPrivacy, createNeutralExportFileName, isPrivacyReviewCancelled } from '../../lib/privacyRuntime'
 import { loadHtmlToImage } from '../../lib/exportEngines'
-import { buildIshikawaFigure, ISHIKAWA_CARD_WIDTH, ISHIKAWA_FIGURE_WIDTH, ISHIKAWA_LABEL_CHARACTERS, ISHIKAWA_VISIBLE_CAUSES, shortenIshikawaLabel } from '../../lib/rcaIshikawaFigure'
+import { buildIshikawaFigure, ISHIKAWA_CARD_WIDTH, ISHIKAWA_FIGURE_WIDTH, ISHIKAWA_LABEL_CHARACTERS, shortenIshikawaLabel } from '../../lib/rcaIshikawaFigure'
 import {
   RCA_ACTION_STATUS_OPTIONS,
   RCA_ASSESSMENT_STATUS_OPTIONS,
@@ -1710,7 +1710,7 @@ export default function RCAAssessmentDetail() {
         is_root_cause: Boolean(item.cause?.is_root_cause),
       })),
     })))
-    if ((figure.hiddenCount > 0 || figure.shortLabels > 0) && !confirm(`Il PNG mostra una sintesi: ${figure.hiddenCount} cause non compaiono nei riquadri e ${figure.shortLabels} etichette sono abbreviate. L'elenco integrale e' disponibile nel report PDF e nella scheda Cause. Esportare comunque il PNG?`)) return
+    if (figure.hiddenCount > 0 && !confirm("Il PNG acquisisce solo la porzione visibile degli elenchi scorrevoli. Il report PDF include l'elenco completo delle cause. Esportare comunque il PNG?")) return
 
     setExportingPNG(true)
     try {
@@ -1828,13 +1828,6 @@ export default function RCAAssessmentDetail() {
       )
     }
 
-    const figureSummary = buildIshikawaFigure(fishboneBranches.map((branch) => ({
-      causes: (fishboneCausesByBranch[branch.id] || []).map((item) => ({
-        description: item.cause?.description || '',
-        is_root_cause: Boolean(item.cause?.is_root_cause),
-      })),
-    })))
-
     return (
       <div className="space-y-6">
         <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -1848,12 +1841,6 @@ export default function RCAAssessmentDetail() {
             </span>
           </div>
         </section>
-
-        {figureSummary.hiddenCount > 0 && (
-          <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            La figura mostra fino a {ISHIKAWA_VISIBLE_CAUSES} cause per categoria: {figureSummary.hiddenCount} cause aggiuntive restano nell'elenco completo e nel report PDF.
-          </p>
-        )}
 
         <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -2240,7 +2227,7 @@ export default function RCAAssessmentDetail() {
                           />
                           {newCauseDescription.trim().length > ISHIKAWA_LABEL_CHARACTERS && (
                             <p className="text-xs text-amber-800">
-                              Nel diagramma l'etichetta sara' abbreviata a circa {ISHIKAWA_LABEL_CHARACTERS} caratteri. La descrizione integrale resta nell'elenco cause e nel PDF.
+                              Negli export statici l'etichetta puo' essere abbreviata a circa {ISHIKAWA_LABEL_CHARACTERS} caratteri. Nel grafico interattivo e nell'elenco resta completa.
                             </p>
                           )}
                           <PrivacyFieldHint kind="causal" />
@@ -3094,7 +3081,7 @@ export default function RCAAssessmentDetail() {
               <div>
                 <p className="text-sm font-semibold text-slate-800">Figura Ishikawa RCA</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Figura sintetica per la lettura e la stampa. Le descrizioni complete sono nell'elenco cause.
+                  Scorri le cause in ciascuna categoria. Gli export statici mostrano solo una sintesi.
                 </p>
               </div>
               <div className="rounded-xl border border-sky-200 bg-white px-4 py-3 shadow-sm lg:max-w-xs">
@@ -3105,9 +3092,9 @@ export default function RCAAssessmentDetail() {
               </div>
             </div>
 
-            {(figure.hiddenCount > 0 || figure.shortLabels > 0) && (
+            {figure.hiddenCount > 0 && (
               <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Figura sintetica: {figure.hiddenCount} cause non rappresentate nei riquadri, {figure.shortLabels} etichette abbreviate. Consultare l'elenco integrale nel report PDF o nella scheda Cause.
+                Nei riquadri puoi scorrere tutte le cause. Il PNG mostra solo la porzione visibile; nel PDF l'elenco integrale segue la figura sintetica.
               </p>
             )}
 
@@ -3196,7 +3183,7 @@ export default function RCAAssessmentDetail() {
                 return (
                   <div
                     key={branch.id}
-                    className={`absolute overflow-hidden rounded-xl border bg-white p-2.5 shadow-sm ${
+                    className={`absolute flex flex-col overflow-hidden rounded-xl border bg-white p-2.5 shadow-sm ${
                       item.hasCandidate ? 'border-red-200' : 'border-sky-100'
                     }`}
                     style={{
@@ -3206,7 +3193,7 @@ export default function RCAAssessmentDetail() {
                       height: `${item.cardHeight}px`,
                     }}
                   >
-                    <div className="flex h-[42px] items-start justify-between gap-1 overflow-hidden">
+                    <div className="flex h-[42px] shrink-0 items-start justify-between gap-1 overflow-hidden">
                       <div className="min-w-0">
                         <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-slate-800">{branch.name}</p>
                         <p className="mt-0.5 text-[10px] text-slate-500">
@@ -3218,16 +3205,20 @@ export default function RCAAssessmentDetail() {
                       </span>
                     </div>
 
-                    <div className="mt-2 space-y-1.5">
+                    <div
+                      className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1"
+                      aria-label={`Cause della categoria ${branch.name}`}
+                      tabIndex={item.totalCauses > 0 ? 0 : undefined}
+                    >
                       {item.totalCauses === 0 ? (
                         <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-400">
                           Nessuna causa
                         </div>
                       ) : (
-                        item.visibleCauses.map((fishboneCause) => (
+                        reportBranches[item.index].causes.map((fishboneCause) => (
                           <div
                             key={fishboneCause.id}
-                            className={`h-[46px] overflow-hidden rounded-lg border px-2 py-1 text-[11px] leading-[13px] ${
+                            className={`rounded-lg border px-2 py-1.5 text-[11px] leading-snug ${
                               getEffectiveRootCauseStatus(fishboneCause.cause) === 'confirmed'
                                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                                 : getEffectiveRootCauseStatus(fishboneCause.cause) === 'not_confirmed'
@@ -3237,19 +3228,19 @@ export default function RCAAssessmentDetail() {
                                     : 'border-slate-200 bg-white text-slate-600'
                             }`}
                           >
-                            <span className="line-clamp-2 break-words" title={fishboneCause.description}>{shortenIshikawaLabel(fishboneCause.description)}</span>
+                            <span className="break-words whitespace-pre-wrap">{fishboneCause.description}</span>
                             {fishboneCause.cause?.is_root_cause && (
-                              <span className="mt-0.5 block truncate text-[9px] font-semibold leading-[10px]">
+                              <span className="mt-1 block text-[9px] font-semibold leading-snug">
                                 {getRootCauseStatusLabel(fishboneCause.cause)}
                               </span>
                             )}
                           </div>
                         ))
                       )}
-                      {item.hiddenCount > 0 && (
-                        <p className="rounded bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-900">+{item.hiddenCount} altre cause</p>
-                      )}
                     </div>
+                    {item.hiddenCount > 0 && (
+                      <p className="mt-1 shrink-0 border-t border-slate-100 pt-1 text-[10px] font-medium text-sky-700">Scorri: {item.totalCauses} cause</p>
+                    )}
                   </div>
                 )
               })}
