@@ -1840,8 +1840,8 @@ export default function RCAAssessmentDetail() {
         <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-gray-800">{fishboneDiagram.title}</h2>
-              <p className="text-gray-500 mt-1">{fishboneDiagram.effect_statement}</p>
+              <h2 className="text-xl font-semibold text-gray-800">Ishikawa - {assessment?.event_title || assessment?.title || fishboneDiagram.title}</h2>
+              <p className="text-gray-500 mt-1">{assessment?.event_description || assessment?.event_title || fishboneDiagram.effect_statement}</p>
             </div>
             <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-medium self-start">
               {fishboneDiagram.status === 'completed' ? 'Completato' : 'Bozza'}
