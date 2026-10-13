@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import type { RiskItem } from '../types'
-import { loadHtmlToImage } from '../lib/exportEngines'
+import { elementToPngDataUrl } from '../lib/exportImage'
 import { confirmExportPrivacy, createNeutralExportFileName } from '../lib/privacyRuntime'
 import { getFMEARiskName } from '../lib/fmeaRiskName'
 
@@ -47,11 +47,8 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
 
     setExportingPNG(true)
     try {
-      const { toPng } = await loadHtmlToImage()
-      const dataUrl = await toPng(matrixRef.current, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-      })
+      const dataUrl = await elementToPngDataUrl(matrixRef.current)
+      if (!dataUrl) return
       const link = document.createElement('a')
       link.download = createNeutralExportFileName('FMEA', new Date(), 'png', 'matrice_rischio')
       link.href = dataUrl
@@ -86,10 +83,11 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
       </div>
 
       <div className="max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/60">
-        <div className="mx-auto w-full min-w-[700px] max-w-[800px] bg-white px-5 py-8 sm:px-8 sm:py-10" ref={matrixRef}>
+        <div className="mx-auto w-max">
+        <div className="w-[800px] bg-white px-8 py-8" ref={matrixRef}>
           <div className="flex">
             <div className="w-28 flex-shrink-0" />
-            <div className="mb-2 grid flex-1 grid-cols-5 gap-2">
+            <div className="mb-2 grid min-w-0 flex-1 grid-cols-5 gap-2">
               {probabilityLabels.map((label) => (
                 <div
                   key={label}
@@ -113,7 +111,7 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
               ))}
             </div>
 
-            <div className="grid flex-1 grid-cols-5 gap-2">
+            <div className="grid min-w-0 flex-1 grid-cols-5 gap-2">
               {[5, 4, 3, 2, 1].map((severity) =>
                 [1, 2, 3, 4, 5].map((probability) => {
                   const key = `${severity}-${probability}`
@@ -175,6 +173,7 @@ export default function RiskMatrix({ riskItems }: RiskMatrixProps) {
             <span className="font-medium">Severita</span>
             <span className="font-medium">Probabilita</span>
           </div>
+        </div>
         </div>
       </div>
     </div>
