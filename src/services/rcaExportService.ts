@@ -1,6 +1,6 @@
 import type jsPDF from 'jspdf'
 import type { RCAAssessment } from '../types'
-import { loadHtmlToImage, loadPdfEngine, loadXlsx, type XlsxEngine } from '../lib/exportEngines'
+import { loadHtmlToImage, loadPdfEngine, loadXlsx, type PdfAutoTable, type XlsxEngine } from '../lib/exportEngines'
 import {
   RCA_EVENT_TYPE_LABELS,
   RCA_METHODOLOGY_LABELS,
@@ -570,6 +570,7 @@ const captureIshikawaElement = async (element: HTMLElement) => {
   const dataUrl = await toPng(element, {
     cacheBust: true,
     backgroundColor: '#ffffff',
+    skipFonts: true,
     pixelRatio: 2,
     width,
     height,
@@ -602,7 +603,7 @@ const createIshikawaDiagramImage = async (data: RCAExportData) => {
   }
 }
 
-const addIshikawaImagePage = async (doc: jsPDF, data: RCAExportData) => {
+const addIshikawaImagePage = async (doc: jsPDF, data: RCAExportData, autoTable: PdfAutoTable) => {
   doc.addPage('a4', 'landscape')
 
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -620,14 +621,39 @@ const addIshikawaImagePage = async (doc: jsPDF, data: RCAExportData) => {
   doc.setTextColor(15, 23, 42)
   doc.text('Diagramma Ishikawa', margin, titleY)
 
-  const image = await createIshikawaDiagramImage(data)
-  const scale = Math.min(maxWidth / image.width, maxHeight / image.height)
-  const imageWidth = image.width * scale
-  const imageHeight = image.height * scale
-  const imageX = (pageWidth - imageWidth) / 2
-  const imageY = imageTop + ((maxHeight - imageHeight) / 2)
+  try {
+    const image = await createIshikawaDiagramImage(data)
+    const scale = Math.min(maxWidth / image.width, maxHeight / image.height)
+    const imageWidth = image.width * scale
+    const imageHeight = image.height * scale
+    const imageX = (pageWidth - imageWidth) / 2
+    const imageY = imageTop + ((maxHeight - imageHeight) / 2)
 
-  doc.addImage(image.dataUrl, 'PNG', imageX, imageY, imageWidth, imageHeight)
+    doc.addImage(image.dataUrl, 'PNG', imageX, imageY, imageWidth, imageHeight)
+  } catch (error) {
+    console.warn('Diagramma Ishikawa non acquisibile per il PDF; uso la sintesi testuale.', error)
+    doc.setFillColor(255, 255, 255)
+    doc.rect(0, imageTop - 2, pageWidth, pageHeight - imageTop + 2, 'F')
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(71, 85, 105)
+    doc.text('Figura non disponibile. Le cause integrali sono riportate nelle pagine seguenti.', margin, 29)
+    autoTable(doc, {
+      startY: 35,
+      theme: 'striped',
+      head: [['Categoria', 'Cause', 'Cause candidate']],
+      body: data.branches.length > 0
+        ? data.branches.map((branch) => [
+          branch.name,
+          branch.causes.length,
+          branch.causes.filter((cause) => cause.is_root_cause).length,
+        ])
+        : [['Nessuna categoria attiva', 0, 0]],
+      styles: { fontSize: 9, cellPadding: 2 },
+      headStyles: { fillColor: [14, 116, 144] },
+      margin: { left: margin, right: margin },
+    })
+  }
 }
 
 export const exportRCAToPDF = async (data: RCAExportData) => {
@@ -759,7 +785,7 @@ export const exportRCAToPDF = async (data: RCAExportData) => {
   })
   y = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y) + 12
 
-  await addIshikawaImagePage(doc, data)
+  await addIshikawaImagePage(doc, data, autoTable)
 
   doc.addPage('a4', 'portrait')
   y = 18
