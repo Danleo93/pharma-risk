@@ -172,17 +172,17 @@ const fmeaFaqs: FaqItem[] = [
   {
     id: 'fmea-faq-1',
     q: 'Posso modificare un rischio dopo averlo valutato?',
-    a: 'Si, puoi modificare i punteggi S, P e D di un rischio. Il RPN e la classe di rischio vengono ricalcolati automaticamente.',
+    a: 'Sì, puoi modificare i punteggi S, P e D di un rischio. Il RPN e la classe di rischio vengono ricalcolati automaticamente.',
   },
   {
     id: 'fmea-faq-2',
     q: "Come elimino un rischio dall'assessment?",
-    a: 'Apri il dettaglio del rischio e usa il comando di eliminazione. L operazione rimuove il rischio dall assessment corrente.',
+    a: 'Apri il dettaglio del rischio e usa il comando di eliminazione. L’operazione rimuove il rischio dall’assessment corrente.',
   },
   {
     id: 'fmea-faq-3',
-    q: 'Posso creare piu assessment?',
-    a: 'Si, ogni assessment e indipendente e puo coprire aree, periodi o processi differenti.',
+    q: 'Posso creare più assessment?',
+    a: 'Sì, ogni assessment è indipendente e può coprire aree, periodi o processi differenti.',
   },
   {
     id: 'fmea-faq-4',
@@ -192,7 +192,7 @@ const fmeaFaqs: FaqItem[] = [
   {
     id: 'fmea-faq-5',
     q: 'Posso usare PhaRMA T su tablet o smartphone?',
-    a: 'Si, l interfaccia e responsive. Per valutazioni estese e reportistica l esperienza migliore resta su desktop.',
+    a: 'Sì, l’interfaccia è responsive. Per valutazioni estese e reportistica l’esperienza migliore resta su desktop.',
   },
 ]
 
@@ -200,55 +200,55 @@ const rcaFaqs: FaqItem[] = [
   {
     id: 'rca-faq-1',
     q: 'Posso modificare una causa dopo averla inserita?',
-    a: 'Si, finche l assessment non viene archiviato e possibile rivedere le cause inserite e aggiornare il percorso di analisi. Le modifiche devono comunque rispettare la tracciabilita metodologica del caso.',
+    a: 'Sì, finché l’assessment non viene archiviato è possibile rivedere le cause inserite e aggiornare il percorso di analisi. Le modifiche devono comunque rispettare la tracciabilità metodologica del caso.',
   },
   {
     id: 'rca-faq-2',
-    q: 'E obbligatorio completare una 5 Whys per ogni causa?',
-    a: 'No, non e obbligatorio per tutte le cause. E pero fortemente raccomandato per le cause candidate piu rilevanti, soprattutto quando l esito deve supportare audit, decisioni clinico-organizzative o piani di miglioramento.',
+    q: 'È obbligatorio completare una 5 Whys per ogni causa?',
+    a: 'No, non è obbligatorio per tutte le cause. È però fortemente raccomandato per le cause candidate più rilevanti, soprattutto quando l’esito deve supportare audit, decisioni clinico-organizzative o piani di miglioramento.',
   },
   {
     id: 'rca-faq-3',
     q: 'Posso modificare lo stato di una Root Cause?',
-    a: 'Si. L esito metodologico puo essere aggiornato in qualsiasi momento: una causa puo rimanere candidata, essere confermata come Root Cause o essere marcata come non confermata. E consigliabile inserire una nota quando si cambia esito.',
+    a: 'Sì. L’esito metodologico può essere aggiornato in qualsiasi momento: una causa può rimanere candidata, essere confermata come Root Cause o essere marcata come non confermata. È consigliabile inserire una nota quando si cambia esito.',
   },
   {
     id: 'rca-faq-4',
     q: 'Le azioni correttive possono essere modificate?',
-    a: 'Si. E possibile aggiornare descrizione, responsabile, data di scadenza, priorita e stato di avanzamento. Le azioni devono restare coerenti con la causa a cui sono collegate.',
+    a: 'Sì. È possibile aggiornare descrizione, responsabile, data di scadenza, priorità e stato di avanzamento. Le azioni devono restare coerenti con la causa a cui sono collegate.',
   },
   {
     id: 'rca-faq-5',
     q: 'Posso creare azioni anche da una causa non ancora confermata?',
-    a: 'Si. Le azioni possono essere collegate a cause candidate o a Root Cause confermate. Hanno maggiore valore metodologico quando sono collegate a cause confermate, ma in alcuni casi puo essere utile pianificare interventi anche prima della chiusura completa dell analisi.',
+    a: 'Sì. Le azioni possono essere collegate a cause candidate o a Root Cause confermate. Hanno maggiore valore metodologico quando sono collegate a cause confermate, ma in alcuni casi può essere utile pianificare interventi anche prima della chiusura completa dell’analisi.',
   },
 ]
 
 const gapFaqs: FaqItem[] = [
   {
     id: 'gap-faq-1',
-    q: 'Qual e la differenza tra libreria e assessment Gap?',
-    a: 'La libreria contiene macro-processi, Domini/Sezioni, Attivita/Requisiti, target attesi e norme riutilizzabili. L assessment contiene invece la valutazione specifica: stato attuale, gap, conformita, priorita, note e azioni correttive.',
+    q: 'Qual è la differenza tra libreria e assessment Gap?',
+    a: 'La libreria contiene macro-processi, Domini/Sezioni, Attività/Requisiti, target attesi e norme riutilizzabili. L’assessment contiene invece la valutazione specifica: stato attuale, gap, conformità, priorità, note e azioni correttive.',
   },
   {
     id: 'gap-faq-2',
     q: 'Posso aggiungere un requisito durante un assessment?',
-    a: 'Si. Dal dettaglio assessment puoi aggiungere un Dominio/Sezione o una Attivita/Requisito. Puoi decidere se salvarli nella libreria personale oppure mantenerli solo nello specifico assessment.',
+    a: 'Sì. Dal dettaglio assessment puoi aggiungere un Dominio/Sezione o un’Attività/Requisito. Puoi decidere se salvarli nella libreria personale oppure mantenerli solo nello specifico assessment.',
   },
   {
     id: 'gap-faq-3',
-    q: 'Quando una valutazione diventa una criticita?',
-    a: 'Una valutazione viene considerata criticita quando lo stato di conformita e non conforme o parzialmente conforme. Il testo libero del gap aiuta a descrivere lo scostamento, ma non determina da solo la criticita.',
+    q: 'Quando una valutazione diventa una criticità?',
+    a: 'Una valutazione viene considerata criticità quando lo stato di conformità è non conforme o parzialmente conforme. Il testo libero del gap aiuta a descrivere lo scostamento, ma non determina da solo la criticità.',
   },
   {
     id: 'gap-faq-4',
     q: 'Posso collegare norme cogenti a un requisito?',
-    a: 'Si. Le norme possono essere collegate all Attivita/Requisito, possono essere marcate come cogenti e possono avere un ambito di applicazione. Nell assessment le norme cogenti sono evidenziate per facilitare la lettura.',
+    a: 'Sì. Le norme possono essere collegate all’Attività/Requisito, possono essere marcate come cogenti e possono avere un ambito di applicazione. Nell’assessment le norme cogenti sono evidenziate per facilitare la lettura.',
   },
   {
     id: 'gap-faq-5',
-    q: 'Come si verifica l efficacia di un azione correttiva?',
-    a: 'Dopo il completamento dell azione, puoi registrare metodo di verifica, esito, note e verificatore. Gli esiti previsti sono efficace, parzialmente efficace o inefficace.',
+    q: 'Come si verifica l’efficacia di un’azione correttiva?',
+    a: 'Dopo il completamento dell’azione, puoi registrare metodo di verifica, esito, note e verificatore. Gli esiti previsti sono efficace, parzialmente efficace o inefficace.',
   },
 ]
 
@@ -298,19 +298,19 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              <strong>PhaRMA T</strong> e una web app professionale per la gestione del rischio in ambito sanitario e farmaceutico.
-              La guida e organizzata in moduli per separare chiaramente l analisi proattiva FMEA, l analisi reattiva RCA
-              e la Gap Analysis per la verifica di conformita rispetto a requisiti e standard.
+              <strong>PhaRMA T</strong> è una web app professionale per la gestione del rischio in ambito sanitario e farmaceutico.
+              La guida è organizzata in moduli per separare chiaramente l’analisi proattiva FMEA, l’analisi reattiva RCA
+              e la Gap Analysis per la verifica di conformità rispetto a requisiti e standard.
             </p>
 
-            <InfoBox title="Finalita e limiti d uso" variant="warning">
-              PhaRMA T e uno strumento formativo, metodologico e di supporto documentale. Non e un dispositivo medico,
+            <InfoBox title="Finalità e limiti d’uso" variant="warning">
+              PhaRMA T è uno strumento formativo, metodologico e di supporto documentale. Non è un dispositivo medico,
               non formula diagnosi, non prescrive interventi terapeutici e non deve essere utilizzata come strumento
               decisionale clinico diretto. Usa dati simulati, anonimizzati, aggregati o comunque non identificativi.
             </InfoBox>
 
             <InfoBox title="Struttura della guida">
-              La sezione e pensata per crescere nel tempo: nuovi moduli come Audit, HACCP, Checklist o controlli periodici possono
+              La sezione è pensata per crescere nel tempo: nuovi moduli come Audit, HACCP, Checklist o controlli periodici possono
               essere aggiunti alla sidebar mantenendo la stessa struttura di navigazione.
             </InfoBox>
 
@@ -321,7 +321,7 @@ export default function Docs() {
                   <h3 className="font-semibold text-sky-900">Analisi proattiva</h3>
                 </div>
                 <p className="text-sm text-sky-800 leading-relaxed">
-                  Il modulo FMEA permette di anticipare i rischi, valutare priorita e pianificare azioni prima che si verifichi un evento.
+                  Il modulo FMEA permette di anticipare i rischi, valutare priorità e pianificare azioni prima che si verifichi un evento.
                 </p>
               </div>
               <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-5">
@@ -330,26 +330,26 @@ export default function Docs() {
                   <h3 className="font-semibold text-amber-900">Analisi reattiva</h3>
                 </div>
                 <p className="text-sm text-amber-800 leading-relaxed">
-                  Il modulo RCA supporta l analisi di eventi gia accaduti, near miss e non conformita, fino alla definizione di azioni correttive.
+                  Il modulo RCA supporta l’analisi di eventi già accaduti, near miss e non conformità, fino alla definizione di azioni correttive.
                 </p>
               </div>
               <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <ClipboardCheck className="w-5 h-5 text-teal-600" />
-                  <h3 className="font-semibold text-teal-900">Verifica di conformita</h3>
+                  <h3 className="font-semibold text-teal-900">Verifica di conformità</h3>
                 </div>
                 <p className="text-sm text-teal-800 leading-relaxed">
-                  Il modulo Gap Analysis confronta lo stato attuale con target, requisiti e norme, generando criticita e piani di azione.
+                  Il modulo Gap Analysis confronta lo stato attuale con target, requisiti e norme, generando criticità e piani di azione.
                 </p>
               </div>
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-800">Funzionalita principali</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Funzionalità principali</h3>
             <BulletList
               items={[
                 'Creazione guidata di assessment FMEA, RCA e Gap Analysis.',
                 'Gestione strutturata di rischi, cause, Root Cause, requisiti, norme e azioni correttive.',
-                'Dashboard operative per monitorare stato, severita, priorita e avanzamento.',
+                'Dashboard operative per monitorare stato, severità, priorità e avanzamento.',
                 'Report professionali ed export PDF, Excel e immagini dove previsti.',
                 'Impostazione modulare pensata per audit, revisioni e miglioramento continuo.',
               ]}
@@ -368,17 +368,17 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La <strong>FMEA</strong> (Failure Mode and Effects Analysis) e una metodologia proattiva per identificare,
+              La <strong>FMEA</strong> (Failure Mode and Effects Analysis) è una metodologia proattiva per identificare,
               valutare e prioritizzare i potenziali modi di guasto di un processo prima che si traducano in eventi avversi.
             </p>
             <InfoBox title="Obiettivo FMEA">
-              L obiettivo e anticipare i rischi, stimare la loro criticita e definire azioni correttive proporzionate al livello
-              di priorita calcolato.
+              L’obiettivo è anticipare i rischi, stimare la loro criticità e definire azioni correttive proporzionate al livello
+              di priorità calcolato.
             </InfoBox>
             <BulletList
               items={[
                 'Identificazione guidata dei rischi da catalogo o personalizzati.',
-                'Valutazione con parametri Severita, Probabilita e Rilevabilita.',
+                'Valutazione con parametri Severità, Probabilità e Rilevabilità.',
                 'Calcolo automatico del RPN e classificazione del rischio.',
                 'Gestione delle azioni correttive collegate ai rischi prioritari.',
               ]}
@@ -401,7 +401,7 @@ export default function Docs() {
                 { title: 'Vai alla Dashboard FMEA', description: 'Dalla sezione FMEA seleziona la dashboard e avvia un nuovo assessment.' },
                 { title: 'Inserisci i dettagli', description: 'Compila titolo, descrizione e informazioni organizzative utili alla reportistica.' },
                 { title: 'Seleziona le aree', description: 'Scegli le aree o i processi da valutare, ad esempio approvvigionamento, stoccaggio, allestimento o distribuzione.' },
-                { title: 'Conferma la creazione', description: 'Crea l assessment e passa alla fase di inserimento e valutazione dei rischi.' },
+                { title: 'Conferma la creazione', description: 'Crea l’assessment e passa alla fase di inserimento e valutazione dei rischi.' },
               ]}
             />
             <InfoBox title="Suggerimento" variant="tip">
@@ -418,7 +418,7 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              Dopo la creazione dell assessment puoi aggiungere i rischi da valutare. Puoi selezionare rischi da catalogo o creare rischi personalizzati.
+              Dopo la creazione dell’assessment puoi aggiungere i rischi da valutare. Puoi selezionare rischi da catalogo o creare rischi personalizzati.
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {['Approvvigionamento', 'Stoccaggio', 'Allestimento', 'Distribuzione', 'Somministrazione', 'Monitoraggio', 'Formazione', 'Tecnologia'].map((area) => (
@@ -428,7 +428,7 @@ export default function Docs() {
               ))}
             </div>
             <InfoBox title="Rischi personalizzati" variant="tip">
-              Se il rischio non e presente nel catalogo, puoi inserirlo manualmente indicando nome, descrizione e categoria.
+              Se il rischio non è presente nel catalogo, puoi inserirlo manualmente indicando nome, descrizione e categoria.
             </InfoBox>
           </div>
         ),
@@ -446,9 +446,9 @@ export default function Docs() {
             <MiniTable
               columns={['Parametro', 'Significato', 'Scala']}
               rows={[
-                ['Severita (S)', 'Gravita delle conseguenze se il rischio si manifesta.', '1-5'],
-                ['Probabilita (P)', 'Frequenza o probabilita di accadimento.', '1-5'],
-                ['Rilevabilita (D)', 'Capacita del sistema di intercettare il rischio.', '1-5'],
+                ['Severità (S)', 'Gravità delle conseguenze se il rischio si manifesta.', '1-5'],
+                ['Probabilità (P)', 'Frequenza o probabilità di accadimento.', '1-5'],
+                ['Rilevabilità (D)', 'Capacità del sistema di intercettare il rischio.', '1-5'],
               ]}
             />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -479,17 +479,17 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              Per ogni rischio identificato puoi pianificare una o piu azioni correttive per mitigare il rischio e ridurre il RPN.
+              Per ogni rischio identificato puoi pianificare una o più azioni correttive per mitigare il rischio e ridurre il RPN.
             </p>
             <NumberedSteps
               steps={[
-                { title: 'Seleziona assessment', description: 'Scegli l assessment a cui appartiene il rischio da gestire.' },
-                { title: 'Seleziona rischio', description: 'Individua il rischio, visualizzando RPN e classe di priorita.' },
+                { title: 'Seleziona assessment', description: 'Scegli l’assessment a cui appartiene il rischio da gestire.' },
+                { title: 'Seleziona rischio', description: 'Individua il rischio, visualizzando RPN e classe di priorità.' },
                 { title: 'Inserisci dettagli', description: 'Compila descrizione azione, responsabile, scadenza e stato.' },
               ]}
             />
-            <InfoBox title="Azione rapida dall assessment" variant="tip">
-              Puoi aggiungere azioni anche dal dettaglio assessment, usando l icona <ClipboardPlus className="inline w-4 h-4 text-sky-600" /> accanto al rischio.
+            <InfoBox title="Azione rapida dall’assessment" variant="tip">
+              Puoi aggiungere azioni anche dal dettaglio assessment, usando l’icona <ClipboardPlus className="inline w-4 h-4 text-sky-600" /> accanto al rischio.
             </InfoBox>
           </div>
         ),
@@ -502,13 +502,13 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              Il modulo FMEA include viste grafiche per interpretare priorita e distribuzione dei rischi.
+              Il modulo FMEA include viste grafiche per interpretare priorità e distribuzione dei rischi.
             </p>
             <BulletList
               items={[
-                <><strong>Matrice 5x5:</strong> visualizza i rischi per severita e probabilita.</>,
-                <><strong>Pareto:</strong> ordina i rischi per RPN e supporta la concentrazione sui rischi piu critici.</>,
-                <><strong>Filtri:</strong> permettono di analizzare top risk, categorie e classi di priorita.</>,
+                <><strong>Matrice 5x5:</strong> visualizza i rischi per severità e probabilità.</>,
+                <><strong>Pareto:</strong> ordina i rischi per RPN e supporta la concentrazione sui rischi più critici.</>,
+                <><strong>Filtri:</strong> permettono di analizzare top risk, categorie e classi di priorità.</>,
               ]}
             />
           </div>
@@ -522,7 +522,7 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              L export FMEA produce documenti utili per audit, riunioni di miglioramento e archiviazione interna.
+              L’export FMEA produce documenti utili per audit, riunioni di miglioramento e archiviazione interna.
             </p>
             <BulletList
               items={[
@@ -552,11 +552,11 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La <strong>Root Cause Analysis (RCA)</strong> e una metodologia strutturata di analisi reattiva utilizzata per investigare
-              eventi avversi, quasi eventi (near miss) e non conformita nei processi sanitari. A differenza della FMEA, che ha
-              un approccio proattivo, la RCA interviene a posteriori, con l obiettivo di comprendere in modo sistematico cosa e
-              accaduto, perche e accaduto, quali fattori hanno contribuito e quali interventi possono prevenire il ripetersi
-              dell evento.
+              La <strong>Root Cause Analysis (RCA)</strong> è una metodologia strutturata di analisi reattiva utilizzata per investigare
+              eventi avversi, quasi eventi (near miss) e non conformità nei processi sanitari. A differenza della FMEA, che ha
+              un approccio proattivo, la RCA interviene a posteriori, con l’obiettivo di comprendere in modo sistematico cosa è
+              accaduto, perché è accaduto, quali fattori hanno contribuito e quali interventi possono prevenire il ripetersi
+              dell’evento.
             </p>
             <InfoBox title="RCA vs FMEA">
               La FMEA anticipa scenari di rischio prima che si verifichino; la RCA parte da un evento reale o da un near miss
@@ -586,7 +586,7 @@ export default function Docs() {
               <div className="rounded-xl border border-green-100 bg-green-50 p-4">
                 <ClipboardCheck className="w-5 h-5 text-green-600 mb-2" />
                 <h4 className="font-semibold text-green-900">Azioni correttive</h4>
-                <p className="text-sm text-green-800 mt-1">Trasformano l analisi in miglioramento operativo.</p>
+                <p className="text-sm text-green-800 mt-1">Trasformano l’analisi in miglioramento operativo.</p>
               </div>
             </div>
           </div>
@@ -600,16 +600,16 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              Un RCA Assessment rappresenta un analisi completa di un evento specifico. Si utilizza quando e necessario
+              Un RCA Assessment rappresenta un’analisi completa di un evento specifico. Si utilizza quando è necessario
               comprendere in modo strutturato le cause di un evento avverso clinico, di un errore di terapia farmacologica,
-              di un problema organizzativo rilevante, di una non conformita o di un near miss ad alto potenziale di rischio.
+              di un problema organizzativo rilevante, di una non conformità o di un near miss ad alto potenziale di rischio.
             </p>
             <h3 className="text-lg font-semibold text-gray-800">Procedura operativa</h3>
             <NumberedSteps
               steps={[
                 { title: 'Accedi alla Dashboard RCA', description: 'Entra nella macro-area di analisi reattiva e apri la dashboard RCA.' },
                 { title: 'Clicca su Nuovo Assessment', description: 'Avvia la creazione di un nuovo caso RCA.' },
-                { title: 'Compila i dati principali', description: 'Inserisci titolo, descrizione, tipo evento, severita, data, area coinvolta e contesto.' },
+                { title: 'Compila i dati principali', description: 'Inserisci titolo, descrizione, tipo evento, severità, data, area coinvolta e contesto.' },
                 { title: 'Avvia il processo di analisi', description: 'Dopo il salvataggio, accedi al dettaglio assessment e procedi con evento, Ishikawa, 5 Whys, cause, azioni e report.' },
               ]}
             />
@@ -628,20 +628,20 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La fase iniziale di raccolta dati e fondamentale per garantire la qualita dell analisi. L obiettivo e costruire
+              La fase iniziale di raccolta dati è fondamentale per garantire la qualità dell’analisi. L’obiettivo è costruire
               una base informativa completa e oggettiva, evitando interpretazioni premature o attribuzioni individuali non supportate.
             </p>
             <h3 className="text-lg font-semibold text-gray-800">Informazioni da registrare</h3>
             <BulletList
               items={[
-                'Descrizione dettagliata dell evento, con sequenza temporale e fatti osservabili.',
-                'Data, ora, contesto clinico e unita operativa coinvolta.',
-                'Tipo di evento: incidente, near miss, non conformita, reclamo o altro.',
-                'Severita dell evento: bassa, media, alta o critica.',
-                'Eventuali azioni di contenimento immediato gia attuate.',
+                'Descrizione dettagliata dell’evento, con sequenza temporale e fatti osservabili.',
+                'Data, ora, contesto clinico e unità operativa coinvolta.',
+                'Tipo di evento: incidente, near miss, non conformità, reclamo o altro.',
+                'Severità dell’evento: bassa, media, alta o critica.',
+                'Eventuali azioni di contenimento immediato già attuate.',
               ]}
             />
-            <InfoBox title="Qualita del dato">
+            <InfoBox title="Qualità del dato">
               La raccolta oggettiva dei dati permette di distinguere i fatti dalle ipotesi e migliora la robustezza metodologica
               delle fasi successive.
             </InfoBox>
@@ -658,7 +658,7 @@ export default function Docs() {
             <p className="text-gray-700 leading-relaxed">
               Il diagramma di Ishikawa rappresenta graficamente le possibili cause di un evento e aiuta il team a organizzare
               il ragionamento in categorie. Nel modulo RCA, le categorie attive vengono selezionate o personalizzate e le cause
-              vengono aggiunte all interno dei relativi rami.
+              vengono aggiunte all’interno dei relativi rami.
             </p>
             <h3 className="text-lg font-semibold text-gray-800">Categorie causali</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -670,13 +670,13 @@ export default function Docs() {
             </div>
             <h3 className="text-lg font-semibold text-gray-800">Causa candidata</h3>
             <p className="text-gray-700 leading-relaxed">
-              Una causa marcata come <Badge color="red">Candidata Root Cause</Badge> non e ancora confermata, ma rappresenta
-              un elemento critico da approfondire. Da una causa candidata e possibile avviare una 5 Whys oppure creare azioni
+              Una causa marcata come <Badge color="red">Candidata Root Cause</Badge> non è ancora confermata, ma rappresenta
+              un elemento critico da approfondire. Da una causa candidata è possibile avviare una 5 Whys oppure creare azioni
               correttive collegate.
             </p>
             <InfoBox title="Collegamento metodologico" variant="tip">
               Ishikawa serve a generare e ordinare ipotesi causali; 5 Whys serve ad approfondirle; le azioni correttive traducono
-              l esito in interventi operativi.
+              l’esito in interventi operativi.
             </InfoBox>
           </div>
         ),
@@ -690,22 +690,22 @@ export default function Docs() {
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
               Il metodo dei <strong>5 Whys</strong> consente di approfondire una causa candidata attraverso una sequenza di domande
-              "Perche?". L obiettivo e risalire progressivamente dalle cause superficiali a quelle profonde, documentando il ragionamento
+              "Perché?". L’obiettivo è risalire progressivamente dalle cause superficiali a quelle profonde, documentando il ragionamento
               in modo trasparente.
             </p>
             <NumberedSteps
               steps={[
-                { title: 'Seleziona una causa candidata', description: 'La 5 Whys parte da una causa gia identificata nel diagramma di Ishikawa.' },
-                { title: 'Inserisci uno o piu Perche', description: 'Ogni risposta deve spiegare il livello causale precedente e restare coerente con i dati raccolti.' },
-                { title: 'Valuta la catena causale', description: 'Quando la catena e sufficientemente chiara, assegna un esito metodologico alla causa.' },
-                { title: 'Aggiungi una nota', description: 'La nota metodologica documenta perche la causa e stata confermata o esclusa.' },
+                { title: 'Seleziona una causa candidata', description: 'La 5 Whys parte da una causa già identificata nel diagramma di Ishikawa.' },
+                { title: 'Inserisci uno o più Perché', description: 'Ogni risposta deve spiegare il livello causale precedente e restare coerente con i dati raccolti.' },
+                { title: 'Valuta la catena causale', description: 'Quando la catena è sufficientemente chiara, assegna un esito metodologico alla causa.' },
+                { title: 'Aggiungi una nota', description: 'La nota metodologica documenta perché la causa è stata confermata o esclusa.' },
               ]}
             />
             <MiniTable
               columns={['Esito', 'Significato']}
               rows={[
                 [<Badge color="red">Candidata Root Cause</Badge>, 'Analisi non ancora conclusa o causa ancora da approfondire.'],
-                [<Badge color="green">Root Cause confermata</Badge>, 'Causa primaria o determinante confermata dall analisi.'],
+                [<Badge color="green">Root Cause confermata</Badge>, 'Causa primaria o determinante confermata dall’analisi.'],
                 [<Badge color="slate">Non confermata</Badge>, 'Ipotesi non supportata dalla catena causale o dai dati disponibili.'],
               ]}
             />
@@ -720,7 +720,7 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La tab Cause fornisce una vista riepilogativa di tutte le cause identificate nell assessment, con categoria,
+              La tab Cause fornisce una vista riepilogativa di tutte le cause identificate nell’assessment, con categoria,
               fonte, stato Root Cause, numero di azioni collegate e presenza di analisi 5 Whys.
             </p>
             <MiniTable
@@ -731,7 +731,7 @@ export default function Docs() {
                 ['not_confirmed', 'Causa candidata esclusa come Root Cause.'],
               ]}
             />
-            <InfoBox title="Tracciabilita">
+            <InfoBox title="Tracciabilità">
               La relazione tra causa, esito metodologico, 5 Whys e azioni correttive consente di mantenere coerenza tra analisi
               causale e interventi di miglioramento.
             </InfoBox>
@@ -753,9 +753,9 @@ export default function Docs() {
               columns={['Campo', 'Descrizione']}
               rows={[
                 ['Descrizione', 'Intervento correttivo da realizzare.'],
-                ['Responsabile', 'Persona o funzione incaricata dell implementazione.'],
-                ['Scadenza', 'Data entro cui completare o rivalutare l azione.'],
-                ['Priorita', 'Low, medium, high o critical.'],
+                ['Responsabile', 'Persona o funzione incaricata dell’implementazione.'],
+                ['Scadenza', 'Data entro cui completare o rivalutare l’azione.'],
+                ['Priorità', 'Low, medium, high o critical.'],
                 ['Stato', 'planned, in_progress o completed.'],
               ]}
             />
@@ -784,7 +784,7 @@ export default function Docs() {
             <BulletList
               items={[
                 'Numero totale di assessment RCA e distribuzione per stato.',
-                'Eventi per severita: low, medium, high, critical.',
+                'Eventi per severità: low, medium, high, critical.',
                 'Cause identificate, cause candidate e Root Cause confermate.',
                 'Analisi 5 Whys avviate e avanzamento del workflow.',
                 'Azioni correttive pianificate, in corso, completate e scadute.',
@@ -802,12 +802,12 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La tab Statistiche e report integra dati analitici e reportistica strutturata. Il valore principale e fornire
+              La tab Statistiche e report integra dati analitici e reportistica strutturata. Il valore principale è fornire
               un documento clinicamente interpretabile, utile per audit, revisione interna e gestione del rischio clinico.
             </p>
             <BulletList
               items={[
-                'Riepilogo evento con dati essenziali, severita e contesto.',
+                'Riepilogo evento con dati essenziali, severità e contesto.',
                 'Metodologia RCA applicata, con distinzione tra Ishikawa, 5 Whys e azioni.',
                 'Diagramma Ishikawa visuale e sintesi delle categorie causali.',
                 'Cause candidate, esiti 5 Whys e Root Cause confermate o non confermate.',
@@ -815,7 +815,7 @@ export default function Docs() {
               ]}
             />
             <InfoBox title="Valore per audit clinico">
-              Il report consente di ricostruire il razionale dell analisi, dimostrare la tracciabilita delle decisioni e
+              Il report consente di ricostruire il razionale dell’analisi, dimostrare la tracciabilità delle decisioni e
               documentare gli interventi programmati o completati.
             </InfoBox>
           </div>
@@ -860,19 +860,19 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La <strong>Gap Analysis</strong> e una metodologia di valutazione strutturata che confronta lo stato attuale
+              La <strong>Gap Analysis</strong> è una metodologia di valutazione strutturata che confronta lo stato attuale
               di un processo con uno stato atteso di riferimento. Nel contesto sanitario e farmaceutico consente di verificare
-              la conformita a requisiti interni, standard organizzativi, procedure operative, norme cogenti e buone pratiche.
+              la conformità a requisiti interni, standard organizzativi, procedure operative, norme cogenti e buone pratiche.
             </p>
             <InfoBox title="Obiettivo Gap Analysis">
-              L obiettivo e identificare scostamenti documentati tra cio che avviene nella pratica e cio che dovrebbe avvenire,
-              attribuire una priorita al gap e trasformare le criticita in azioni correttive verificabili.
+              L’obiettivo è identificare scostamenti documentati tra ciò che avviene nella pratica e ciò che dovrebbe avvenire,
+              attribuire una priorità al gap e trasformare le criticità in azioni correttive verificabili.
             </InfoBox>
             <BulletList
               items={[
-                'Costruire una libreria riutilizzabile di macro-processi, Domini/Sezioni e Attivita/Requisiti.',
+                'Costruire una libreria riutilizzabile di macro-processi, Domini/Sezioni e Attività/Requisiti.',
                 'Collegare norme e riferimenti agli specifici requisiti valutabili.',
-                'Valutare stato attuale, target atteso, conformita, priorita e note operative.',
+                'Valutare stato attuale, target atteso, conformità, priorità e note operative.',
                 'Pianificare azioni correttive con date, responsabili, avanzamento e verifica di efficacia.',
               ]}
             />
@@ -887,8 +887,8 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La libreria Gap e organizzata come struttura riutilizzabile. Un processo rappresenta un macro-flusso valutabile;
-              ogni processo contiene Domini/Sezioni e ogni Dominio/Sezione contiene Attivita/Requisiti.
+              La libreria Gap è organizzata come struttura riutilizzabile. Un processo rappresenta un macro-flusso valutabile;
+              ogni processo contiene Domini/Sezioni e ogni Dominio/Sezione contiene Attività/Requisiti.
             </p>
             <MiniTable
               columns={['Livello', 'Significato', 'Esempio']}
@@ -896,12 +896,12 @@ export default function Docs() {
                 ['Processo', 'Macro-processo o flusso operativo valutabile.', 'Gestione farmaci antiblastici'],
                 ['Dominio/Sezione', 'Fase, sottoambito o area funzionale del processo.', 'Allestimento'],
                 ['Contesto operativo', 'Ambiente o setting in cui il requisito viene applicato.', 'UFA, reparto, magazzino'],
-                ['Attivita/Requisito', 'Azione, controllo o requisito concreto da valutare.', 'Preparazione in cappa biologica'],
+                ['Attività/Requisito', 'Azione, controllo o requisito concreto da valutare.', 'Preparazione in cappa biologica'],
               ]}
             />
             <InfoBox title="Target atteso di riferimento" variant="warning">
-              Ogni nuova Attivita/Requisito deve avere un target atteso di riferimento. Il target appartiene alla libreria
-              e viene mostrato in sola lettura durante l assessment.
+              Ogni nuova Attività/Requisito deve avere un target atteso di riferimento. Il target appartiene alla libreria
+              e viene mostrato in sola lettura durante l’assessment.
             </InfoBox>
           </div>
         ),
@@ -914,7 +914,7 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              Il Catalogo Norme raccoglie i riferimenti normativi o documentali collegabili alle Attivita/Requisiti.
+              Il Catalogo Norme raccoglie i riferimenti normativi o documentali collegabili alle Attività/Requisiti.
               Le norme possono essere consultate in lista completa o raggruppate per ambito di applicazione.
             </p>
             <MiniTable
@@ -922,13 +922,13 @@ export default function Docs() {
               rows={[
                 ['Codice', 'Identificativo sintetico della norma o del documento.'],
                 ['Nome e versione', 'Titolo del riferimento e versione applicabile.'],
-                ['Ente emittente', 'Organizzazione, societa scientifica o autorita che ha emesso il riferimento.'],
+                ['Ente emittente', 'Organizzazione, società scientifica o autorità che ha emesso il riferimento.'],
                 ['Ambito di applicazione', 'Area operativa a cui si riferisce, ad esempio allestimento o sperimentazioni.'],
                 ['Norma cogente', 'Flag che evidenzia riferimenti obbligatori o vincolanti.'],
               ]}
             />
             <InfoBox title="Norme create durante assessment" variant="tip">
-              Una norma creata dal pannello di valutazione puo essere salvata nel Catalogo Norme personale oppure mantenuta
+              Una norma creata dal pannello di valutazione può essere salvata nel Catalogo Norme personale oppure mantenuta
               solo nello specifico assessment.
             </InfoBox>
           </div>
@@ -942,19 +942,19 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              Un assessment Gap viene creato selezionando uno o piu macro-processi dalla libreria. Le Attivita/Requisiti
+              Un assessment Gap viene creato selezionando uno o più macro-processi dalla libreria. Le Attività/Requisiti
               dei processi selezionati generano automaticamente le valutazioni assessment-specifiche.
             </p>
             <NumberedSteps
               steps={[
                 { title: 'Compila i dati generali', description: 'Inserisci titolo, struttura, reparto, assessor, data e descrizione del perimetro.' },
-                { title: 'Seleziona i processi', description: 'Scegli i macro-processi da includere. Ogni processo porta con se Domini/Sezioni e Attivita/Requisiti.' },
-                { title: 'Verifica la preview', description: 'Controlla il numero di Domini/Sezioni e Attivita/Requisiti prima della creazione.' },
-                { title: 'Crea l assessment', description: 'Il sistema genera una valutazione per ogni Attivita/Requisito selezionata.' },
+                { title: 'Seleziona i processi', description: 'Scegli i macro-processi da includere. Ogni processo porta con sé Domini/Sezioni e Attività/Requisiti.' },
+                { title: 'Verifica la preview', description: 'Controlla il numero di Domini/Sezioni e Attività/Requisiti prima della creazione.' },
+                { title: 'Crea l’assessment', description: 'Il sistema genera una valutazione per ogni Attività/Requisito selezionata.' },
               ]}
             />
             <InfoBox title="Arricchimento durante la valutazione" variant="tip">
-              Nel dettaglio assessment puoi aggiungere nuovi Domini/Sezioni o Attivita/Requisiti e scegliere se salvarli
+              Nel dettaglio assessment puoi aggiungere nuovi Domini/Sezioni o Attività/Requisiti e scegliere se salvarli
               nella libreria personale o limitarli allo specifico assessment.
             </InfoBox>
           </div>
@@ -963,13 +963,13 @@ export default function Docs() {
       {
         id: 'gap-evaluation',
         moduleId: 'gap',
-        title: 'Valutazione e criticita',
+        title: 'Valutazione e criticità',
         icon: <ClipboardCheck className="w-5 h-5" />,
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La tab Valutazione e la console operativa dell assessment. Ogni riga rappresenta una Attivita/Requisito
-              e puo essere espansa per compilare i dati della valutazione.
+              La tab Valutazione è la console operativa dell’assessment. Ogni riga rappresenta un’Attività/Requisito
+              e può essere espansa per compilare i dati della valutazione.
             </p>
             <MiniTable
               columns={['Campo', 'Descrizione']}
@@ -977,19 +977,19 @@ export default function Docs() {
                 ['Stato attuale', 'Situazione osservata durante la valutazione.'],
                 ['Target atteso', 'Stato atteso di riferimento proveniente dalla libreria.'],
                 ['Gap rilevato', 'Descrizione dello scostamento tra stato attuale e target.'],
-                ['Conformita', 'Non valutata, conforme, parzialmente conforme o non conforme.'],
-                ['Priorita rischio', 'Low, medium o high in base alla rilevanza del gap.'],
+                ['Conformità', 'Non valutata, conforme, parzialmente conforme o non conforme.'],
+                ['Priorità rischio', 'Low, medium o high in base alla rilevanza del gap.'],
                 ['Note', 'Evidenze, osservazioni o riferimenti operativi.'],
               ]}
             />
-            <InfoBox title="Definizione di criticita">
-              Una valutazione e considerata criticita quando lo stato di conformita e <strong>non conforme</strong> o
+            <InfoBox title="Definizione di criticità">
+              Una valutazione è considerata criticità quando lo stato di conformità è <strong>non conforme</strong> o
               <strong> parzialmente conforme</strong>. Il testo del gap descrive lo scostamento, ma non determina da solo
-              la criticita.
+              la criticità.
             </InfoBox>
             <BulletList
               items={[
-                'Usa i filtri rapidi per visualizzare tutte le attivita, quelle da valutare, le criticita o le alte priorita.',
+                'Usa i filtri rapidi per visualizzare tutte le attività, quelle da valutare, le criticità o le alte priorità.',
                 'Il filtro Con norme cogenti evidenzia requisiti collegati a riferimenti obbligatori.',
                 'Il filtro Solo assessment mostra elementi creati nello specifico assessment e non salvati in libreria.',
               ]}
@@ -1011,17 +1011,17 @@ export default function Docs() {
             <MiniTable
               columns={['Elemento', 'Descrizione']}
               rows={[
-                ['Responsabile/i', 'Persona, team o funzione responsabile dell intervento.'],
-                ['Priorita', 'Low, medium, high o critical.'],
+                ['Responsabile/i', 'Persona, team o funzione responsabile dell’intervento.'],
+                ['Priorità', 'Low, medium, high o critical.'],
                 ['Stato', 'not_started, planned, in_progress, blocked, completed, verified o closed.'],
                 ['Progress', 'Percentuale di avanzamento usata anche per il Diagramma di GANTT.'],
-                ['Date pianificate', 'Inizio e fine pianificata dell intervento.'],
-                ['Verifica efficacia', 'Esito documentato dopo il completamento dell azione.'],
+                ['Date pianificate', 'Inizio e fine pianificata dell’intervento.'],
+                ['Verifica efficacia', 'Esito documentato dopo il completamento dell’azione.'],
               ]}
             />
             <InfoBox title="Verifica di efficacia">
-              Dopo il completamento, l azione entra in verifica. L esito puo essere efficace, parzialmente efficace o inefficace.
-              Se l esito e inefficace, l azione torna operativamente in corso e deve essere rivalutata.
+              Dopo il completamento, l’azione entra in verifica. L’esito può essere efficace, parzialmente efficace o inefficace.
+              Se l’esito è inefficace, l’azione torna operativamente in corso e deve essere rivalutata.
             </InfoBox>
           </div>
         ),
@@ -1034,15 +1034,15 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              La dashboard Gap sintetizza lo stato complessivo degli assessment, delle criticita e delle azioni correttive.
-              E pensata come vista operativa, non come report completo.
+              La dashboard Gap sintetizza lo stato complessivo degli assessment, delle criticità e delle azioni correttive.
+              È pensata come vista operativa, non come report completo.
             </p>
             <BulletList
               items={[
                 'Assessment totali e compliance media.',
-                'Gap aperti e gap ad alta priorita.',
+                'Gap aperti e gap ad alta priorità.',
                 'Azioni aperte, azioni scadute e verifiche pending.',
-                'Distribuzioni grafiche per conformita, priorita, stato azioni ed esiti di verifica.',
+                'Distribuzioni grafiche per conformità, priorità, stato azioni ed esiti di verifica.',
                 'Liste operative con ultimi assessment, gap prioritari, azioni scadute e verifiche da completare.',
               ]}
             />
@@ -1062,11 +1062,11 @@ export default function Docs() {
             </p>
             <BulletList
               items={[
-                'Compliance per Dominio/Sezione e distribuzione degli stati di conformita.',
-                'Priorita dei gap e focus sui gap ad alta priorita.',
-                'Stato delle azioni correttive ed esiti della verifica efficacia.',
+                'Compliance per Dominio/Sezione e distribuzione degli stati di conformità.',
+                'Priorità dei gap e focus sui gap ad alta priorità.',
+                'Stato delle azioni correttive ed esiti della verifica dell’efficacia.',
                 'Diagramma di GANTT delle azioni con date pianificate, avanzamento e milestone di verifica.',
-                'Note metodologiche dell analisi e sintesi interpretativa.',
+                'Note metodologiche dell’analisi e sintesi interpretativa.',
               ]}
             />
           </div>
@@ -1080,19 +1080,19 @@ export default function Docs() {
         content: (
           <div className="space-y-5">
             <p className="text-gray-700 leading-relaxed">
-              Gli export Gap permettono di documentare l assessment e riutilizzare i dati per audit, riunioni operative
+              Gli export Gap permettono di documentare l’assessment e riutilizzare i dati per audit, riunioni operative
               o analisi successive.
             </p>
             <MiniTable
               columns={['Formato', 'Contenuto']}
               rows={[
-                ['PDF', 'Report documentale con dati assessment, KPI, grafici, valutazioni, criticita, azioni, norme e firma finale.'],
-                ['Excel', 'Workbook con riepilogo, valutazioni, criticita, azioni e norme collegate.'],
+                ['PDF', 'Report documentale con dati assessment, KPI, grafici, valutazioni, criticità, azioni, norme e firma finale.'],
+                ['Excel', 'Workbook con riepilogo, valutazioni, criticità, azioni e norme collegate.'],
                 ['PNG', 'Esportazione dei grafici principali, inclusi distribuzioni e Diagramma di GANTT.'],
               ]}
             />
             <InfoBox title="Uso del report PDF" variant="tip">
-              Il report PDF e pensato per audit e conservazione documentale. I grafici includono percentuali o valori leggibili
+              Il report PDF è pensato per audit e conservazione documentale. I grafici includono percentuali o valori leggibili
               anche quando vengono esportati come immagini statiche.
             </InfoBox>
           </div>
