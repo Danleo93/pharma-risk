@@ -5,11 +5,15 @@ Questa procedura ricostruisce PhaRMA T con database, autenticazione e dati esclu
 ## Prerequisiti Windows
 
 1. Git.
-2. Node.js e npm.
+2. Node.js 24.22.1 LTS (o una release 24.x successiva con gli aggiornamenti di sicurezza) e npm.
 3. Docker Desktop avviato con container Linux.
 4. Supabase CLI installata e disponibile come comando `supabase`.
 
 Per l'installazione della CLI consultare la documentazione ufficiale Supabase. In alternativa, i comandi di verifica del progetto possono essere eseguiti con `npx supabase`.
+
+Il file `.node-version` indica la versione Node.js verificata per il progetto; `package.json` richiede almeno la stessa versione nella linea 24.x. Su Windows, controllare `node --version` dopo l'installazione e riaprire i terminali gia aperti. Il file non aggiorna automaticamente Node.js sul computer.
+
+Cloudflare Workers Builds legge `.node-version`. Se nel pannello e impostata anche la variabile `NODE_VERSION`, allinearla a `24.22.1` e verificare la versione effettiva nel log della build. Gli aggiornamenti delle dipendenze si distribuiscono con una nuova build e un nuovo deploy dell'app.
 
 ## Ricostruzione da zero
 
